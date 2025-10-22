@@ -60,10 +60,27 @@
             text-align: center;
         }
 
+        .login-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .login-logo-image {
+            height: 2.5rem;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+            background: transparent;
+            max-width: none;
+        }
+
         .login-header h1 {
             font-size: 1.5rem;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            margin: 0;
         }
 
         .login-header p {
@@ -171,7 +188,10 @@
 <body>
     <div class="login-container">
         <div class="login-header">
-            <h1>FYE Meeting Recorder</h1>
+            <div class="login-logo">
+                <img src="{{ url_for('static', filename='image.png') }}" alt="FYE Labs" class="login-logo-image">
+                <h1>Meeting Recorder</h1>
+            </div>
             <p>Professional meeting recording and management</p>
         </div>
         

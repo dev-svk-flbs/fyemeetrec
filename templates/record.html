@@ -1,593 +1,451 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Record Meeting - FYE Meeting Recorder</title>
-    <style>
-        :root {
-            --primary-blue: #1e3a8a;
-            --secondary-blue: #3b82f6;
-            --accent-blue: #60a5fa;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --success-green: #10b981;
-            --warning-yellow: #f59e0b;
-            --error-red: #ef4444;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
+{% extends "base.html" %}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+{% block title %}Record Meeting - FYE Meeting Recorder{% endblock %}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--gray-50);
-            min-height: 100vh;
-            font-size: 13px;
-            color: var(--gray-700);
-        }
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Record Meeting</h1>
+</div>
 
-        .header {
-            background: white;
-            border-bottom: 1px solid var(--gray-200);
-            padding: 0.75rem 0;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--primary-blue);
-        }
-
-        .nav-menu {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-        }
-
-        .nav-link {
-            color: var(--gray-600);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            transition: color 0.2s, background-color 0.2s;
-        }
-
-        .nav-link:hover, .nav-link.active {
-            color: var(--primary-blue);
-            background: var(--gray-100);
-        }
-
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .user-info {
-            font-size: 0.875rem;
-            color: var(--gray-600);
-        }
-
-        .logout-btn {
-            background: var(--gray-200);
-            color: var(--gray-700);
-            border: none;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 1.5rem 1rem;
-        }
-
-        .page-header {
-            margin-bottom: 2rem;
-        }
-
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--gray-900);
-            margin-bottom: 0.5rem;
-        }
-
-        .recording-setup {
-            background: white;
-            border: 1px solid var(--gray-200);
-            border-radius: 8px;
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 1.5rem;
-        }
-
-        .setup-header {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid var(--gray-200);
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-
-        .setup-content {
-            padding: 1.25rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-
-        .form-label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
-        }
-
-        .form-input, .form-select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid var(--gray-300);
-            border-radius: 6px;
-            font-size: 0.875rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .form-input:focus, .form-select:focus {
-            outline: none;
-            border-color: var(--secondary-blue);
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .controls {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-
-        .btn-record {
-            background: var(--success-green);
-            color: white;
-            border: none;
-            padding: 0.875rem 1.5rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: background-color 0.2s, transform 0.1s;
-        }
-
-        .btn-record:hover {
-            background: #059669;
-            transform: translateY(-1px);
-        }
-
-        .btn-record:disabled {
-            background: var(--gray-400);
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-stop {
-            background: var(--error-red);
-            color: white;
-            border: none;
-            padding: 0.875rem 1.5rem;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: background-color 0.2s;
-        }
-
-        .btn-stop:hover {
-            background: #dc2626;
-        }
-
-        .btn-stop:disabled {
-            background: var(--gray-400);
-            cursor: not-allowed;
-        }
-
-        .status-card {
-            background: white;
-            border: 1px solid var(--gray-200);
-            border-radius: 8px;
-            box-shadow: var(--shadow-sm);
-            margin-bottom: 1.5rem;
-        }
-
-        .status-idle {
-            border-left: 4px solid var(--gray-400);
-        }
-
-        .status-recording {
-            border-left: 4px solid var(--success-green);
-        }
-
-        .status-content {
-            padding: 1rem 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .status-icon {
-            font-size: 1.25rem;
-        }
-
-        .status-text {
-            font-weight: 500;
-        }
-
-        .transcriptions-section {
-            background: white;
-            border: 1px solid var(--gray-200);
-            border-radius: 8px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .transcriptions-header {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid var(--gray-200);
-            font-weight: 600;
-            color: var(--gray-900);
-        }
-
-        .transcriptions-container {
-            height: 300px;
-            overflow-y: auto;
-            padding: 1rem 1.25rem;
-        }
-
-        .transcript-item {
-            margin-bottom: 0.75rem;
-            padding: 0.75rem;
-            background: var(--gray-50);
-            border-radius: 6px;
-            border-left: 3px solid var(--secondary-blue);
-        }
-
-        .transcript-time {
-            font-size: 0.75rem;
-            color: var(--gray-500);
-            margin-bottom: 0.25rem;
-        }
-
-        .transcript-text {
-            font-size: 0.875rem;
-            line-height: 1.4;
-        }
-
-        .empty-transcriptions {
-            text-align: center;
-            color: var(--gray-500);
-            padding: 2rem;
-        }
-
-        .upload-status {
-            background: var(--gray-50);
-            border: 1px solid var(--gray-200);
-            border-radius: 6px;
-            padding: 0.75rem;
-            margin-top: 1rem;
-            display: none;
-        }
-
-        .upload-success {
-            border-color: var(--success-green);
-            background: #f0fdf4;
-            color: #166534;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem 0.75rem;
-            }
-
-            .controls {
-                flex-direction: column;
-                align-items: stretch;
-            }
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">FYE Meeting Recorder</div>
-            <nav class="nav-menu">
-                <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
-                <a href="{{ url_for('record') }}" class="nav-link active">Record</a>
-                <a href="{{ url_for('recordings') }}" class="nav-link">Recordings</a>
-                <a href="{{ url_for('settings') }}" class="nav-link">Settings</a>
-            </nav>
-            <div class="user-menu">
-                <span class="user-info">{{ current_user.username }}</span>
-                <a href="/logout" class="logout-btn">Logout</a>
-            </div>
+<div class="recording-setup">
+    <div class="setup-header">Recording Configuration</div>
+    <div class="setup-content">
+        <div class="form-group">
+            <label class="form-label" for="recordingTitle">Meeting Title</label>
+            <input type="text" id="recordingTitle" class="form-input" 
+                   placeholder="Enter meeting title..." 
+                   value="">
         </div>
-    </header>
-
-    <main class="container">
-        <div class="page-header">
-            <h1 class="page-title">Record Meeting</h1>
-        </div>
-
-        <div class="recording-setup">
-            <div class="setup-header">Recording Configuration</div>
-            <div class="setup-content">
-                <div class="form-group">
-                    <label class="form-label" for="recordingTitle">Meeting Title</label>
-                    <input type="text" id="recordingTitle" class="form-input" 
-                           placeholder="Enter meeting title..." 
-                           value="">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="monitorSelect">Select Monitor</label>
-                    <select id="monitorSelect" class="form-select">
-                        <option value="">Loading monitors...</option>
-                    </select>
-                </div>
-
-                <div class="controls">
-                    <button class="btn-record" id="startBtn" onclick="startRecording()">
-                        <span>🎥</span>
-                        Start Recording
-                    </button>
-                    <button class="btn-stop" id="stopBtn" onclick="stopRecording()" disabled>
-                        <span>⏹</span>
-                        Stop Recording
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div class="status-card status-idle" id="statusCard">
-            <div class="status-content">
-                <div class="status-icon" id="statusIcon">⚪</div>
-                <div class="status-text" id="statusText">Ready to record</div>
-            </div>
-            <div class="upload-status" id="uploadStatus">
-                <span id="uploadText">Uploading...</span>
-            </div>
-        </div>
-
-        <div class="transcriptions-section">
-            <div class="transcriptions-header">Live Transcriptions</div>
-            <div class="transcriptions-container" id="transcriptions">
-                <div class="empty-transcriptions">
-                    Transcriptions will appear here during recording...
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <script>
-        let isRecording = false;
-        let pollInterval;
-
-        function loadMonitors() {
-            const defaultMonitorId = {{ default_monitor|default('null') }};
-            
-            fetch('/monitors')
-            .then(response => response.json())
-            .then(data => {
-                const select = document.getElementById('monitorSelect');
-                select.innerHTML = '';
-                
-                data.monitors.forEach(monitor => {
-                    const option = document.createElement('option');
-                    option.value = monitor.id;
-                    option.textContent = monitor.name;
-                    
-                    // Select user's default monitor, or primary if no default set
-                    if ((defaultMonitorId !== null && monitor.id == defaultMonitorId) || 
-                        (defaultMonitorId === null && monitor.primary)) {
-                        option.selected = true;
-                    }
-                    select.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error loading monitors:', error);
-                const select = document.getElementById('monitorSelect');
-                select.innerHTML = '<option value="0">Primary Monitor (Default)</option>';
-            });
-        }
-
-        function startRecording() {
-            const monitorId = parseInt(document.getElementById('monitorSelect').value);
-            const title = document.getElementById('recordingTitle').value.trim() || 
-                         `Meeting ${new Date().toLocaleString()}`;
-            
-            fetch('/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    monitor_id: monitorId,
-                    title: title
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'started') {
-                    isRecording = true;
-                    updateUI();
-                    startPolling();
-                    
-                    updateStatus('recording', '🔴', `Recording ${data.monitor}...`);
-                } else if (data.error) {
-                    alert('Error: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Error starting recording:', error);
-                alert('Failed to start recording');
-            });
-        }
-
-        function stopRecording() {
-            fetch('/stop', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'stopped') {
-                    isRecording = false;
-                    updateUI();
-                    stopPolling();
-                    updateStatus('idle', '✅', 'Recording completed successfully');
-                }
-            });
-        }
-
-        function updateUI() {
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const titleInput = document.getElementById('recordingTitle');
-            const monitorSelect = document.getElementById('monitorSelect');
-
-            if (isRecording) {
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                titleInput.disabled = true;
-                monitorSelect.disabled = true;
-            } else {
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-                titleInput.disabled = false;
-                monitorSelect.disabled = false;
-            }
-        }
-
-        function updateStatus(type, icon, text) {
-            const statusCard = document.getElementById('statusCard');
-            const statusIcon = document.getElementById('statusIcon');
-            const statusText = document.getElementById('statusText');
-
-            statusCard.className = `status-card status-${type}`;
-            statusIcon.textContent = icon;
-            statusText.textContent = text;
-        }
-
-        function loadTranscriptions() {
-            fetch('/transcriptions')
-            .then(response => response.json())
-            .then(data => {
-                const container = document.getElementById('transcriptions');
-                
-                if (data.transcriptions.length === 0) {
-                    if (isRecording) {
-                        container.innerHTML = '<div class="empty-transcriptions">Listening for speech...</div>';
-                    }
-                    return;
-                }
-
-                container.innerHTML = '';
-                data.transcriptions.forEach(t => {
-                    const div = document.createElement('div');
-                    div.className = 'transcript-item';
-                    div.innerHTML = `
-                        <div class="transcript-time">${t.timestamp}</div>
-                        <div class="transcript-text">${t.text}</div>
-                    `;
-                    container.appendChild(div);
-                });
-                container.scrollTop = container.scrollHeight;
-            });
-        }
-
-        function startPolling() {
-            pollInterval = setInterval(loadTranscriptions, 2000);
-        }
-
-        function stopPolling() {
-            clearInterval(pollInterval);
-        }
-
-        function updateUploadStatus(data) {
-            const uploadDiv = document.getElementById('uploadStatus');
-            const uploadText = document.getElementById('uploadText');
-            
-            if (data.upload_active) {
-                uploadDiv.style.display = 'block';
-                uploadDiv.className = 'upload-status';
-                uploadText.textContent = `📤 Uploading ${data.upload_file ? data.upload_file.split('/').pop() : ''}...`;
-            } else if (data.upload_progress === 100) {
-                uploadDiv.style.display = 'block';
-                uploadDiv.className = 'upload-status upload-success';
-                uploadText.textContent = `✅ Upload completed: ${data.upload_file ? data.upload_file.split('/').pop() : ''}`;
-                setTimeout(() => uploadDiv.style.display = 'none', 5000);
-            } else {
-                uploadDiv.style.display = 'none';
-            }
-        }
-
-        function checkStatus() {
-            fetch('/status')
-            .then(response => response.json())
-            .then(data => {
-                if (data.active !== isRecording) {
-                    isRecording = data.active;
-                    updateUI();
-                    if (isRecording) {
-                        startPolling();
-                    } else {
-                        stopPolling();
-                    }
-                }
-                updateUploadStatus(data);
-            });
-        }
-
-        // Initialize page
-        loadMonitors();
-        checkStatus();
-        setInterval(checkStatus, 3000);
         
-        // Set default title with current timestamp
-        const now = new Date();
-        const timestamp = now.getFullYear() + '-' + 
-            String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-            String(now.getDate()).padStart(2, '0') + ' ' +
-            String(now.getHours()).padStart(2, '0') + ':' + 
-            String(now.getMinutes()).padStart(2, '0');
-        document.getElementById('recordingTitle').value = `Meeting ${timestamp}`;
-    </script>
-</body>
-</html>
+        <div class="form-group">
+            <label class="form-label" for="monitorSelect">Select Monitor</label>
+            <select id="monitorSelect" class="form-select">
+                <option value="">Loading monitors...</option>
+            </select>
+        </div>
+
+        <div class="controls">
+            <button class="btn-record" id="startBtn" onclick="startRecording()">
+                <span>🎥</span>
+                Start Recording
+            </button>
+            <button class="btn-stop" id="stopBtn" onclick="stopRecording()" disabled>
+                <span>⏹</span>
+                Stop Recording
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="status-card status-idle" id="statusCard">
+    <div class="status-content">
+        <div class="status-icon" id="statusIcon">⚪</div>
+        <div class="status-text" id="statusText">Ready to record</div>
+    </div>
+    <div class="upload-status" id="uploadStatus">
+        <span id="uploadText">Uploading...</span>
+    </div>
+</div>
+
+<div class="transcriptions-section">
+    <div class="transcriptions-header">Live Transcriptions</div>
+    <div class="transcriptions-container" id="transcriptions">
+        <div class="empty-transcriptions">
+            Transcriptions will appear here during recording...
+        </div>
+    </div>
+</div>
+
+<style>
+    .recording-setup {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+    }
+
+    .setup-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--gray-200);
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+
+    .setup-content {
+        padding: 1.25rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--gray-700);
+        margin-bottom: 0.5rem;
+    }
+
+    .form-input, .form-select {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--gray-300);
+        border-radius: 6px;
+        font-size: 0.875rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus {
+        outline: none;
+        border-color: var(--secondary-blue);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .controls {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+
+    .btn-record {
+        background: var(--success-green);
+        color: white;
+        border: none;
+        padding: 0.875rem 1.5rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: background-color 0.2s, transform 0.1s;
+    }
+
+    .btn-record:hover {
+        background: #059669;
+        transform: translateY(-1px);
+    }
+
+    .btn-record:disabled {
+        background: var(--gray-400);
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-stop {
+        background: var(--error-red);
+        color: white;
+        border: none;
+        padding: 0.875rem 1.5rem;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: background-color 0.2s;
+    }
+
+    .btn-stop:hover {
+        background: #dc2626;
+    }
+
+    .btn-stop:disabled {
+        background: var(--gray-400);
+        cursor: not-allowed;
+    }
+
+    .status-card {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 1.5rem;
+    }
+
+    .status-idle {
+        border-left: 4px solid var(--gray-400);
+    }
+
+    .status-recording {
+        border-left: 4px solid var(--success-green);
+    }
+
+    .status-content {
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .status-icon {
+        font-size: 1.25rem;
+    }
+
+    .status-text {
+        font-weight: 500;
+    }
+
+    .transcriptions-section {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .transcriptions-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--gray-200);
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+
+    .transcriptions-container {
+        height: 300px;
+        overflow-y: auto;
+        padding: 1rem 1.25rem;
+    }
+
+    .transcript-item {
+        margin-bottom: 0.75rem;
+        padding: 0.75rem;
+        background: var(--gray-50);
+        border-radius: 6px;
+        border-left: 3px solid var(--secondary-blue);
+    }
+
+    .transcript-time {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        margin-bottom: 0.25rem;
+    }
+
+    .transcript-text {
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .empty-transcriptions {
+        text-align: center;
+        color: var(--gray-500);
+        padding: 2rem;
+    }
+
+    .upload-status {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        padding: 0.75rem;
+        margin-top: 1rem;
+        display: none;
+    }
+
+    .upload-success {
+        border-color: var(--success-green);
+        background: #f0fdf4;
+        color: #166534;
+    }
+
+    @media (max-width: 768px) {
+        .controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+
+<script>
+    let isRecording = false;
+    let pollInterval;
+
+    function loadMonitors() {
+        const defaultMonitorId = {{ default_monitor|default('null') }};
+        
+        fetch('/monitors')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('monitorSelect');
+            select.innerHTML = '';
+            
+            data.monitors.forEach(monitor => {
+                const option = document.createElement('option');
+                option.value = monitor.id;
+                option.textContent = monitor.name;
+                
+                // Select user's default monitor, or primary if no default set
+                if ((defaultMonitorId !== null && monitor.id == defaultMonitorId) || 
+                    (defaultMonitorId === null && monitor.primary)) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading monitors:', error);
+            const select = document.getElementById('monitorSelect');
+            select.innerHTML = '<option value="0">Primary Monitor (Default)</option>';
+        });
+    }
+
+    function startRecording() {
+        const monitorId = parseInt(document.getElementById('monitorSelect').value);
+        const title = document.getElementById('recordingTitle').value.trim() || 
+                     `Meeting ${new Date().toLocaleString()}`;
+        
+        fetch('/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                monitor_id: monitorId,
+                title: title
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'started') {
+                isRecording = true;
+                updateUI();
+                startPolling();
+                
+                updateStatus('recording', '🔴', `Recording ${data.monitor}...`);
+            } else if (data.error) {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error starting recording:', error);
+            alert('Failed to start recording');
+        });
+    }
+
+    function stopRecording() {
+        fetch('/stop', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'stopped') {
+                isRecording = false;
+                updateUI();
+                stopPolling();
+                updateStatus('idle', '✅', 'Recording completed successfully');
+            }
+        });
+    }
+
+    function updateUI() {
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const titleInput = document.getElementById('recordingTitle');
+        const monitorSelect = document.getElementById('monitorSelect');
+
+        if (isRecording) {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            titleInput.disabled = true;
+            monitorSelect.disabled = true;
+        } else {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            titleInput.disabled = false;
+            monitorSelect.disabled = false;
+        }
+    }
+
+    function updateStatus(type, icon, text) {
+        const statusCard = document.getElementById('statusCard');
+        const statusIcon = document.getElementById('statusIcon');
+        const statusText = document.getElementById('statusText');
+
+        statusCard.className = `status-card status-${type}`;
+        statusIcon.textContent = icon;
+        statusText.textContent = text;
+    }
+
+    function loadTranscriptions() {
+        fetch('/transcriptions')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('transcriptions');
+            
+            if (data.transcriptions.length === 0) {
+                if (isRecording) {
+                    container.innerHTML = '<div class="empty-transcriptions">Listening for speech...</div>';
+                }
+                return;
+            }
+
+            container.innerHTML = '';
+            data.transcriptions.forEach(t => {
+                const div = document.createElement('div');
+                div.className = 'transcript-item';
+                div.innerHTML = `
+                    <div class="transcript-time">${t.timestamp}</div>
+                    <div class="transcript-text">${t.text}</div>
+                `;
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        });
+    }
+
+    function startPolling() {
+        pollInterval = setInterval(loadTranscriptions, 2000);
+    }
+
+    function stopPolling() {
+        clearInterval(pollInterval);
+    }
+
+    function updateUploadStatus(data) {
+        const uploadDiv = document.getElementById('uploadStatus');
+        const uploadText = document.getElementById('uploadText');
+        
+        if (data.upload_active) {
+            uploadDiv.style.display = 'block';
+            uploadDiv.className = 'upload-status';
+            uploadText.textContent = `📤 Uploading ${data.upload_file ? data.upload_file.split('/').pop() : ''}...`;
+        } else if (data.upload_progress === 100) {
+            uploadDiv.style.display = 'block';
+            uploadDiv.className = 'upload-status upload-success';
+            uploadText.textContent = `✅ Upload completed: ${data.upload_file ? data.upload_file.split('/').pop() : ''}`;
+            setTimeout(() => uploadDiv.style.display = 'none', 5000);
+        } else {
+            uploadDiv.style.display = 'none';
+        }
+    }
+
+    function checkStatus() {
+        fetch('/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.active !== isRecording) {
+                isRecording = data.active;
+                updateUI();
+                if (isRecording) {
+                    startPolling();
+                } else {
+                    stopPolling();
+                }
+            }
+            updateUploadStatus(data);
+        });
+    }
+
+    // Initialize page
+    loadMonitors();
+    checkStatus();
+    setInterval(checkStatus, 3000);
+    
+    // Set default title with current timestamp
+    const now = new Date();
+    const timestamp = now.getFullYear() + '-' + 
+        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(now.getDate()).padStart(2, '0') + ' ' +
+        String(now.getHours()).padStart(2, '0') + ':' + 
+        String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('recordingTitle').value = `Meeting ${timestamp}`;
+</script>
+{% endblock %}

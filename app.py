@@ -734,13 +734,13 @@ def settings():
             # Update user settings
             default_monitor = request.form.get('default_monitor', '')
             current_user.default_monitor = default_monitor if default_monitor else None
-            auto_delete_days = request.form.get('auto_delete_days', '30')
             
-            # Validate auto_delete_days
+            # Handle auto delete days
+            auto_delete_days = request.form.get('auto_delete_days', '30')
             try:
                 auto_delete_days = int(auto_delete_days)
-                if auto_delete_days < 1 or auto_delete_days > 120:
-                    flash('Auto-delete days must be between 1 and 120.', 'error')
+                if auto_delete_days < 0 or auto_delete_days > 365:
+                    flash('Auto-delete days must be between 0 and 365.', 'error')
                     return redirect(url_for('settings'))
             except ValueError:
                 flash('Invalid auto-delete days value.', 'error')
