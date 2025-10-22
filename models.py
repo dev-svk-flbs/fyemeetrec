@@ -79,11 +79,12 @@ class Recording(db.Model):
         if not self.file_size:
             return "0 B"
         
+        size = self.file_size  # Work with a copy to avoid modifying the actual value
         for unit in ['B', 'KB', 'MB', 'GB']:
-            if self.file_size < 1024:
-                return f"{self.file_size:.1f} {unit}"
-            self.file_size /= 1024
-        return f"{self.file_size:.1f} TB"
+            if size < 1024:
+                return f"{size:.1f} {unit}"
+            size /= 1024
+        return f"{size:.1f} TB"
     
     @property
     def thumbnail_path(self):

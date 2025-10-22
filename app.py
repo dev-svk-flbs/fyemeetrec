@@ -3,7 +3,7 @@
 Flask Web Interface for Dual Stream Recording with Authentication
 """
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session, send_file, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
@@ -15,6 +15,7 @@ import subprocess
 import json
 import re
 import os
+import mimetypes
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this!
@@ -199,6 +200,55 @@ def login():
     
     return render_template('login.html')
 
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
+        confirm_password = data.get('confirm_password', '')
+        
+        # Validation
+        errors = []
+        if not username or len(username) < 3:
+            errors.append('Username must be at least 3 characters long')
+        if not email or '@' not in email:
+            errors.append('Please enter a valid email address')
+        if not password or len(password) < 6:
+            errors.append('Password must be at least 6 characters long')
+        if password != confirm_password:
+            errors.append('Passwords do not match')
+        
+        # Check if user already exists
+        if User.query.filter_by(username=username).first():
+            errors.append('Username already exists')
+        if User.query.filter_by(email=email).first():
+            errors.append('Email already registered')
+        
+        if errors:
+            return jsonify({'success': False, 'errors': errors})
+        
+        # Create new user
+        try:
+            new_user = User(username=username, email=email)
+            new_user.set_password(password)
+            db.session.add(new_user)
+            db.session.commit()
+            
+            # Auto-login the new user
+            login_user(new_user, remember=True)
+            return jsonify({'success': True, 'redirect': url_for('dashboard')})
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'errors': ['Registration failed. Please try again.']})
+    
+    return render_template('signup.html')
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -302,25 +352,40 @@ def start_recording():
         
         # Update database record when recording completes
         if 'recording_id' in recording_state:
-            rec = Recording.query.get(recording_state['recording_id'])
-            if rec:
-                rec.ended_at = datetime.utcnow()
-                rec.status = 'completed' if success else 'failed'
-                
-                # Try to get file info if recording succeeded
-                if success and hasattr(recording_state['streamer'], 'last_output_file'):
-                    file_path = recording_state['streamer'].last_output_file
-                    if os.path.exists(file_path):
-                        rec.file_path = file_path
-                        rec.filename = os.path.basename(file_path)
-                        rec.file_size = os.path.getsize(file_path)
-                        
-                        # Calculate duration from start/end times
-                        if rec.started_at and rec.ended_at:
-                            duration = (rec.ended_at - rec.started_at).total_seconds()
-                            rec.duration = int(duration)
-                
-                db.session.commit()
+            with app.app_context():  # Ensure we have application context
+                rec = Recording.query.get(recording_state['recording_id'])
+                if rec:
+                    rec.ended_at = datetime.utcnow()
+                    rec.status = 'completed' if success else 'failed'
+                    
+                    # Try to get file info if recording succeeded
+                    if success and hasattr(recording_state['streamer'], 'last_output_file'):
+                        file_path = recording_state['streamer'].last_output_file
+                        if os.path.exists(file_path):
+                            rec.file_path = os.path.abspath(file_path)  # Store absolute path
+                            rec.filename = os.path.basename(file_path)
+                            rec.file_size = os.path.getsize(file_path)
+                            
+                            # Calculate duration from start/end times
+                            if rec.started_at and rec.ended_at:
+                                duration = (rec.ended_at - rec.started_at).total_seconds()
+                                rec.duration = int(duration)
+                            
+                            # Try to get actual video duration using ffprobe if available
+                            try:
+                                import subprocess
+                                result = subprocess.run([
+                                    'ffprobe', '-v', 'quiet', '-show_entries', 
+                                    'format=duration', '-of', 'csv=p=0', file_path
+                                ], capture_output=True, text=True, timeout=10)
+                                
+                                if result.returncode == 0 and result.stdout.strip():
+                                    video_duration = float(result.stdout.strip())
+                                    rec.duration = int(video_duration)
+                            except Exception:
+                                pass  # Fall back to calculated duration
+                    
+                    db.session.commit()
     
     recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
     recording_state['thread'].start()
@@ -390,5 +455,56 @@ def patched_send(self, text):
     return original_send(self, text)
 DualModeStreamer.send_text_to_server = patched_send
 
+@app.route('/video/<int:recording_id>')
+@login_required
+def serve_video(recording_id):
+    """Serve video file for playback"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    if not recording.file_path or not os.path.exists(recording.file_path):
+        abort(404)
+    
+    # Get MIME type for the video file
+    mime_type, _ = mimetypes.guess_type(recording.file_path)
+    if not mime_type:
+        mime_type = 'video/mp4'  # Default fallback
+    
+    return send_file(recording.file_path, mimetype=mime_type)
+
+@app.route('/thumbnail/<int:recording_id>')
+@login_required
+def serve_thumbnail(recording_id):
+    """Serve thumbnail image for video preview"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    if not recording.file_path or not os.path.exists(recording.file_path):
+        abort(404)
+    
+    # Generate thumbnail path
+    base_name = os.path.splitext(recording.file_path)[0]
+    thumbnail_path = f"{base_name}_thumb.jpg"
+    
+    # Generate thumbnail if it doesn't exist
+    if not os.path.exists(thumbnail_path):
+        try:
+            # Use ffmpeg to generate thumbnail at 5 second mark
+            subprocess.run([
+                'ffmpeg', '-i', recording.file_path,
+                '-ss', '00:00:05',  # Seek to 5 seconds
+                '-vframes', '1',    # Extract 1 frame
+                '-y',               # Overwrite output
+                '-q:v', '2',        # High quality
+                '-vf', 'scale=320:240',  # Scale to reasonable size
+                thumbnail_path
+            ], check=True, capture_output=True)
+        except Exception as e:
+            print(f"Failed to generate thumbnail: {e}")
+            # Return a default placeholder or 404
+            abort(404)
+    
+    return send_file(thumbnail_path, mimetype='image/jpeg')
+
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Create database tables
     app.run(debug=True, host='0.0.0.0', port=5000)
