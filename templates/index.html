@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dual Stream Recorder</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .controls { margin-bottom: 20px; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .start { background: #28a745; color: white; }
+        .stop { background: #dc3545; color: white; }
+        .start:disabled, .stop:disabled { background: #ccc; cursor: not-allowed; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; font-weight: bold; }
+        .recording { background: #d4edda; color: #155724; }
+        .idle { background: #f8d7da; color: #721c24; }
+        .transcriptions { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: #f9f9f9; }
+        .transcript { margin: 5px 0; padding: 5px; background: white; border-radius: 3px; }
+        .time { color: #666; font-size: 0.9em; }
+        input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Dual Stream Recorder</h1>
+        
+        <div class="controls">
+            <div style="margin-bottom: 15px;">
+                <label for="monitorSelect" style="display: block; margin-bottom: 5px; font-weight: bold;">📺 Select Monitor:</label>
+                <select id="monitorSelect" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 300px;">
+                    <option value="">Loading monitors...</option>
+                </select>
+            </div>
+            <button class="start" id="startBtn" onclick="startRecording()">▶ Start Recording</button>
+            <button class="stop" id="stopBtn" onclick="stopRecording()" disabled>⏹ Stop Recording</button>
+        </div>
+        
+        <div class="status idle" id="status">Ready to record</div>
+        
+        <div class="status" id="uploadStatus" style="display: none;">
+            📤 <span id="uploadText">Uploading...</span>
+        </div>
+        
+        <h3>Live Transcriptions</h3>
+        <div class="transcriptions" id="transcriptions">
+            <div style="color: #999; text-align: center;">Transcriptions will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        let isRecording = false;
+        let pollInterval;
+
+        function loadMonitors() {
+            fetch('/monitors')
+            .then(response => response.json())
+            .then(data => {
+                const select = document.getElementById('monitorSelect');
+                select.innerHTML = '';
+                
+                data.monitors.forEach(monitor => {
+                    const option = document.createElement('option');
+                    option.value = monitor.id;
+                    option.textContent = monitor.name;
+                    if (monitor.primary) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading monitors:', error);
+                const select = document.getElementById('monitorSelect');
+                select.innerHTML = '<option value="0">Primary Monitor (Default)</option>';
+            });
+        }
+
+        function startRecording() {
+            const monitorId = parseInt(document.getElementById('monitorSelect').value);
+            
+            fetch('/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ monitor_id: monitorId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'started') {
+                    isRecording = true;
+                    updateUI();
+                    startPolling();
+                    
+                    // Update status to show selected monitor
+                    const status = document.getElementById('status');
+                    status.textContent = `🔴 Recording ${data.monitor}...`;
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error starting recording:', error);
+                alert('Failed to start recording');
+            });
+        }
+
+        function stopRecording() {
+            fetch('/stop', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'stopped') {
+                    isRecording = false;
+                    updateUI();
+                    stopPolling();
+                }
+            });
+        }
+
+        function updateUI() {
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const status = document.getElementById('status');
+
+            if (isRecording) {
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                status.className = 'status recording';
+                status.textContent = '🔴 Recording in progress...';
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                status.className = 'status idle';
+                status.textContent = 'Ready to record';
+            }
+        }
+
+        function loadTranscriptions() {
+            fetch('/transcriptions')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('transcriptions');
+                if (data.transcriptions.length === 0) return;
+
+                container.innerHTML = '';
+                data.transcriptions.forEach(t => {
+                    const div = document.createElement('div');
+                    div.className = 'transcript';
+                    div.innerHTML = `<span class="time">[${t.timestamp}]</span> ${t.text}`;
+                    container.appendChild(div);
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        function startPolling() {
+            pollInterval = setInterval(loadTranscriptions, 2000);
+        }
+
+        function stopPolling() {
+            clearInterval(pollInterval);
+        }
+
+        function updateUploadStatus(data) {
+            const uploadDiv = document.getElementById('uploadStatus');
+            const uploadText = document.getElementById('uploadText');
+            
+            if (data.upload_active) {
+                uploadDiv.style.display = 'block';
+                uploadDiv.className = 'status recording';
+                uploadText.textContent = `Uploading ${data.upload_file ? data.upload_file.split('/').pop() : ''}...`;
+            } else if (data.upload_progress === 100) {
+                uploadDiv.style.display = 'block';
+                uploadDiv.className = 'status recording';
+                uploadDiv.style.background = '#d1ecf1';
+                uploadDiv.style.color = '#0c5460';
+                uploadText.textContent = `✅ Upload completed: ${data.upload_file ? data.upload_file.split('/').pop() : ''}`;
+                setTimeout(() => uploadDiv.style.display = 'none', 5000);
+            } else {
+                uploadDiv.style.display = 'none';
+            }
+        }
+
+        function checkStatus() {
+            fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                // Update recording status
+                if (data.active !== isRecording) {
+                    isRecording = data.active;
+                    updateUI();
+                    if (isRecording) {
+                        startPolling();
+                    } else {
+                        stopPolling();
+                    }
+                }
+                // Update upload status
+                updateUploadStatus(data);
+            });
+        }
+
+        // Load monitors and check status on page load
+        loadMonitors();
+        checkStatus();
+        setInterval(checkStatus, 3000);  // Check every 3 seconds
+    </script>
+</body>
+</html>
