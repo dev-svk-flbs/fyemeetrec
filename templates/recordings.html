@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recordings - FYE Meeting Recorder</title>
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --accent-blue: #60a5fa;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --success-green: #10b981;
+            --warning-yellow: #f59e0b;
+            --error-red: #ef4444;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--gray-50);
+            min-height: 100vh;
+            font-size: 13px;
+            color: var(--gray-700);
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0.75rem 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--gray-600);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary-blue);
+            background: var(--gray-100);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .logout-btn {
+            background: var(--gray-200);
+            color: var(--gray-700);
+            border: none;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .btn-primary {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary-blue);
+        }
+
+        .search-box {
+            position: relative;
+            max-width: 300px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.5rem 0.75rem 0.5rem 2rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--gray-400);
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .filter-select {
+            padding: 0.5rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 6px;
+            font-size: 0.875rem;
+            min-width: 120px;
+        }
+
+        .recordings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .recording-card {
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+
+        .recording-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .recording-thumbnail {
+            width: 100%;
+            height: 180px;
+            background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-200) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-400);
+            font-size: 2.5rem;
+            position: relative;
+        }
+
+        .recording-duration {
+            position: absolute;
+            bottom: 0.5rem;
+            right: 0.5rem;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .recording-info {
+            padding: 1rem;
+        }
+
+        .recording-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .recording-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .recording-date {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .recording-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.5rem;
+        }
+
+        .recording-size {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .recording-status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-completed {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-processing {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-failed {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .pagination-btn {
+            background: white;
+            border: 1px solid var(--gray-300);
+            color: var(--gray-700);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .pagination-btn:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+        }
+
+        .pagination-btn.active {
+            background: var(--primary-blue);
+            color: white;
+            border-color: var(--primary-blue);
+        }
+
+        .pagination-btn:disabled {
+            background: var(--gray-100);
+            color: var(--gray-400);
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--gray-500);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-700);
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem 0.75rem;
+            }
+
+            .page-header {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 1rem;
+            }
+
+            .header-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.75rem;
+            }
+
+            .recordings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">FYE Meeting Recorder</div>
+            <nav class="nav-menu">
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/record" class="nav-link">Record</a>
+                <a href="/recordings" class="nav-link active">Recordings</a>
+            </nav>
+            <div class="user-menu">
+                <span class="user-info">{{ current_user.username }}</span>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="page-header">
+            <h1 class="page-title">My Recordings</h1>
+            <div class="header-actions">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" class="search-input" placeholder="Search recordings...">
+                </div>
+                <a href="/record" class="btn-primary">
+                    <span>🎥</span>
+                    New Recording
+                </a>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label class="filter-label">Sort by:</label>
+                <select class="filter-select">
+                    <option value="date_desc">Newest First</option>
+                    <option value="date_asc">Oldest First</option>
+                    <option value="title">Title A-Z</option>
+                    <option value="duration">Duration</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Status:</label>
+                <select class="filter-select">
+                    <option value="all">All</option>
+                    <option value="completed">Completed</option>
+                    <option value="processing">Processing</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+        </div>
+
+        {% if recordings.items %}
+            <div class="recordings-grid">
+                {% for recording in recordings.items %}
+                <div class="recording-card" onclick="playRecording('{{ recording.id }}')">
+                    <div class="recording-thumbnail">
+                        🎬
+                        <div class="recording-duration">{{ recording.duration_formatted }}</div>
+                    </div>
+                    <div class="recording-info">
+                        <div class="recording-title">{{ recording.title }}</div>
+                        <div class="recording-meta">
+                            <div class="recording-date">
+                                📅 {{ recording.created_at.strftime('%Y-%m-%d %H:%M') }}
+                            </div>
+                            <div class="recording-date">
+                                📺 {{ recording.monitor_name }}
+                            </div>
+                        </div>
+                        <div class="recording-details">
+                            <span class="recording-size">{{ recording.file_size_formatted }}</span>
+                            <span class="recording-status status-{{ recording.status }}">
+                                {{ recording.status.title() }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if recordings.pages > 1 %}
+            <div class="pagination">
+                {% if recordings.has_prev %}
+                    <a href="{{ url_for('recordings', page=recordings.prev_num) }}" class="pagination-btn">« Previous</a>
+                {% else %}
+                    <button class="pagination-btn" disabled>« Previous</button>
+                {% endif %}
+
+                {% for page_num in recordings.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != recordings.page %}
+                            <a href="{{ url_for('recordings', page=page_num) }}" class="pagination-btn">{{ page_num }}</a>
+                        {% else %}
+                            <button class="pagination-btn active">{{ page_num }}</button>
+                        {% endif %}
+                    {% else %}
+                        <span class="pagination-btn">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if recordings.has_next %}
+                    <a href="{{ url_for('recordings', page=recordings.next_num) }}" class="pagination-btn">Next »</a>
+                {% else %}
+                    <button class="pagination-btn" disabled>Next »</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📹</div>
+                <div class="empty-title">No recordings found</div>
+                <p>You haven't created any recordings yet. Start by recording your first meeting!</p>
+            </div>
+        {% endif %}
+    </main>
+
+    <script>
+        function playRecording(recordingId) {
+            // TODO: Implement recording playback/download functionality
+            console.log('Playing recording:', recordingId);
+            alert(`Recording ${recordingId} playback feature coming soon!`);
+        }
+
+        // Search functionality
+        document.querySelector('.search-input').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.recording-card');
+            
+            cards.forEach(card => {
+                const title = card.querySelector('.recording-title').textContent.toLowerCase();
+                if (title.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Sort functionality
+        document.querySelector('.filter-select').addEventListener('change', function(e) {
+            // TODO: Implement client-side sorting or make server request
+            console.log('Sort by:', e.target.value);
+        });
+    </script>
+</body>
+</html>

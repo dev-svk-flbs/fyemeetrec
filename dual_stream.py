@@ -238,7 +238,7 @@ class DualModeStreamer:
                     response = requests.post(
                         f"http://{self.server_ip}:8000/upload",
                         files=files,
-                        timeout=300  # 5 minute timeout
+                        timeout=600  # 10 minute timeout
                     )
                     
                     if response.status_code == 200:
@@ -261,9 +261,14 @@ class DualModeStreamer:
         if not self.check_setup():
             return False
             
-        # Generate output filename
+        # Create recordings directory if it doesn't exist
+        recordings_dir = "recordings"
+        Path(recordings_dir).mkdir(exist_ok=True)
+        
+        # Generate output filename in recordings subfolder
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        output_file = f"meeting_{timestamp}.mkv"
+        output_file = f"{recordings_dir}/meeting_{timestamp}.mkv"
+        self.last_output_file = output_file  # Store for database update
         
         print(f"🚀 STARTING RECORDING SESSION")
         print(f"🧠 Transcription → {self.server_ip}:{self.server_port}")
@@ -355,9 +360,13 @@ class DualModeStreamer:
         if not self.check_setup():
             return False
             
-        # Generate output filename
+        # Create recordings directory if it doesn't exist
+        recordings_dir = "recordings"
+        Path(recordings_dir).mkdir(exist_ok=True)
+        
+        # Generate output filename in recordings subfolder
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        output_file = f"local_meeting_{timestamp}.mkv"
+        output_file = f"{recordings_dir}/local_meeting_{timestamp}.mkv"
         
         print(f"🎥 LOCAL-ONLY RECORDING")
         print(f"📁 Screen + audio → {output_file}")  

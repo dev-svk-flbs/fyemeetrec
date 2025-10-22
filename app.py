@@ -1,17 +1,39 @@
 #!/usr/bin/env python3
 """
-Flask Web Interface for Dual Stream Recording
+Flask Web Interface for Dual Stream Recording with Authentication
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from werkzeug.security import check_password_hash
+from datetime import datetime, timedelta
 from dual_stream import DualModeStreamer
+from models import db, User, Recording, init_db
 import threading
 import time
 import subprocess
 import json
 import re
+import os
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this!
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recordings.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize extensions
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message_category = 'info'
+
+# Initialize database
+init_db(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Global state
 recording_state = {
@@ -156,9 +178,69 @@ def get_monitors():
         print(f"Error getting monitors: {e}")
         return [{'id': 0, 'name': 'Primary Monitor (Default)', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'primary': True}]
 
+# Authentication routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=True)
+            return jsonify({'success': True, 'redirect': url_for('dashboard')})
+        else:
+            return jsonify({'success': False, 'message': 'Invalid username or password'})
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
-    return render_template('index.html')
+    return redirect(url_for('dashboard'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    # Get recent recordings
+    recent_recordings = Recording.query.filter_by(user_id=current_user.id)\
+        .order_by(Recording.created_at.desc()).limit(6).all()
+    
+    # Get recording stats
+    total_recordings = Recording.query.filter_by(user_id=current_user.id).count()
+    total_duration = db.session.query(db.func.sum(Recording.duration))\
+        .filter_by(user_id=current_user.id).scalar() or 0
+    
+    return render_template('dashboard.html', 
+                         recent_recordings=recent_recordings,
+                         total_recordings=total_recordings,
+                         total_duration=total_duration)
+
+@app.route('/recordings')
+@login_required
+def recordings():
+    page = request.args.get('page', 1, type=int)
+    recordings = Recording.query.filter_by(user_id=current_user.id)\
+        .order_by(Recording.created_at.desc())\
+        .paginate(page=page, per_page=12, error_out=False)
+    
+    return render_template('recordings.html', recordings=recordings)
+
+@app.route('/record')
+@login_required
+def record():
+    return render_template('record.html')
 
 @app.route('/monitors')
 def list_monitors():
@@ -167,13 +249,15 @@ def list_monitors():
     return jsonify({'monitors': monitors})
 
 @app.route('/start', methods=['POST'])
+@login_required
 def start_recording():
     if recording_state['active']:
         return jsonify({'error': 'Already recording'}), 400
     
-    # Get monitor selection from request
+    # Get monitor selection and title from request
     data = request.get_json() or {}
     monitor_id = data.get('monitor_id', 0)  # Default to primary monitor
+    recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     
     # Get monitor info
     monitors = get_monitors()
@@ -186,8 +270,23 @@ def start_recording():
     if not selected_monitor:
         return jsonify({'error': 'Invalid monitor selection'}), 400
     
-    # Store selected monitor
+    # Create database record for this recording
+    recording = Recording(
+        title=recording_title,
+        filename='',  # Will be set when recording completes
+        file_path='',  # Will be set when recording completes
+        started_at=datetime.utcnow(),
+        monitor_name=selected_monitor['name'],
+        resolution=f"{selected_monitor['width']}x{selected_monitor['height']}",
+        user_id=current_user.id,
+        status='recording'
+    )
+    db.session.add(recording)
+    db.session.commit()
+    
+    # Store selected monitor and recording ID
     recording_state['selected_monitor'] = selected_monitor
+    recording_state['recording_id'] = recording.id
     
     # Create streamer instance with monitor config
     recording_state['streamer'] = DualModeStreamer(
@@ -198,18 +297,42 @@ def start_recording():
     
     # Start recording in background thread
     def record_thread():
-        recording_state['streamer'].dual_mode_record()
+        success = recording_state['streamer'].dual_mode_record()
         recording_state['active'] = False
+        
+        # Update database record when recording completes
+        if 'recording_id' in recording_state:
+            rec = Recording.query.get(recording_state['recording_id'])
+            if rec:
+                rec.ended_at = datetime.utcnow()
+                rec.status = 'completed' if success else 'failed'
+                
+                # Try to get file info if recording succeeded
+                if success and hasattr(recording_state['streamer'], 'last_output_file'):
+                    file_path = recording_state['streamer'].last_output_file
+                    if os.path.exists(file_path):
+                        rec.file_path = file_path
+                        rec.filename = os.path.basename(file_path)
+                        rec.file_size = os.path.getsize(file_path)
+                        
+                        # Calculate duration from start/end times
+                        if rec.started_at and rec.ended_at:
+                            duration = (rec.ended_at - rec.started_at).total_seconds()
+                            rec.duration = int(duration)
+                
+                db.session.commit()
     
     recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
     recording_state['thread'].start()
     
     return jsonify({
         'status': 'started',
-        'monitor': selected_monitor['name']
+        'monitor': selected_monitor['name'],
+        'recording_id': recording.id
     })
 
 @app.route('/stop', methods=['POST'])
+@login_required
 def stop_recording():
     if not recording_state['active']:
         return jsonify({'error': 'Not recording'}), 400
@@ -238,6 +361,7 @@ def stop_recording():
     return jsonify({'status': 'stopped'})
 
 @app.route('/status')
+@login_required
 def get_status():
     upload_status = {}
     if recording_state.get('streamer'):
@@ -252,6 +376,7 @@ def get_status():
     })
 
 @app.route('/transcriptions')
+@login_required
 def get_transcriptions():
     return jsonify({'transcriptions': recording_state['transcriptions'][-50:]})
 
@@ -266,4 +391,4 @@ def patched_send(self, text):
 DualModeStreamer.send_text_to_server = patched_send
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

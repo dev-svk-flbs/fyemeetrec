@@ -1,6 +1,9 @@
 # Required packages for the recording system
 
 flask>=3.0.0
+flask-login>=0.6.0
+flask-sqlalchemy>=3.0.0
+werkzeug>=3.0.0
 faster-whisper>=1.0.0
 requests>=2.31.0
 numpy>=1.24.0

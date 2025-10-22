@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - FYE Meeting Recorder</title>
+    <style>
+        :root {
+            --primary-blue: #1e3a8a;
+            --secondary-blue: #3b82f6;
+            --accent-blue: #60a5fa;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --success-green: #10b981;
+            --warning-yellow: #f59e0b;
+            --error-red: #ef4444;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--gray-50);
+            min-height: 100vh;
+            font-size: 13px;
+            color: var(--gray-700);
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 0.75rem 0;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: var(--gray-600);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary-blue);
+            background: var(--gray-100);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-info {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .logout-btn {
+            background: var(--gray-200);
+            color: var(--gray-700);
+            border: none;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: var(--gray-300);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1rem;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 1.25rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .stat-subtext {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            margin-top: 0.25rem;
+        }
+
+        .actions-section {
+            margin-bottom: 2rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary-blue);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--gray-400);
+            background: var(--gray-50);
+        }
+
+        .recent-recordings {
+            background: white;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .section-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .view-all-link {
+            color: var(--secondary-blue);
+            font-size: 0.75rem;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .view-all-link:hover {
+            color: var(--primary-blue);
+        }
+
+        .recordings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            padding: 1.25rem;
+        }
+
+        .recording-card {
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .recording-card:hover {
+            border-color: var(--gray-300);
+            box-shadow: var(--shadow-md);
+        }
+
+        .recording-thumbnail {
+            width: 100%;
+            height: 120px;
+            background: var(--gray-100);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-400);
+            font-size: 2rem;
+        }
+
+        .recording-info {
+            padding: 0.75rem;
+        }
+
+        .recording-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-900);
+            margin-bottom: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .recording-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--gray-500);
+        }
+
+        .empty-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                padding: 0 0.75rem;
+            }
+
+            .nav-menu {
+                gap: 1rem;
+            }
+
+            .nav-link {
+                padding: 0.25rem 0.5rem;
+            }
+
+            .container {
+                padding: 1rem 0.75rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .recordings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">FYE Meeting Recorder</div>
+            <nav class="nav-menu">
+                <a href="/dashboard" class="nav-link active">Dashboard</a>
+                <a href="/record" class="nav-link">Record</a>
+                <a href="/recordings" class="nav-link">Recordings</a>
+            </nav>
+            <div class="user-menu">
+                <span class="user-info">{{ current_user.username }}</span>
+                <a href="/logout" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="page-header">
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-subtitle">Overview of your meeting recordings and system status</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Recordings</div>
+                <div class="stat-value">{{ total_recordings }}</div>
+                <div class="stat-subtext">All time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Duration</div>
+                <div class="stat-value">{{ (total_duration // 3600) }}h {{ ((total_duration % 3600) // 60) }}m</div>
+                <div class="stat-subtext">Recording time</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">This Month</div>
+                <div class="stat-value">{{ recent_recordings|length }}</div>
+                <div class="stat-subtext">Recent recordings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Status</div>
+                <div class="stat-value" style="color: var(--success-green);">Ready</div>
+                <div class="stat-subtext">System operational</div>
+            </div>
+        </div>
+
+        <div class="actions-section">
+            <div class="action-buttons">
+                <a href="/record" class="btn-primary">
+                    
+                    Start New Recording
+                </a>
+                <a href="/recordings" class="btn-secondary">
+                    <span>📁</span>
+                    View All Recordings
+                </a>
+            </div>
+        </div>
+
+        <div class="recent-recordings">
+            <div class="section-header">
+                <h2 class="section-title">Recent Recordings</h2>
+                <a href="/recordings" class="view-all-link">View All</a>
+            </div>
+            {% if recent_recordings %}
+                <div class="recordings-grid">
+                    {% for recording in recent_recordings %}
+                    <div class="recording-card">
+                        <div class="recording-thumbnail">
+                            🎬
+                        </div>
+                        <div class="recording-info">
+                            <div class="recording-title">{{ recording.title }}</div>
+                            <div class="recording-meta">
+                                <span>{{ recording.duration_formatted }}</span>
+                                <span>{{ recording.created_at.strftime('%Y-%m-%d') }}</span>
+                                <span>{{ recording.file_size_formatted }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📹</div>
+                    <p>No recordings yet. Start your first meeting recording!</p>
+                </div>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>
