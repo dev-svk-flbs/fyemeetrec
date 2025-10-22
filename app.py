@@ -16,6 +16,19 @@ import json
 import re
 import os
 import mimetypes
+from pathlib import Path
+
+def get_ffmpeg_path():
+    """Get the path to the local FFmpeg executable"""
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent.absolute()
+    ffmpeg_path = script_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
+    
+    if ffmpeg_path.exists():
+        return str(ffmpeg_path)
+    else:
+        # Fallback to system FFmpeg if local not found
+        return "ffmpeg"
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this!
@@ -392,7 +405,8 @@ def start_recording():
                     if success and hasattr(recording_state['streamer'], 'last_output_file'):
                         file_path = recording_state['streamer'].last_output_file
                         if os.path.exists(file_path):
-                            rec.file_path = os.path.abspath(file_path)  # Store absolute path
+                            # Store only the filename, not the full path to avoid cross-machine issues
+                            rec.file_path = os.path.basename(file_path)  # Store just filename
                             rec.filename = os.path.basename(file_path)
                             rec.file_size = os.path.getsize(file_path)
                             
@@ -489,37 +503,56 @@ DualModeStreamer.send_text_to_server = patched_send
 @login_required
 def serve_video(recording_id):
     """Serve video file for playback"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    print(f"🎥 VIDEO REQUEST: User {current_user.username} requesting video ID {recording_id}")
     
-    if not recording.file_path or not os.path.exists(recording.file_path):
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    print(f"🎥 FOUND RECORDING: '{recording.title}' - Stored Path: {recording.file_path}")
+    
+    # Use resolved file path that works across different machines
+    resolved_path = recording.resolved_file_path
+    print(f"🎥 RESOLVED PATH: {resolved_path}")
+    
+    if not resolved_path or not os.path.exists(resolved_path):
+        print(f"❌ VIDEO FILE NOT FOUND: {resolved_path}")
         abort(404)
     
     # Get MIME type for the video file
-    mime_type, _ = mimetypes.guess_type(recording.file_path)
+    mime_type, _ = mimetypes.guess_type(resolved_path)
     if not mime_type:
         mime_type = 'video/mp4'  # Default fallback
     
-    return send_file(recording.file_path, mimetype=mime_type)
+    print(f"🎥 SERVING VIDEO: {resolved_path} (MIME: {mime_type})")
+    return send_file(resolved_path, mimetype=mime_type)
 
 @app.route('/thumbnail/<int:recording_id>')
 @login_required
 def serve_thumbnail(recording_id):
     """Serve thumbnail image for video preview"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    print(f"🖼️ THUMBNAIL REQUEST: User {current_user.username} requesting thumbnail for recording ID {recording_id}")
     
-    if not recording.file_path or not os.path.exists(recording.file_path):
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    print(f"🖼️ FOUND RECORDING: '{recording.title}' - Stored Path: {recording.file_path}")
+    
+    # Use resolved file path that works across different machines
+    resolved_path = recording.resolved_file_path
+    print(f"🖼️ RESOLVED PATH: {resolved_path}")
+    
+    if not resolved_path or not os.path.exists(resolved_path):
+        print(f"❌ VIDEO FILE NOT FOUND: {resolved_path}")
         abort(404)
     
-    # Generate thumbnail path
-    base_name = os.path.splitext(recording.file_path)[0]
+    # Generate thumbnail path based on resolved path
+    base_name = os.path.splitext(resolved_path)[0]
     thumbnail_path = f"{base_name}_thumb.jpg"
+    print(f"🖼️ THUMBNAIL PATH: {thumbnail_path}")
     
     # Generate thumbnail if it doesn't exist
     if not os.path.exists(thumbnail_path):
+        print(f"🖼️ GENERATING THUMBNAIL: Creating thumbnail for {resolved_path}")
         try:
             # Use ffmpeg to generate thumbnail at 5 second mark
             subprocess.run([
-                'ffmpeg', '-i', recording.file_path,
+                get_ffmpeg_path(), '-i', resolved_path,
                 '-ss', '00:00:05',  # Seek to 5 seconds
                 '-vframes', '1',    # Extract 1 frame
                 '-y',               # Overwrite output
@@ -527,11 +560,16 @@ def serve_thumbnail(recording_id):
                 '-vf', 'scale=320:240',  # Scale to reasonable size
                 thumbnail_path
             ], check=True, capture_output=True)
+            print(f"✅ THUMBNAIL GENERATED: Successfully created {thumbnail_path}")
         except Exception as e:
-            print(f"Failed to generate thumbnail: {e}")
+            error_msg = f"Failed to generate thumbnail: {e}"
+            print(f"❌ THUMBNAIL ERROR: {error_msg}")
             # Return a default placeholder or 404
             abort(404)
+    else:
+        print(f"✅ THUMBNAIL EXISTS: Using existing thumbnail {thumbnail_path}")
     
+    print(f"🖼️ SERVING THUMBNAIL: {thumbnail_path}")
     return send_file(thumbnail_path, mimetype='image/jpeg')
 
 @app.route('/download/<int:recording_id>')
@@ -540,14 +578,17 @@ def download_recording(recording_id):
     """Download a recording file"""
     recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
     
-    if not recording.file_path or not os.path.exists(recording.file_path):
+    # Use resolved file path that works across different machines
+    resolved_path = recording.resolved_file_path
+    
+    if not resolved_path or not os.path.exists(resolved_path):
         abort(404)
     
     # Get the filename without path for download
-    filename = recording.filename or os.path.basename(recording.file_path)
+    filename = recording.filename or os.path.basename(resolved_path)
     
     return send_file(
-        recording.file_path, 
+        resolved_path, 
         as_attachment=True, 
         download_name=filename,
         mimetype='video/x-matroska'  # MKV mimetype
@@ -574,38 +615,57 @@ def update_sync_status(recording_id):
 @login_required
 def delete_recording(recording_id):
     """Delete a recording from database and optionally from filesystem"""
+    print(f"🗑️ DELETE REQUEST: User {current_user.username} attempting to delete recording ID {recording_id}")
+    
     recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    print(f"🗑️ FOUND RECORDING: '{recording.title}' - Stored Path: {recording.file_path}")
     
     # Get delete options from request
     data = request.get_json() or {}
     delete_file = data.get('delete_file', True)  # Default to deleting file
+    print(f"🗑️ DELETE OPTIONS: delete_file={delete_file}, request_data={data}")
     
     deleted_items = []
     errors = []
     
     try:
         # Delete physical file if requested and exists
-        if delete_file and recording.file_path and os.path.exists(recording.file_path):
+        resolved_path = recording.resolved_file_path
+        print(f"🗑️ RESOLVED PATH: {resolved_path}")
+        
+        if delete_file and resolved_path and os.path.exists(resolved_path):
+            print(f"🗑️ DELETING PHYSICAL FILE: {resolved_path}")
             try:
-                os.remove(recording.file_path)
+                os.remove(resolved_path)
                 deleted_items.append('video_file')
+                print(f"✅ VIDEO FILE DELETED: {resolved_path}")
                 
                 # Also delete thumbnail if it exists
-                base_name = os.path.splitext(recording.file_path)[0]
+                base_name = os.path.splitext(resolved_path)[0]
                 thumbnail_path = f"{base_name}_thumb.jpg"
                 if os.path.exists(thumbnail_path):
                     os.remove(thumbnail_path)
                     deleted_items.append('thumbnail')
+                    print(f"✅ THUMBNAIL DELETED: {thumbnail_path}")
                     
             except Exception as e:
-                errors.append(f"Failed to delete file: {str(e)}")
+                error_msg = f"Failed to delete file: {str(e)}"
+                errors.append(error_msg)
+                print(f"❌ FILE DELETE ERROR: {error_msg}")
+        elif delete_file and resolved_path:
+            print(f"⚠️ FILE NOT FOUND: {resolved_path}")
+        else:
+            print(f"🗑️ SKIPPING FILE DELETE: delete_file={delete_file}, resolved_path={resolved_path}")
         
         # Delete database record
         title = recording.title
+        print(f"🗑️ DELETING DATABASE RECORD: {title}")
         db.session.delete(recording)
         db.session.commit()
         deleted_items.append('database_record')
+        print(f"✅ DATABASE RECORD DELETED: {title}")
         
+        print(f"🗑️ DELETE COMPLETED: deleted_items={deleted_items}, errors={errors}")
         return jsonify({
             'success': True,
             'message': f'Recording "{title}" deleted successfully',
@@ -615,9 +675,11 @@ def delete_recording(recording_id):
         
     except Exception as e:
         db.session.rollback()
+        error_msg = f'Failed to delete recording: {str(e)}'
+        print(f"❌ DELETE FAILED: {error_msg}")
         return jsonify({
             'success': False,
-            'message': f'Failed to delete recording: {str(e)}',
+            'message': error_msg,
             'deleted': deleted_items,
             'errors': errors + [str(e)]
         }), 500
@@ -684,10 +746,11 @@ def cleanup_old_recordings():
             
             for recording in old_recordings:
                 try:
-                    # Delete the actual file
-                    if recording.file_path and os.path.exists(recording.file_path):
-                        file_size = os.path.getsize(recording.file_path)
-                        os.remove(recording.file_path)
+                    # Delete the actual file using resolved path
+                    resolved_path = recording.resolved_file_path
+                    if resolved_path and os.path.exists(resolved_path):
+                        file_size = os.path.getsize(resolved_path)
+                        os.remove(resolved_path)
                         user_freed_space += file_size
                         user_deleted += 1
                         

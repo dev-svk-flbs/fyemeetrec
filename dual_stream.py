@@ -13,8 +13,21 @@ import json
 import requests
 import queue
 import numpy as np
+import os
 from pathlib import Path
 from faster_whisper import WhisperModel
+
+def get_ffmpeg_path():
+    """Get the path to the local FFmpeg executable"""
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent.absolute()
+    ffmpeg_path = script_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
+    
+    if ffmpeg_path.exists():
+        return str(ffmpeg_path)
+    else:
+        # Fallback to system FFmpeg if local not found
+        return "ffmpeg"
 
 
 class DualModeStreamer:
@@ -44,7 +57,7 @@ class DualModeStreamer:
     def check_setup(self):
         """Verify VoiceMeeter B1 is available"""
         try:
-            cmd = ["ffmpeg", "-list_devices", "true", "-f", "dshow", "-i", "dummy"]
+            cmd = [get_ffmpeg_path(), "-list_devices", "true", "-f", "dshow", "-i", "dummy"]
             result = subprocess.run(cmd, capture_output=True, text=True)
             output_text = result.stderr if result.stderr else result.stdout
             
@@ -65,7 +78,7 @@ class DualModeStreamer:
     def capture_audio_for_transcription(self):
         """FFmpeg audio capture for transcription - NO DURATION LIMIT"""
         cmd = [
-            "ffmpeg", "-y", "-loglevel", "quiet",
+            get_ffmpeg_path(), "-y", "-loglevel", "quiet",
             "-f", "dshow", "-i", f"audio={self.audio_source}",
             "-ac", "1", "-ar", "16000", "-f", "s16le", "-"
         ]
@@ -169,7 +182,7 @@ class DualModeStreamer:
         """Record screen + audio to local file (main thread) - NO DURATION LIMIT"""
         # Build ffmpeg command with dynamic monitor config
         cmd = [
-            "ffmpeg", "-y", "-loglevel", "error",
+            get_ffmpeg_path(), "-y", "-loglevel", "error",
             "-thread_queue_size", "512", "-fflags", "nobuffer",
             "-f", "gdigrab", "-framerate", "5",
             "-offset_x", str(self.monitor_config['x']), 

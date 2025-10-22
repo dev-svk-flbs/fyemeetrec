@@ -640,10 +640,15 @@
     }
 
     function playRecording(recordingId, event) {
+        console.log(`🎥 PLAY REQUEST: Starting playback for recording ID ${recordingId}`);
+        
         // Don't play if clicking on action buttons
         if (event && (event.target.closest('.action-buttons') || event.target.closest('.list-actions'))) {
+            console.log(`🎥 PLAY CANCELLED: Clicked on action button`);
             return;
         }
+        
+        console.log(`🎥 CREATING MODAL: Setting up video modal for recording ${recordingId}`);
         
         // Create a modal with video player
         const modal = document.createElement('div');
@@ -677,6 +682,23 @@
             max-height: 80vh;
         `;
         
+        // Add video event listeners for logging
+        video.addEventListener('loadstart', () => {
+            console.log(`🎥 VIDEO LOADING: Started loading video ${recordingId}`);
+        });
+        
+        video.addEventListener('loadeddata', () => {
+            console.log(`🎥 VIDEO LOADED: Video ${recordingId} data loaded successfully`);
+        });
+        
+        video.addEventListener('error', (e) => {
+            console.error(`❌ VIDEO ERROR: Failed to load video ${recordingId}`, e);
+        });
+        
+        video.addEventListener('play', () => {
+            console.log(`▶️ VIDEO PLAYING: Started playing video ${recordingId}`);
+        });
+        
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '×';
         closeBtn.style.cssText = `
@@ -692,12 +714,14 @@
         `;
         
         closeBtn.onclick = () => {
+            console.log(`🎥 MODAL CLOSED: User closed video modal for recording ${recordingId}`);
             document.body.removeChild(modal);
         };
         
         // Close on click outside video
         modal.onclick = (e) => {
             if (e.target === modal) {
+                console.log(`🎥 MODAL CLOSED: Clicked outside video for recording ${recordingId}`);
                 document.body.removeChild(modal);
             }
         };
@@ -705,6 +729,7 @@
         // Close on Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.body.contains(modal)) {
+                console.log(`🎥 MODAL CLOSED: Escape key pressed for recording ${recordingId}`);
                 document.body.removeChild(modal);
             }
         });
@@ -713,27 +738,45 @@
         videoContainer.appendChild(closeBtn);
         modal.appendChild(videoContainer);
         document.body.appendChild(modal);
+        console.log(`🎥 MODAL CREATED: Video modal displayed for recording ${recordingId}`);
     }
 
     function deleteRecording(recordingId, title) {
         event.stopPropagation();
+        console.log(`🗑️ DELETE REQUEST: User attempting to delete recording ${recordingId} - "${title}"`);
         
         if (confirm(`Are you sure you want to delete "${title}"?`)) {
-            fetch(`/recordings/${recordingId}`, {
-                method: 'DELETE'
+            console.log(`🗑️ DELETE CONFIRMED: User confirmed deletion of recording ${recordingId}`);
+            
+            fetch(`/delete/${recordingId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    delete_file: true
+                })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log(`🗑️ DELETE RESPONSE: Status ${response.status} for recording ${recordingId}`);
+                return response.json();
+            })
             .then(data => {
+                console.log(`🗑️ DELETE RESULT:`, data);
                 if (data.success) {
+                    console.log(`✅ DELETE SUCCESS: Recording ${recordingId} deleted successfully`);
                     location.reload();
                 } else {
-                    alert('Failed to delete recording: ' + (data.error || 'Unknown error'));
+                    console.error(`❌ DELETE FAILED:`, data);
+                    alert('Failed to delete recording: ' + (data.message || data.error || 'Unknown error'));
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to delete recording');
+                console.error(`❌ DELETE ERROR: Network or parsing error for recording ${recordingId}:`, error);
+                alert('Failed to delete recording: Network error');
             });
+        } else {
+            console.log(`🗑️ DELETE CANCELLED: User cancelled deletion of recording ${recordingId}`);
         }
     }
 

@@ -120,6 +120,34 @@ class Recording(db.Model):
         else:
             return "status-local"
     
+    @property
+    def resolved_file_path(self):
+        """Get the correct file path for the current machine/user"""
+        if not self.file_path:
+            return None
+            
+        # Get the current project directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Check if file_path is already just a filename (new format)
+        if os.path.isabs(self.file_path):
+            # Old format: full path stored - extract filename
+            filename = os.path.basename(self.file_path)
+        else:
+            # New format: just filename stored
+            filename = self.file_path
+        
+        # Build the correct path for this machine
+        resolved_path = os.path.join(current_dir, 'recordings', filename)
+        
+        return resolved_path
+    
+    @property
+    def file_exists(self):
+        """Check if the file exists at the resolved path"""
+        resolved_path = self.resolved_file_path
+        return resolved_path and os.path.exists(resolved_path)
+    
     def __repr__(self):
         return f'<Recording {self.title}>'
 
