@@ -136,7 +136,29 @@ def get_monitors():
         # Get manufacturer info first
         manufacturer_list = get_monitor_manufacturers()
         
-        # PowerShell command to get monitor info - using single line approach
+        # First try to get native resolution from VideoController (bypasses scaling)
+        native_res_command = 'Get-CimInstance -ClassName Win32_VideoController | Where-Object {$_.CurrentHorizontalResolution -gt 0} | Select-Object CurrentHorizontalResolution, CurrentVerticalResolution | ConvertTo-Json'
+        
+        native_result = subprocess.run([
+            'powershell', '-Command', native_res_command
+        ], capture_output=True, text=True, shell=False)
+        
+        native_width = 1920  # Default fallback
+        native_height = 1080
+        
+        if native_result.returncode == 0 and native_result.stdout.strip():
+            try:
+                native_data = json.loads(native_result.stdout.strip())
+                if isinstance(native_data, dict):
+                    native_width = native_data.get('CurrentHorizontalResolution', 1920)
+                    native_height = native_data.get('CurrentVerticalResolution', 1080)
+                elif isinstance(native_data, list) and len(native_data) > 0:
+                    native_width = native_data[0].get('CurrentHorizontalResolution', 1920)
+                    native_height = native_data[0].get('CurrentVerticalResolution', 1080)
+            except Exception as e:
+                print(f"Failed to parse native resolution: {e}")
+        
+        # PowerShell command to get monitor positions - using single line approach
         ps_command = 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { [PSCustomObject]@{ DeviceName = $_.DeviceName; Primary = $_.Primary; X = $_.Bounds.X; Y = $_.Bounds.Y; Width = $_.Bounds.Width; Height = $_.Bounds.Height } } | ConvertTo-Json'
         
         result = subprocess.run([
@@ -151,6 +173,14 @@ def get_monitors():
             if isinstance(monitors_data, dict):
                 monitors_data = [monitors_data]
             
+            # Calculate scaling factor to detect if Windows scaling is affecting results
+            scaling_factor = 1.0
+            if len(monitors_data) > 0:
+                reported_width = monitors_data[0]['Width']
+                if reported_width > 0 and native_width > reported_width:
+                    scaling_factor = native_width / reported_width
+                    print(f"Detected Windows scaling: {scaling_factor:.2f}x ({reported_width} scaled → {native_width} native)")
+            
             # Format monitor info for UI
             monitors = []
             for i, monitor in enumerate(monitors_data):
@@ -163,34 +193,51 @@ def get_monitors():
                     else:
                         manufacturer_info = f" ({mfg['name']})"
                 
+                # Use native resolution for primary monitor, scale others proportionally
+                actual_width = monitor['Width']
+                actual_height = monitor['Height']
+                
+                if monitor['Primary'] and scaling_factor > 1.0:
+                    # For primary monitor, use native resolution
+                    actual_width = native_width
+                    actual_height = native_height
+                elif scaling_factor > 1.0:
+                    # For secondary monitors, apply scaling correction
+                    actual_width = int(monitor['Width'] * scaling_factor)
+                    actual_height = int(monitor['Height'] * scaling_factor)
+                
                 # Build display name with manufacturer if available
                 display_name = f"Monitor {i+1}{manufacturer_info}"
                 if monitor['Primary']:
                     display_name += " - Primary"
-                display_name += f" - {monitor['Width']}x{monitor['Height']}"
+                display_name += f" - {actual_width}x{actual_height}"
                 if monitor['X'] != 0 or monitor['Y'] != 0:
-                    display_name += f" at ({monitor['X']}, {monitor['Y']})"
+                    # Scale the positions too if needed
+                    actual_x = int(monitor['X'] * scaling_factor) if scaling_factor > 1.0 else monitor['X']
+                    actual_y = int(monitor['Y'] * scaling_factor) if scaling_factor > 1.0 else monitor['Y']
+                    display_name += f" at ({actual_x}, {actual_y})"
                 
                 monitors.append({
                     'id': i,
                     'name': display_name,
                     'device_name': monitor['DeviceName'],
                     'primary': monitor['Primary'],
-                    'x': monitor['X'],
-                    'y': monitor['Y'],
-                    'width': monitor['Width'],
-                    'height': monitor['Height']
+                    'x': int(monitor['X'] * scaling_factor) if scaling_factor > 1.0 else monitor['X'],
+                    'y': int(monitor['Y'] * scaling_factor) if scaling_factor > 1.0 else monitor['Y'],
+                    'width': actual_width,
+                    'height': actual_height
                 })
             
             return monitors
         else:
-            # Fallback if PowerShell fails
+            # Fallback if PowerShell fails - use native resolution if available
             print(f"PowerShell failed: returncode={result.returncode}, stderr={result.stderr}")  # Debug line
-            return [{'id': 0, 'name': 'Primary Monitor (Default)', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'primary': True}]
+            return [{'id': 0, 'name': f'Primary Monitor (Default) - {native_width}x{native_height}', 
+                    'x': 0, 'y': 0, 'width': native_width, 'height': native_height, 'primary': True}]
             
     except Exception as e:
         print(f"Error getting monitors: {e}")
-        return [{'id': 0, 'name': 'Primary Monitor (Default)', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'primary': True}]
+        return [{'id': 0, 'name': 'Primary Monitor (Default) - 1920x1080', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'primary': True}]
 
 # Authentication routes
 @app.route('/login', methods=['GET', 'POST'])
