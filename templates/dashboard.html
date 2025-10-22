@@ -250,41 +250,51 @@
             color: var(--primary-blue);
         }
 
-        .recordings-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1rem;
-            padding: 1.25rem;
-        }
-
-        .recording-card {
-            border: 1px solid var(--gray-200);
-            border-radius: 6px;
+        .recordings-list {
+            background: white;
+            border-radius: 8px;
             overflow: hidden;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: var(--shadow-sm);
+            padding: 0;
         }
 
-        .recording-card:hover {
-            border-color: var(--gray-300);
-            box-shadow: var(--shadow-md);
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--gray-200);
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
 
-        .recording-thumbnail {
-            width: 100%;
-            height: 120px;
-            background: var(--gray-100);
+        .list-item:hover {
+            background: var(--gray-50);
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-thumbnail {
+            width: 60px;
+            height: 40px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            margin-right: 1rem;
             display: flex;
             align-items: center;
             justify-content: center;
             color: var(--gray-400);
-            font-size: 2rem;
+            font-size: 1.5rem;
+            flex-shrink: 0;
         }
 
-        .recording-info {
-            padding: 0.75rem;
+        .list-info {
+            flex: 1;
+            min-width: 0;
         }
 
-        .recording-title {
+        .list-title {
             font-size: 0.875rem;
             font-weight: 500;
             color: var(--gray-900);
@@ -294,11 +304,31 @@
             white-space: nowrap;
         }
 
-        .recording-meta {
+        .list-meta {
             display: flex;
-            gap: 1rem;
+            gap: 1.5rem;
             font-size: 0.75rem;
             color: var(--gray-500);
+        }
+
+        .list-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .download-btn {
+            color: var(--gray-400);
+            text-decoration: none;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .download-btn:hover {
+            color: var(--secondary-blue);
+            background: var(--gray-100);
         }
 
         .empty-state {
@@ -338,8 +368,13 @@
                 align-items: stretch;
             }
 
-            .recordings-grid {
-                grid-template-columns: 1fr;
+            .list-item {
+                padding: 0.75rem;
+            }
+
+            .list-meta {
+                flex-direction: column;
+                gap: 0.25rem;
             }
         }
     </style>
@@ -349,9 +384,10 @@
         <div class="header-content">
             <div class="logo">FYE Meeting Recorder</div>
             <nav class="nav-menu">
-                <a href="/dashboard" class="nav-link active">Dashboard</a>
-                <a href="/record" class="nav-link">Record</a>
-                <a href="/recordings" class="nav-link">Recordings</a>
+                <a href="{{ url_for('dashboard') }}" class="nav-link active">Dashboard</a>
+                <a href="{{ url_for('record') }}" class="nav-link">Record</a>
+                <a href="{{ url_for('recordings') }}" class="nav-link">Recordings</a>
+                <a href="{{ url_for('settings') }}" class="nav-link">Settings</a>
             </nav>
             <div class="user-menu">
                 <span class="user-info">{{ current_user.username }}</span>
@@ -408,19 +444,31 @@
                 <a href="/recordings" class="view-all-link">View All</a>
             </div>
             {% if recent_recordings %}
-                <div class="recordings-grid">
+                <div class="recordings-list">
                     {% for recording in recent_recordings %}
-                    <div class="recording-card">
-                        <div class="recording-thumbnail">
-                            🎬
+                    <div class="list-item" onclick="playRecording('{{ recording.id }}', event)">
+                        <div class="list-thumbnail">
+                            {% if recording.file_path %}
+                                🎬
+                            {% else %}
+                                📹
+                            {% endif %}
                         </div>
-                        <div class="recording-info">
-                            <div class="recording-title">{{ recording.title }}</div>
-                            <div class="recording-meta">
+                        <div class="list-info">
+                            <div class="list-title">{{ recording.title }}</div>
+                            <div class="list-meta">
+                                <span>{{ recording.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                                 <span>{{ recording.duration_formatted }}</span>
-                                <span>{{ recording.created_at.strftime('%Y-%m-%d') }}</span>
                                 <span>{{ recording.file_size_formatted }}</span>
                             </div>
+                        </div>
+                        <div class="list-actions">
+                            <a href="{{ url_for('download_recording', recording_id=recording.id) }}" 
+                               class="download-btn" 
+                               onclick="event.stopPropagation()" 
+                               title="Download recording">
+                                📥
+                            </a>
                         </div>
                     </div>
                     {% endfor %}
@@ -433,5 +481,88 @@
             {% endif %}
         </div>
     </main>
+
+    <script>
+        function playRecording(recordingId, event) {
+            // Don't play if clicking on action buttons
+            if (event && (event.target.closest('.action-buttons') || event.target.closest('.recording-actions'))) {
+                return;
+            }
+            
+            // Create a modal with video player
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.9);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
+            
+            const videoContainer = document.createElement('div');
+            videoContainer.style.cssText = `
+                position: relative;
+                max-width: 90%;
+                max-height: 90%;
+                background: black;
+            `;
+            
+            const video = document.createElement('video');
+            video.src = '/video/' + recordingId;
+            video.controls = true;
+            video.autoplay = true;
+            video.style.cssText = `
+                width: 100%;
+                height: 100%;
+                max-width: 100vw;
+                max-height: 90vh;
+            `;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: -10px;
+                right: -10px;
+                width: 30px;
+                height: 30px;
+                border: none;
+                background: white;
+                color: black;
+                border-radius: 50%;
+                font-size: 20px;
+                cursor: pointer;
+                z-index: 10001;
+            `;
+            
+            closeBtn.onclick = () => {
+                document.body.removeChild(modal);
+            };
+            
+            // Close on background click
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            };
+            
+            // Close on Escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && document.body.contains(modal)) {
+                    document.body.removeChild(modal);
+                }
+            }, { once: true });
+            
+            videoContainer.appendChild(video);
+            videoContainer.appendChild(closeBtn);
+            modal.appendChild(videoContainer);
+            document.body.appendChild(modal);
+        }
+    </script>
 </body>
 </html>

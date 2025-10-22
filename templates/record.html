@@ -332,9 +332,10 @@
         <div class="header-content">
             <div class="logo">FYE Meeting Recorder</div>
             <nav class="nav-menu">
-                <a href="/dashboard" class="nav-link">Dashboard</a>
-                <a href="/record" class="nav-link active">Record</a>
-                <a href="/recordings" class="nav-link">Recordings</a>
+                <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+                <a href="{{ url_for('record') }}" class="nav-link active">Record</a>
+                <a href="{{ url_for('recordings') }}" class="nav-link">Recordings</a>
+                <a href="{{ url_for('settings') }}" class="nav-link">Settings</a>
             </nav>
             <div class="user-menu">
                 <span class="user-info">{{ current_user.username }}</span>
@@ -403,6 +404,8 @@
         let pollInterval;
 
         function loadMonitors() {
+            const defaultMonitorId = {{ default_monitor|default('null') }};
+            
             fetch('/monitors')
             .then(response => response.json())
             .then(data => {
@@ -413,7 +416,10 @@
                     const option = document.createElement('option');
                     option.value = monitor.id;
                     option.textContent = monitor.name;
-                    if (monitor.primary) {
+                    
+                    // Select user's default monitor, or primary if no default set
+                    if ((defaultMonitorId !== null && monitor.id == defaultMonitorId) || 
+                        (defaultMonitorId === null && monitor.primary)) {
                         option.selected = true;
                     }
                     select.appendChild(option);

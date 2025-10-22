@@ -20,6 +20,10 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
     
+    # Settings
+    default_monitor = db.Column(db.String(200))  # Default monitor for recordings
+    auto_delete_days = db.Column(db.Integer, default=30)  # Auto-delete recordings after N days
+    
     # Relationship to recordings
     recordings = db.relationship('Recording', backref='user', lazy=True)
     
@@ -91,6 +95,31 @@ class Recording(db.Model):
         """Generate thumbnail path (placeholder for now)"""
         return "/static/img/video-placeholder.jpg"
     
+    @property
+    def sync_status(self):
+        """Get sync status display text"""
+        if self.uploaded:
+            return "Synced"
+        elif self.status == "failed":
+            return "Failed"
+        elif self.status == "processing":
+            return "Processing"
+        else:
+            return "Local Only"
+    
+    @property
+    def sync_status_class(self):
+        """Get CSS class for sync status"""
+        status = self.sync_status
+        if status == "Synced":
+            return "status-synced"
+        elif status == "Failed":
+            return "status-failed"
+        elif status == "Processing":
+            return "status-processing"
+        else:
+            return "status-local"
+    
     def __repr__(self):
         return f'<Recording {self.title}>'
 
@@ -103,7 +132,22 @@ def init_db(app):
         db.create_all()
         
         # Create default admin user if none exists
-        if not User.query.first():
+        try:
+            if not User.query.first():
+                admin = User(
+                    username='admin',
+                    email='admin@fyemeetings.com'
+                )
+                admin.set_password('admin123')  # Change this in production!
+                db.session.add(admin)
+                db.session.commit()
+                print("Default admin user created (admin/admin123)")
+        except Exception as e:
+            print(f"Database initialization: {e}")
+            # If there's an issue, recreate the database
+            db.drop_all()
+            db.create_all()
+            
             admin = User(
                 username='admin',
                 email='admin@fyemeetings.com'
@@ -111,4 +155,4 @@ def init_db(app):
             admin.set_password('admin123')  # Change this in production!
             db.session.add(admin)
             db.session.commit()
-            print("✅ Default admin user created (admin/admin123)")
+            print("Database recreated and default admin user created (admin/admin123)")

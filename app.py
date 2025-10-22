@@ -26,7 +26,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-login_manager.login_message = 'Please log in to access this page.'
+login_manager.login_message = None  # Disable automatic login messages
 login_manager.login_message_category = 'info'
 
 # Initialize database
@@ -290,9 +290,13 @@ def recordings():
 @app.route('/record')
 @login_required
 def record():
-    return render_template('record.html')
+    monitors = get_monitors()
+    return render_template('record.html', 
+                         monitors=monitors, 
+                         default_monitor=current_user.default_monitor)
 
 @app.route('/monitors')
+@login_required
 def list_monitors():
     """API endpoint to get available monitors"""
     monitors = get_monitors()
@@ -306,7 +310,17 @@ def start_recording():
     
     # Get monitor selection and title from request
     data = request.get_json() or {}
-    monitor_id = data.get('monitor_id', 0)  # Default to primary monitor
+    monitor_id = data.get('monitor_id')
+    
+    # Use user's default monitor if no monitor specified
+    if monitor_id is None and current_user.default_monitor:
+        try:
+            monitor_id = int(current_user.default_monitor)
+        except (ValueError, TypeError):
+            monitor_id = 0  # Fall back to primary monitor if conversion fails
+    elif monitor_id is None:
+        monitor_id = 0  # Fall back to primary monitor
+    
     recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     
     # Get monitor info
@@ -338,10 +352,26 @@ def start_recording():
     recording_state['selected_monitor'] = selected_monitor
     recording_state['recording_id'] = recording.id
     
+    # Create upload callback function
+    def upload_callback(file_path, success, message):
+        """Called when upload completes or fails"""
+        with app.app_context():
+            if 'recording_id' in recording_state:
+                rec = Recording.query.get(recording_state['recording_id'])
+                if rec:
+                    if success:
+                        rec.uploaded = True
+                        rec.upload_url = message if message.startswith('http') else None
+                        print(f"📊 Database updated: Recording #{rec.id} marked as uploaded")
+                    else:
+                        print(f"📊 Upload failed for recording #{rec.id}: {message}")
+                    db.session.commit()
+
     # Create streamer instance with monitor config
     recording_state['streamer'] = DualModeStreamer(
         monitor_config=selected_monitor
     )
+    recording_state['streamer'].upload_callback = upload_callback  # Set the callback
     recording_state['active'] = True
     recording_state['transcriptions'] = []
     
@@ -503,6 +533,260 @@ def serve_thumbnail(recording_id):
             abort(404)
     
     return send_file(thumbnail_path, mimetype='image/jpeg')
+
+@app.route('/download/<int:recording_id>')
+@login_required
+def download_recording(recording_id):
+    """Download a recording file"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    if not recording.file_path or not os.path.exists(recording.file_path):
+        abort(404)
+    
+    # Get the filename without path for download
+    filename = recording.filename or os.path.basename(recording.file_path)
+    
+    return send_file(
+        recording.file_path, 
+        as_attachment=True, 
+        download_name=filename,
+        mimetype='video/x-matroska'  # MKV mimetype
+    )
+
+@app.route('/sync-status/<int:recording_id>', methods=['POST'])
+@login_required
+def update_sync_status(recording_id):
+    """Manually update sync status of a recording"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    # Check if recording is currently being uploaded
+    if 'streamer' in recording_state and hasattr(recording_state['streamer'], 'upload_status'):
+        upload_status = recording_state['streamer'].upload_status
+        if upload_status.get('file') == recording.file_path and upload_status.get('progress') == 100:
+            recording.uploaded = True
+            db.session.commit()
+            return jsonify({'status': 'synced'})
+    
+    # For now, just return current status
+    return jsonify({'status': recording.sync_status.lower()})
+
+@app.route('/delete/<int:recording_id>', methods=['POST', 'DELETE'])
+@login_required
+def delete_recording(recording_id):
+    """Delete a recording from database and optionally from filesystem"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    # Get delete options from request
+    data = request.get_json() or {}
+    delete_file = data.get('delete_file', True)  # Default to deleting file
+    
+    deleted_items = []
+    errors = []
+    
+    try:
+        # Delete physical file if requested and exists
+        if delete_file and recording.file_path and os.path.exists(recording.file_path):
+            try:
+                os.remove(recording.file_path)
+                deleted_items.append('video_file')
+                
+                # Also delete thumbnail if it exists
+                base_name = os.path.splitext(recording.file_path)[0]
+                thumbnail_path = f"{base_name}_thumb.jpg"
+                if os.path.exists(thumbnail_path):
+                    os.remove(thumbnail_path)
+                    deleted_items.append('thumbnail')
+                    
+            except Exception as e:
+                errors.append(f"Failed to delete file: {str(e)}")
+        
+        # Delete database record
+        title = recording.title
+        db.session.delete(recording)
+        db.session.commit()
+        deleted_items.append('database_record')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Recording "{title}" deleted successfully',
+            'deleted': deleted_items,
+            'errors': errors
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Failed to delete recording: {str(e)}',
+            'deleted': deleted_items,
+            'errors': errors + [str(e)]
+        }), 500
+
+@app.route('/cleanup-orphaned', methods=['POST'])
+@login_required
+def cleanup_orphaned_recordings():
+    """Delete all recordings that have no corresponding file"""
+    orphaned_recordings = Recording.query.filter_by(user_id=current_user.id).filter(
+        (Recording.file_path == None) | (Recording.file_path == '')
+    ).all()
+    
+    deleted_count = 0
+    deleted_titles = []
+    
+    for recording in orphaned_recordings:
+        deleted_titles.append(recording.title)
+        db.session.delete(recording)
+        deleted_count += 1
+    
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': f'Cleaned up {deleted_count} orphaned recording(s)',
+            'deleted_count': deleted_count,
+            'deleted_titles': deleted_titles
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Failed to cleanup orphaned recordings: {str(e)}'
+        }), 500
+
+def cleanup_old_recordings():
+    """Clean up old local recordings based on user settings"""
+    from datetime import datetime, timedelta
+    
+    try:
+        # Get all users with auto-delete settings
+        users = User.query.filter(User.auto_delete_days.isnot(None)).all()
+        
+        total_deleted = 0
+        total_freed_space = 0
+        
+        for user in users:
+            if not user.auto_delete_days or user.auto_delete_days <= 0:
+                continue
+                
+            # Calculate cutoff date
+            cutoff_date = datetime.utcnow() - timedelta(days=user.auto_delete_days)
+            
+            # Find old recordings that are synced (uploaded)
+            old_recordings = Recording.query.filter(
+                Recording.user_id == user.id,
+                Recording.created_at < cutoff_date,
+                Recording.uploaded == True,  # Only delete if uploaded
+                Recording.file_path.isnot(None)  # Has a file path
+            ).all()
+            
+            user_deleted = 0
+            user_freed_space = 0
+            
+            for recording in old_recordings:
+                try:
+                    # Delete the actual file
+                    if recording.file_path and os.path.exists(recording.file_path):
+                        file_size = os.path.getsize(recording.file_path)
+                        os.remove(recording.file_path)
+                        user_freed_space += file_size
+                        user_deleted += 1
+                        
+                        # Update database - clear file path but keep record
+                        recording.file_path = None
+                        
+                        print(f"Auto-deleted: {recording.title} ({recording.file_size_formatted})")
+                        
+                except Exception as e:
+                    print(f"Failed to delete file {recording.file_path}: {e}")
+                    continue
+            
+            if user_deleted > 0:
+                total_deleted += user_deleted
+                total_freed_space += user_freed_space
+                print(f"User {user.username}: Deleted {user_deleted} files, freed {user_freed_space / (1024*1024):.1f} MB")
+        
+        # Commit all changes
+        db.session.commit()
+        
+        if total_deleted > 0:
+            print(f"Auto-cleanup completed: {total_deleted} files deleted, {total_freed_space / (1024*1024):.1f} MB freed")
+        
+        return {
+            'deleted_files': total_deleted,
+            'freed_space_mb': total_freed_space / (1024*1024),
+            'success': True
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Auto-cleanup error: {e}")
+        return {
+            'success': False,
+            'error': str(e)
+        }
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    """Settings page for user preferences"""
+    if request.method == 'POST':
+        try:
+            # Update user settings
+            default_monitor = request.form.get('default_monitor', '')
+            current_user.default_monitor = default_monitor if default_monitor else None
+            auto_delete_days = request.form.get('auto_delete_days', '30')
+            
+            # Validate auto_delete_days
+            try:
+                auto_delete_days = int(auto_delete_days)
+                if auto_delete_days < 1 or auto_delete_days > 120:
+                    flash('Auto-delete days must be between 1 and 120.', 'error')
+                    return redirect(url_for('settings'))
+            except ValueError:
+                flash('Invalid auto-delete days value.', 'error')
+                return redirect(url_for('settings'))
+            
+            current_user.auto_delete_days = auto_delete_days
+            db.session.commit()
+            
+            flash('Settings updated successfully!', 'success')
+            return redirect(url_for('settings'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Failed to update settings: {str(e)}', 'error')
+            return redirect(url_for('settings'))
+    
+    # Get available monitors for dropdown
+    monitors = get_monitors()
+    
+    return render_template('settings.html', 
+                         user=current_user, 
+                         monitors=monitors)
+
+@app.route('/auto-cleanup', methods=['POST'])
+@login_required
+def trigger_auto_cleanup():
+    """Manually trigger auto-cleanup for current user"""
+    try:
+        result = cleanup_old_recordings()
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': f"Cleanup completed: {result['deleted_files']} files deleted, {result['freed_space_mb']:.1f} MB freed",
+                'deleted_files': result['deleted_files'],
+                'freed_space_mb': result['freed_space_mb']
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': f"Cleanup failed: {result['error']}"
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error during cleanup: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     with app.app_context():

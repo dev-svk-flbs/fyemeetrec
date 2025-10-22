@@ -243,14 +243,32 @@ class DualModeStreamer:
                     
                     if response.status_code == 200:
                         print(f"✅ Upload completed: {file_path}")
-                        self.upload_status = {'active': False, 'progress': 100, 'file': file_path}
+                        self.upload_status = {'active': False, 'progress': 100, 'file': file_path, 'success': True}
+                        # Call upload callback if provided
+                        if hasattr(self, 'upload_callback') and self.upload_callback:
+                            try:
+                                self.upload_callback(file_path, True, response.text)
+                            except Exception as callback_error:
+                                print(f"⚠️ Upload callback error: {callback_error}")
                     else:
                         print(f"❌ Upload failed: {response.status_code}")
-                        self.upload_status = {'active': False, 'progress': 0, 'file': file_path}
+                        self.upload_status = {'active': False, 'progress': 0, 'file': file_path, 'success': False}
+                        # Call upload callback if provided
+                        if hasattr(self, 'upload_callback') and self.upload_callback:
+                            try:
+                                self.upload_callback(file_path, False, f"HTTP {response.status_code}")
+                            except Exception as callback_error:
+                                print(f"⚠️ Upload callback error: {callback_error}")
                         
             except Exception as e:
                 print(f"❌ Upload error: {e}")
-                self.upload_status = {'active': False, 'progress': 0, 'file': file_path}
+                self.upload_status = {'active': False, 'progress': 0, 'file': file_path, 'success': False}
+                # Call upload callback if provided
+                if hasattr(self, 'upload_callback') and self.upload_callback:
+                    try:
+                        self.upload_callback(file_path, False, str(e))
+                    except Exception as callback_error:
+                        print(f"⚠️ Upload callback error: {callback_error}")
         
         # Start upload in daemon thread (non-blocking)
         upload_thread = threading.Thread(target=upload_worker, daemon=True)

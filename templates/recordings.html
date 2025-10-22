@@ -150,6 +150,27 @@
             background: var(--secondary-blue);
         }
 
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--gray-700);
+            border: 1px solid var(--gray-300);
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background: var(--gray-300);
+            border-color: var(--gray-400);
+        }
+
         .search-box {
             position: relative;
             max-width: 300px;
@@ -199,10 +220,14 @@
         }
 
         .recordings-grid {
-            display: grid;
+            display: none;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.25rem;
             margin-bottom: 2rem;
+        }
+
+        .recordings-grid.active {
+            display: grid;
         }
 
         .recording-card {
@@ -309,6 +334,98 @@
             color: #991b1b;
         }
 
+        .status-synced {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-local {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .download-btn {
+            background: #162a86ff;
+            color: white;
+            border: none;
+            padding: 0.375rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .download-btn:hover {
+            background: var(--primary-blue);
+            color: white;
+            text-decoration: none;
+        }
+
+        .delete-btn {
+            background: #fa7575ff;
+            color: white;
+            border: none;
+            padding: 0.375rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+            color: white;
+            text-decoration: none;
+        }
+
+        .recording-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 0.75rem;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.375rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .recording-actions {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            
+            .action-buttons {
+                justify-content: space-between;
+                width: 100%;
+            }
+        }
+
+        .sync-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+        }
+
         .pagination {
             display: flex;
             justify-content: center;
@@ -390,6 +507,200 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* View Toggle Styles */
+        .view-toggles {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+
+        .view-toggle-btn {
+            background: white;
+            border: 1px solid var(--gray-300);
+            color: var(--gray-500);
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+        }
+
+        .view-toggle-btn:hover {
+            border-color: var(--gray-400);
+            color: var(--gray-700);
+        }
+
+        .view-toggle-btn.active {
+            background: var(--primary-blue);
+            border-color: var(--primary-blue);
+            color: white;
+        }
+
+        /* List View Styles */
+        .recordings-list {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .recordings-list.active {
+            display: block;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--gray-200);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .list-item:hover {
+            background: var(--gray-50);
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-thumbnail {
+            width: 60px;
+            height: 40px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            margin-right: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gray-400);
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .list-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .list-title {
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.25rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .list-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.75rem;
+            color: var(--gray-500);
+        }
+
+        .list-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        /* Calendar View Styles */
+        .recordings-calendar {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .recordings-calendar.active {
+            display: block;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .calendar-nav {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .calendar-nav-btn {
+            background: var(--gray-100);
+            border: none;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--gray-600);
+        }
+
+        .calendar-nav-btn:hover {
+            background: var(--gray-200);
+        }
+
+        .calendar-month {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: var(--gray-200);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .calendar-day {
+            background: white;
+            padding: 0.75rem 0.5rem;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .calendar-day-header {
+            background: var(--gray-100);
+            padding: 0.5rem;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        .calendar-day-number {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-700);
+            margin-bottom: 0.25rem;
+        }
+
+        .calendar-recording {
+            background: var(--primary-blue);
+            color: white;
+            padding: 0.125rem 0.25rem;
+            border-radius: 3px;
+            font-size: 0.625rem;
+            margin-bottom: 0.125rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -397,9 +708,10 @@
         <div class="header-content">
             <div class="logo">FYE Meeting Recorder</div>
             <nav class="nav-menu">
-                <a href="/dashboard" class="nav-link">Dashboard</a>
-                <a href="/record" class="nav-link">Record</a>
-                <a href="/recordings" class="nav-link active">Recordings</a>
+                <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+                <a href="{{ url_for('record') }}" class="nav-link">Record</a>
+                <a href="{{ url_for('recordings') }}" class="nav-link active">Recordings</a>
+                <a href="{{ url_for('settings') }}" class="nav-link">Settings</a>
             </nav>
             <div class="user-menu">
                 <span class="user-info">{{ current_user.username }}</span>
@@ -416,6 +728,9 @@
                     <span class="search-icon">🔍</span>
                     <input type="text" class="search-input" placeholder="Search recordings...">
                 </div>
+                <button onclick="cleanupOrphanedRecordings()" class="btn-secondary" title="Remove database entries without files">
+                    🧹 Cleanup
+                </button>
                 <a href="/record" class="btn-primary">
                     <span>🎥</span>
                     New Recording
@@ -442,12 +757,26 @@
                     <option value="failed">Failed</option>
                 </select>
             </div>
+            
+            <!-- View Toggles -->
+            <div class="view-toggles">
+                <button class="view-toggle-btn active" onclick="setView('grid')" title="Grid View">
+                    <span style="font-size: 16px;">⚏</span>
+                </button>
+                <button class="view-toggle-btn" onclick="setView('list')" title="List View">
+                    <span style="font-size: 16px;">☰</span>
+                </button>
+                <button class="view-toggle-btn" onclick="setView('calendar')" title="Calendar View">
+                    <span style="font-size: 16px;">📅</span>
+                </button>
+            </div>
         </div>
 
         {% if recordings.items %}
-            <div class="recordings-grid">
+            <!-- Grid View (Default) -->
+            <div class="recordings-grid active">
                 {% for recording in recordings.items %}
-                <div class="recording-card" onclick="playRecording('{{ recording.id }}')">
+                <div class="recording-card" onclick="playRecording('{{ recording.id }}', event)">
                     <div class="recording-thumbnail">
                         {% if recording.file_path %}
                         <img src="{{ url_for('serve_thumbnail', recording_id=recording.id) }}" 
@@ -480,9 +809,98 @@
                                 {{ recording.status.title() }}
                             </span>
                         </div>
+                        <div class="recording-actions">
+                            <div class="sync-indicator">
+                                <span class="recording-status {{ recording.sync_status_class }}">
+                                    {% if recording.sync_status == 'Synced' %}
+                                        ☁️ Synced
+                                    {% elif recording.sync_status == 'Failed' %}
+                                        ❌ Failed
+                                    {% elif recording.sync_status == 'Processing' %}
+                                        🔄 Processing
+                                    {% else %}
+                                        💾 Local Only
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="action-buttons">
+                                {% if recording.file_path %}
+                                <a href="{{ url_for('download_recording', recording_id=recording.id) }}" 
+                                   class="download-btn" 
+                                   title="Download {{ recording.filename }}">
+                                        Download
+                                </a>
+                                {% endif %}
+                                <button class="delete-btn" 
+                                        onclick="deleteRecording({{ recording.id }}, '{{ recording.title }}')"
+                                        title="Delete recording">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+
+            <!-- List View -->
+            <div class="recordings-list">
+                {% for recording in recordings.items %}
+                <div class="list-item" onclick="playRecording('{{ recording.id }}', event)">
+                    <div class="list-thumbnail">
+                        {% if recording.file_path %}
+                            🎬
+                        {% else %}
+                            📹
+                        {% endif %}
+                    </div>
+                    <div class="list-info">
+                        <div class="list-title">{{ recording.title }}</div>
+                        <div class="list-meta">
+                            <span>{{ recording.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <span>{{ recording.duration_formatted }}</span>
+                            <span>{{ recording.file_size_formatted }}</span>
+                            <span class="{{ recording.sync_status_class }}">{{ recording.sync_status }}</span>
+                        </div>
+                    </div>
+                    <div class="list-actions">
+                        <a href="{{ url_for('download_recording', recording_id=recording.id) }}" 
+                           class="download-btn" 
+                           onclick="event.stopPropagation()" 
+                           title="Download recording">
+                            ⬇️
+                        </a>
+                        <button class="delete-btn" 
+                                onclick="deleteRecording({{ recording.id }}, '{{ recording.title }}')"
+                                title="Delete recording">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Calendar View -->
+            <div class="recordings-calendar">
+                <div class="calendar-header">
+                    <div class="calendar-nav">
+                        <button class="calendar-nav-btn" onclick="changeMonth(-1)">‹</button>
+                        <span class="calendar-month" id="currentMonth">{{ current_month|default('November 2024') }}</span>
+                        <button class="calendar-nav-btn" onclick="changeMonth(1)">›</button>
+                    </div>
+                </div>
+                <div class="calendar-grid" id="calendarGrid">
+                    <!-- Calendar days headers -->
+                    <div class="calendar-day-header">Sun</div>
+                    <div class="calendar-day-header">Mon</div>
+                    <div class="calendar-day-header">Tue</div>
+                    <div class="calendar-day-header">Wed</div>
+                    <div class="calendar-day-header">Thu</div>
+                    <div class="calendar-day-header">Fri</div>
+                    <div class="calendar-day-header">Sat</div>
+                    
+                    <!-- Calendar days will be generated by JavaScript -->
+                </div>
             </div>
 
             <!-- Pagination -->
@@ -523,7 +941,12 @@
     </main>
 
     <script>
-        function playRecording(recordingId) {
+        function playRecording(recordingId, event) {
+            // Don't play if clicking on action buttons
+            if (event && (event.target.closest('.action-buttons') || event.target.closest('.recording-actions'))) {
+                return;
+            }
+            
             // Create a modal with video player
             const modal = document.createElement('div');
             modal.style.cssText = `
@@ -613,6 +1036,226 @@
         document.querySelector('.filter-select').addEventListener('change', function(e) {
             // TODO: Implement client-side sorting or make server request
             console.log('Sort by:', e.target.value);
+        });
+
+        // Delete recording functionality
+        function deleteRecording(recordingId, title) {
+            // Show confirmation dialog
+            const confirmDelete = confirm(`Are you sure you want to delete "${title}"?\n\nThis will:\n✓ Remove the recording from the database\n✓ Delete the video file from your computer\n✓ Delete any generated thumbnails\n\nThis action cannot be undone.`);
+            
+            if (!confirmDelete) {
+                return;
+            }
+            
+            // Show loading state
+            const deleteBtn = event.target;
+            const originalText = deleteBtn.innerHTML;
+            deleteBtn.innerHTML = '⏳ Deleting...';
+            deleteBtn.disabled = true;
+            
+            // Make delete request
+            fetch(`/delete/${recordingId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    delete_file: true  // Delete both database record and file
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    alert(`✅ ${data.message}`);
+                    
+                    // Remove the recording card from the page
+                    const recordingCard = deleteBtn.closest('.recording-card');
+                    recordingCard.style.transition = 'opacity 0.3s ease';
+                    recordingCard.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        recordingCard.remove();
+                        
+                        // Check if no recordings left
+                        const remainingCards = document.querySelectorAll('.recording-card');
+                        if (remainingCards.length === 0) {
+                            location.reload(); // Reload to show empty state
+                        }
+                    }, 300);
+                } else {
+                    alert(`❌ Failed to delete recording: ${data.message}`);
+                    // Restore button
+                    deleteBtn.innerHTML = originalText;
+                    deleteBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Delete error:', error);
+                alert('❌ An error occurred while deleting the recording.');
+                // Restore button
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+            });
+        }
+
+        // Cleanup orphaned recordings
+        function cleanupOrphanedRecordings() {
+            const confirmCleanup = confirm("🧹 Cleanup Orphaned Records\n\nThis will remove database entries for recordings that no longer have video files.\n\nThis action cannot be undone.\n\nContinue?");
+            
+            if (!confirmCleanup) {
+                return;
+            }
+            
+            // Show loading state
+            const cleanupBtn = event.target;
+            const originalText = cleanupBtn.innerHTML;
+            cleanupBtn.innerHTML = '⏳ Cleaning...';
+            cleanupBtn.disabled = true;
+            
+            fetch('/cleanup-orphaned', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.deleted_count > 0) {
+                        alert(`✅ ${data.message}\n\nRemoved:\n${data.deleted_titles.join('\n')}`);
+                        location.reload(); // Refresh to show updated list
+                    } else {
+                        alert('✨ No orphaned records found. Your database is clean!');
+                    }
+                } else {
+                    alert(`❌ Cleanup failed: ${data.message}`);
+                }
+                
+                // Restore button
+                cleanupBtn.innerHTML = originalText;
+                cleanupBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Cleanup error:', error);
+                alert('❌ An error occurred during cleanup.');
+                
+                // Restore button
+                cleanupBtn.innerHTML = originalText;
+                cleanupBtn.disabled = false;
+            });
+        }
+
+        // View Toggle Functions
+        function setView(view) {
+            // Update toggle buttons
+            document.querySelectorAll('.view-toggle-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.view-toggle-btn').classList.add('active');
+            
+            // Hide all views
+            document.querySelector('.recordings-grid').classList.remove('active');
+            document.querySelector('.recordings-list').classList.remove('active');
+            document.querySelector('.recordings-calendar').classList.remove('active');
+            
+            // Show selected view
+            if (view === 'grid') {
+                document.querySelector('.recordings-grid').classList.add('active');
+            } else if (view === 'list') {
+                document.querySelector('.recordings-list').classList.add('active');
+            } else if (view === 'calendar') {
+                document.querySelector('.recordings-calendar').classList.add('active');
+                generateCalendar();
+            }
+            
+            // Save preference to localStorage
+            localStorage.setItem('preferredView', view);
+        }
+
+        // Calendar Functions
+        let currentDate = new Date();
+        
+        function changeMonth(delta) {
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            generateCalendar();
+        }
+        
+        function generateCalendar() {
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+            
+            const monthHeader = document.getElementById('currentMonth');
+            monthHeader.textContent = monthNames[currentDate.getMonth()] + ' ' + currentDate.getFullYear();
+            
+            const calendarGrid = document.getElementById('calendarGrid');
+            
+            // Clear existing days (keep headers)
+            const headers = calendarGrid.querySelectorAll('.calendar-day-header');
+            calendarGrid.innerHTML = '';
+            headers.forEach(header => calendarGrid.appendChild(header));
+            
+            // Get first day of month and number of days
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            
+            // Generate 42 days (6 weeks)
+            for (let i = 0; i < 42; i++) {
+                const cellDate = new Date(startDate);
+                cellDate.setDate(startDate.getDate() + i);
+                
+                const dayCell = document.createElement('div');
+                dayCell.className = 'calendar-day';
+                
+                const dayNumber = document.createElement('div');
+                dayNumber.className = 'calendar-day-number';
+                dayNumber.textContent = cellDate.getDate();
+                
+                if (cellDate.getMonth() !== currentDate.getMonth()) {
+                    dayNumber.style.color = 'var(--gray-400)';
+                }
+                
+                dayCell.appendChild(dayNumber);
+                
+                // Add recordings for this day (placeholder - would need backend support)
+                // This is a simplified version - you'd want to pass recording dates from the backend
+                {% for recording in recordings.items %}
+                if (cellDate.toDateString() === new Date('{{ recording.created_at.strftime("%Y-%m-%d") }}').toDateString()) {
+                    const recordingDiv = document.createElement('div');
+                    recordingDiv.className = 'calendar-recording';
+                    recordingDiv.textContent = '{{ recording.title[:20] }}...';
+                    recordingDiv.onclick = () => playRecording({{ recording.id }});
+                    dayCell.appendChild(recordingDiv);
+                }
+                {% endfor %}
+                
+                calendarGrid.appendChild(dayCell);
+            }
+        }
+
+        // Initialize view on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Restore preferred view
+            const preferredView = localStorage.getItem('preferredView') || 'grid';
+            
+            // Reset all views
+            document.querySelector('.recordings-grid').classList.remove('active');
+            document.querySelector('.recordings-list').classList.remove('active');
+            document.querySelector('.recordings-calendar').classList.remove('active');
+            
+            // Set active view
+            if (preferredView === 'list') {
+                document.querySelector('.recordings-list').classList.add('active');
+                document.querySelectorAll('.view-toggle-btn')[1].classList.add('active');
+                document.querySelectorAll('.view-toggle-btn')[0].classList.remove('active');
+            } else if (preferredView === 'calendar') {
+                document.querySelector('.recordings-calendar').classList.add('active');
+                document.querySelectorAll('.view-toggle-btn')[2].classList.add('active');
+                document.querySelectorAll('.view-toggle-btn')[0].classList.remove('active');
+                generateCalendar();
+            } else {
+                document.querySelector('.recordings-grid').classList.add('active');
+            }
         });
     </script>
 </body>
