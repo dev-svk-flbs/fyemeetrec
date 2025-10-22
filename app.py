@@ -59,10 +59,18 @@ recording_state = {
 }
 
 def get_monitor_manufacturers():
-    """Get monitor manufacturer info using WMI InstanceNames"""
+    """Get monitor manufacturer info using WMI InstanceNames and full model names"""
     try:
-        # Get WMI monitor basic display params which includes InstanceName with manufacturer codes
-        wmi_command = 'Get-WmiObject -Namespace root\\wmi -Class WmiMonitorBasicDisplayParams | Select-Object InstanceName | ConvertTo-Json'
+        # Get full monitor information including model names from EDID
+        wmi_command = '''Get-WmiObject -Namespace root\\wmi -Class WmiMonitorID | ForEach-Object {
+            $mfgCode = ($_.ManufacturerName | Where-Object {$_ -ne 0} | ForEach-Object {[char]$_}) -join '';
+            $modelName = ($_.UserFriendlyName | Where-Object {$_ -ne 0} | ForEach-Object {[char]$_}) -join '';
+            [PSCustomObject]@{
+                InstanceName = $_.InstanceName;
+                ManufacturerCode = $mfgCode;
+                ModelName = $modelName
+            }
+        } | ConvertTo-Json'''
         
         result = subprocess.run([
             'powershell', '-Command', wmi_command
@@ -73,10 +81,10 @@ def get_monitor_manufacturers():
             if isinstance(wmi_data, dict):
                 wmi_data = [wmi_data]
             
-            # Manufacturer code to name mapping
+            # Enhanced manufacturer code to actual brand mapping
             manufacturer_codes = {
                 'LEN': 'Lenovo',
-                'HKC': 'HKC',
+                'HKC': 'Koorui',  # HKC codes are often used by Koorui monitors
                 'ACR': 'Acer', 
                 'SAM': 'Samsung',
                 'DEL': 'Dell',
@@ -84,8 +92,10 @@ def get_monitor_manufacturers():
                 'BNQ': 'BenQ',
                 'ASU': 'ASUS',
                 'MSI': 'MSI',
+                'GSM': 'LG',      # GSM is LG's manufacturer code
                 'LG': 'LG',
-                'HP': 'HP'
+                'HP': 'HP',
+                'YCT': 'Unknown'
             }
             
             # Extract manufacturer info from InstanceName (format: DISPLAY\MANUFACTURER####\...)
