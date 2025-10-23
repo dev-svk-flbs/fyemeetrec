@@ -38,10 +38,6 @@ class DualModeStreamer:
         self.recording_active = False
         self.transcription_active = False
         self.audio_queue = queue.Queue()
-        self.sample_rate = 16000
-        self.channels = 1
-        self.video_process = None
-        self.audio_process = None
         self.upload_status = {'active': False, 'progress': 0, 'file': None}
         
         # Monitor configuration
@@ -83,100 +79,46 @@ class DualModeStreamer:
             "-ac", "1", "-ar", "16000", "-f", "s16le", "-"
         ]
         
-        try:
-            self.transcription_active = True
-            self.audio_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            
-            # Read audio data in 3-second chunks like gold standard
-            chunk_size = 16000 * 3 * 2  # 3 seconds at 16kHz, 16-bit = 96000 bytes
-            process = self.audio_process
-            while self.transcription_active and process and process.poll() is None:
-                # read may block until chunk_size is available; terminating process will break loop
-                chunk = process.stdout.read(chunk_size)
-                if chunk:
-                    # Convert bytes to numpy array like gold standard
-                    audio_data = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
-                    self.audio_queue.put(audio_data)
-                else:
-                    break
-            
-            if process and process.poll() is None:
-                try:
-                    process.terminate()
-                except Exception:
-                    pass
-            
-        except Exception as e:
-            print(f"⚠️ Audio capture error: {e}")
-        finally:
-            self.transcription_active = False
-            self.audio_process = None
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+        chunk_size = 16000 * 3 * 2  # 3 seconds
+        
+        while self.transcription_active:
+            chunk = process.stdout.read(chunk_size)
+            if chunk:
+                audio_data = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
+                self.audio_queue.put(audio_data)
+            else:
+                break
     
     def transcribe_and_send(self):
-        """Process audio chunks with Faster-Whisper and send text to server"""
         buffer = []
-        block_duration = 3  # seconds
-        required_samples = 16000 * block_duration
+        required_samples = 16000 * 3
         
         while self.transcription_active:
             try:
-                # Get audio data from queue (timeout to allow periodic checks)
                 data = self.audio_queue.get(timeout=0.1)
                 buffer.extend(data.flatten())
-
-                # When we have enough samples, transcribe
+                
                 if len(buffer) >= required_samples:
-                    # Get the chunk and remove from buffer
                     audio_chunk = np.array(buffer[:required_samples], dtype=np.float32)
                     buffer = buffer[required_samples:]
-
-                    # Transcribe
-                    segments, _ = self.whisper_model.transcribe(
-                        audio_chunk,
-                        beam_size=1,
-                        language="en"
-                    )
-
-                    # Process segments
+                    
+                    segments, _ = self.whisper_model.transcribe(audio_chunk, beam_size=1, language="en")
                     for segment in segments:
                         text = segment.text.strip()
                         if text:
-                            print(f"💬 {text}")
+                            timestamp = time.strftime('%H:%M:%S')
+                            print(f"💬 [{timestamp}] {text}")
                             self.send_text_to_server(text)
-                
             except queue.Empty:
                 continue
-            except Exception as e:
-                print(f"⚠️ Transcription error: {e}")
-                continue
-        
-        print("✅ Transcription completed")
     
     def send_text_to_server(self, text):
-        """Send transcribed text to backend server"""
+        payload = {"text": text, "timestamp": time.time(), "source": "faster_whisper_local"}
         try:
-            payload = {
-                "text": text,
-                "timestamp": time.time(),
-                "source": "faster_whisper_local"
-            }
-            
-            # Send POST request to server
-            response = requests.post(
-                f"http://{self.server_ip}:{self.server_port}/transcription",
-                json=payload,
-                timeout=5
-            )
-            
-            if response.status_code == 200:
-                pass  # Silent success - no spam
-            else:
-                print(f"⚠️ Server error: {response.status_code}")
-                
-        except requests.exceptions.RequestException:
-            pass  # Silent fail
-        except Exception:
-            pass  # Silent fail
+            requests.post(f"http://{self.server_ip}:{self.server_port}/transcription", json=payload, timeout=5)
+        except:
+            pass
     
     def record_video_local(self, output_file):
         """Record screen + audio to local file (main thread) - NO DURATION LIMIT"""

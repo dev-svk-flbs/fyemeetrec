@@ -35,6 +35,11 @@ app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recordings.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Disable Flask request logging spam
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
+
 # Initialize extensions
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -544,7 +549,7 @@ def get_status():
 @app.route('/transcriptions')
 @login_required
 def get_transcriptions():
-    return jsonify({'transcriptions': recording_state['transcriptions'][-50:]})
+    return jsonify({'transcriptions': recording_state['transcriptions']})
 
 # Monkey patch to capture transcriptions
 original_send = DualModeStreamer.send_text_to_server

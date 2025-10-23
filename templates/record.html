@@ -35,6 +35,12 @@
 
         <!-- Actions -->
         <div class="actions">
+            <button class="btn-scroll" id="scrollBtn" onclick="scrollToBottom()" title="Scroll to Latest" style="display: none;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="7,13 12,18 17,13"/>
+                    <polyline points="7,6 12,11 17,6"/>
+                </svg>
+            </button>
             <button class="btn-clear" id="clearBtn" onclick="clearTranscript()" title="Clear Transcriptions" disabled>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 6h18"/>
@@ -228,7 +234,7 @@
         flex-shrink: 0;
     }
 
-    .btn-copy, .btn-clear {
+    .btn-copy, .btn-clear, .btn-scroll {
         width: 30.6px;
         height: 30.6px;
         border-radius: 5.1px;
@@ -240,7 +246,7 @@
         transition: all 0.2s ease;
     }
 
-    .btn-copy:hover:not(:disabled), .btn-clear:hover:not(:disabled) {
+    .btn-copy:hover:not(:disabled), .btn-clear:hover:not(:disabled), .btn-scroll:hover {
         background: rgba(255, 255, 255, 0.25);
         transform: scale(1.05);
     }
@@ -736,6 +742,10 @@
             // Only update if content changed
             if (newContent !== transcriptContent) {
                 console.log('Transcript content updated. Length:', newContent.length, 'Previous length:', transcriptContent.length);
+                
+                // Check if user was scrolled to bottom before update
+                const wasAtBottom = (flow.scrollTop + flow.clientHeight) >= (flow.scrollHeight - 10);
+                
                 transcriptContent = newContent;
                 
                 // Calculate stats
@@ -753,8 +763,13 @@
                 
                 updateStats();
                 
-                // Auto-scroll to bottom
-                flow.scrollTop = flow.scrollHeight;
+                // Only auto-scroll if user was at bottom or if recording just started
+                if (wasAtBottom || transcriptContent.trim().split(/\s+/).length < 20) {
+                    flow.scrollTop = flow.scrollHeight;
+                }
+                
+                // Update scroll button visibility
+                updateScrollButton();
             }
         })
         .catch(error => {
@@ -830,6 +845,38 @@
             console.error('Error checking status:', error);
         });
     }
+
+    // Scroll management functions
+    function scrollToBottom() {
+        const flow = document.getElementById('transcriptFlow');
+        flow.scrollTop = flow.scrollHeight;
+        updateScrollButton();
+    }
+
+    function updateScrollButton() {
+        const flow = document.getElementById('transcriptFlow');
+        const scrollBtn = document.getElementById('scrollBtn');
+        
+        if (!flow || !scrollBtn) return;
+        
+        const isAtBottom = (flow.scrollTop + flow.clientHeight) >= (flow.scrollHeight - 10);
+        const hasContent = flow.scrollHeight > flow.clientHeight;
+        
+        // Show button if there's content to scroll and user is not at bottom
+        if (hasContent && !isAtBottom && transcriptContent.trim()) {
+            scrollBtn.style.display = 'flex';
+        } else {
+            scrollBtn.style.display = 'none';
+        }
+    }
+
+    // Add scroll listener to transcript flow
+    document.addEventListener('DOMContentLoaded', function() {
+        const flow = document.getElementById('transcriptFlow');
+        if (flow) {
+            flow.addEventListener('scroll', updateScrollButton);
+        }
+    });
 
     // Add cursor blinking animation
     const style = document.createElement('style');
