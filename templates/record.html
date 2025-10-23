@@ -490,6 +490,7 @@
         checkStatus();
         setInterval(checkStatus, 3000);
         setDefaultTitle();
+        resetSessionState(); // Ensure fresh state on page load
     });
 
     function setDefaultTitle() {
@@ -551,7 +552,7 @@
                 updateUI();
                 startPolling();
                 startTimer();
-                clearTranscriptDisplay();
+                resetSessionState(); // Reset all session state for fresh recording
                 showListeningState();
             } else if (data.error) {
                 alert('Error: ' + data.error);
@@ -572,8 +573,25 @@
                 updateUI();
                 stopPolling();
                 stopTimer();
+                showVideoSavedNotification();
             }
         });
+    }
+
+    function showVideoSavedNotification() {
+        // Simple one-time notification that video is saved
+        const uploadBar = document.getElementById('uploadBar');
+        const uploadText = document.getElementById('uploadText');
+        
+        uploadBar.style.display = 'block';
+        uploadBar.style.background = 'rgba(16, 185, 129, 0.15)';
+        uploadText.textContent = '✅ Video saved successfully';
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+            uploadBar.style.display = 'none';
+            uploadBar.style.background = ''; // Reset background
+        }, 3000);
     }
 
     function updateUI() {
@@ -649,6 +667,15 @@
         wordCount = 0;
         sentenceCount = 0;
         updateStats();
+    }
+
+    function resetSessionState() {
+        // Reset all session-specific state for fresh recording
+        clearTranscriptDisplay();
+        
+        // Hide any previous notifications
+        const uploadBar = document.getElementById('uploadBar');
+        uploadBar.style.display = 'none';
     }
 
     function showListeningState() {
@@ -804,22 +831,10 @@
     }
 
     function updateUploadStatus(data) {
+        // Upload notifications disabled - users are likely away when upload completes
+        // Just hide the upload bar completely
         const uploadBar = document.getElementById('uploadBar');
-        const uploadProgress = document.getElementById('uploadProgress');
-        const uploadText = document.getElementById('uploadText');
-        
-        if (data.upload_active) {
-            uploadBar.style.display = 'block';
-            uploadProgress.style.width = `${data.upload_progress || 0}%`;
-            uploadText.textContent = `📤 Uploading ${data.upload_file ? data.upload_file.split('/').pop() : ''}... ${data.upload_progress || 0}%`;
-        } else if (data.upload_progress === 100) {
-            uploadBar.style.display = 'block';
-            uploadProgress.style.width = '100%';
-            uploadText.textContent = `✅ Upload completed: ${data.upload_file ? data.upload_file.split('/').pop() : ''}`;
-            setTimeout(() => uploadBar.style.display = 'none', 3000);
-        } else {
-            uploadBar.style.display = 'none';
-        }
+        uploadBar.style.display = 'none';
     }
 
     function checkStatus() {
