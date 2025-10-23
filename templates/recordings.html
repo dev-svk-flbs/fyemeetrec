@@ -70,7 +70,35 @@
                     <span>{{ recording.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
                     <span>{{ recording.duration_formatted }}</span>
                     <span>{{ recording.file_size_formatted }}</span>
-                    <span class="{{ recording.sync_status_class }}">{{ recording.sync_status }}</span>
+                    <span class="{{ recording.sync_status_class }}" title="{{ recording.sync_status }}">
+                    {% if recording.sync_status == 'Synced' %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+                        </svg>
+                    {% elif recording.sync_status == 'Completed' %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20,6 9,17 4,12"/>
+                        </svg>
+                    {% elif recording.sync_status == 'Processing' %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+                            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                        </svg>
+                    {% elif recording.sync_status == 'Failed' %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                    {% else %}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                    {% endif %}
+                </span>
                 </div>
             </div>
             <div class="list-actions">
@@ -122,10 +150,13 @@
                 <div class="recording-title">{{ recording.title }}</div>
                 <div class="recording-meta">
                     <div class="recording-date">
-                        📅 {{ recording.created_at.strftime('%Y-%m-%d %H:%M') }}
-                    </div>
-                    <div class="recording-date">
-                        📺 {{ recording.monitor_name }}
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: middle;">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/>
+                            <line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                        </svg>
+                        {{ recording.created_at.strftime('%Y-%m-%d %H:%M') }}
                     </div>
                 </div>
                 <div class="recording-details">
@@ -136,15 +167,33 @@
                 </div>
                 <div class="recording-actions">
                     <div class="sync-indicator">
-                        <span class="recording-status {{ recording.sync_status_class }}">
+                        <span class="{{ recording.sync_status_class }}" title="{{ recording.sync_status }}">
                             {% if recording.sync_status == 'Synced' %}
-                                ☁️ Synced
-                            {% elif recording.sync_status == 'Failed' %}
-                                ❌ Failed
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+                                </svg>
+                            {% elif recording.sync_status == 'Completed' %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20,6 9,17 4,12"/>
+                                </svg>
                             {% elif recording.sync_status == 'Processing' %}
-                                🔄 Processing
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
+                                    <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                                </svg>
+                            {% elif recording.sync_status == 'Failed' %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="15" y1="9" x2="9" y2="15"/>
+                                    <line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
                             {% else %}
-                                💾 Local Only
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14,2 14,8 20,8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                    <polyline points="10,9 9,9 8,9"/>
+                                </svg>
                             {% endif %}
                         </span>
                     </div>
@@ -158,7 +207,6 @@
                                 <polyline points="7,10 12,15 17,10"/>
                                 <line x1="12" y1="15" x2="12" y2="3"/>
                             </svg>
-                            Download
                         </a>
                         {% endif %}
                         <button class="delete-btn" 
@@ -169,7 +217,6 @@
                                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
                                 <path d="M8 6V4c0-1 1-2 2-2h4c0 1 1 2 2 2v2"/>
                             </svg>
-                            Delete
                         </button>
                     </div>
                 </div>
@@ -181,8 +228,11 @@
     <!-- Pagination -->
     {% if recordings.pages > 1 %}
     <div class="pagination">
+        {% set args_without_page = request.args.copy() %}
+        {% set _ = args_without_page.pop('page', None) %}
+        
         {% if recordings.has_prev %}
-            <a href="{{ url_for('recordings', page=recordings.prev_num) }}" class="pagination-btn">« Previous</a>
+            <a href="{{ url_for('recordings', page=recordings.prev_num, **args_without_page) }}" class="pagination-btn">« Previous</a>
         {% else %}
             <button class="pagination-btn" disabled>« Previous</button>
         {% endif %}
@@ -190,7 +240,7 @@
         {% for page_num in recordings.iter_pages() %}
             {% if page_num %}
                 {% if page_num != recordings.page %}
-                    <a href="{{ url_for('recordings', page=page_num) }}" class="pagination-btn">{{ page_num }}</a>
+                    <a href="{{ url_for('recordings', page=page_num, **args_without_page) }}" class="pagination-btn">{{ page_num }}</a>
                 {% else %}
                     <button class="pagination-btn active">{{ page_num }}</button>
                 {% endif %}
@@ -200,7 +250,7 @@
         {% endfor %}
 
         {% if recordings.has_next %}
-            <a href="{{ url_for('recordings', page=recordings.next_num) }}" class="pagination-btn">Next »</a>
+            <a href="{{ url_for('recordings', page=recordings.next_num, **args_without_page) }}" class="pagination-btn">Next »</a>
         {% else %}
             <button class="pagination-btn" disabled>Next »</button>
         {% endif %}
@@ -215,17 +265,22 @@
 {% endif %}
 
 <style>
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
     .page-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 2rem;
-        gap: 1rem;
+        margin-bottom: 1.25rem;
+        gap: 0.75rem;
     }
 
     .header-actions {
         display: flex;
-        gap: 0.75rem;
+        gap: 0.5rem;
         align-items: center;
         flex-wrap: wrap;
     }
@@ -260,20 +315,20 @@
 
     .filters {
         display: flex;
-        gap: 1rem;
+        gap: 0.75rem;
         align-items: center;
-        margin-bottom: 1.5rem;
-        padding: 1rem;
+        margin-bottom: 1rem;
+        padding: 0.625rem 0.875rem;
         background: white;
         border: 1px solid var(--gray-200);
-        border-radius: 8px;
+        border-radius: 6px;
         flex-wrap: wrap;
     }
 
     .filter-group {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.375rem;
     }
 
     .filter-label {
@@ -284,11 +339,12 @@
     }
 
     .filter-select {
-        padding: 0.375rem 0.75rem;
+        padding: 0.25rem 0.5rem;
         border: 1px solid var(--gray-300);
         border-radius: 4px;
         font-size: 0.75rem;
         background: white;
+        min-width: 120px;
     }
 
     .view-toggles {
@@ -340,7 +396,7 @@
     .list-item {
         display: flex;
         align-items: center;
-        padding: 1rem 1.25rem;
+        padding: 0.5rem 0.75rem;
         border-bottom: 1px solid var(--gray-200);
         cursor: pointer;
         transition: background-color 0.2s;
@@ -355,16 +411,16 @@
     }
 
     .list-thumbnail {
-        width: 60px;
-        height: 40px;
+        width: 40px;
+        height: 28px;
         background: var(--gray-200);
-        border-radius: 4px;
-        margin-right: 1rem;
+        border-radius: 3px;
+        margin-right: 0.75rem;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--gray-400);
-        font-size: 1.5rem;
+        font-size: 1rem;
         flex-shrink: 0;
     }
 
@@ -374,25 +430,27 @@
     }
 
     .list-title {
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         font-weight: 500;
         color: var(--gray-900);
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.125rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        line-height: 1.2;
     }
 
     .list-meta {
         display: flex;
-        gap: 1.5rem;
-        font-size: 0.75rem;
+        gap: 1rem;
+        font-size: 0.65rem;
         color: var(--gray-500);
+        line-height: 1.2;
     }
 
     .list-actions {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.25rem;
         align-items: center;
         flex-shrink: 0;
     }
@@ -400,8 +458,8 @@
     /* Grid View Styles */
     .recordings-grid {
         display: none;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+        gap: 0.75rem;
     }
 
     .recording-card {
@@ -422,59 +480,59 @@
     .recording-thumbnail {
         position: relative;
         width: 100%;
-        height: 160px;
+        height: 120px;
         background: var(--gray-100);
         overflow: hidden;
     }
 
     .recording-duration {
         position: absolute;
-        bottom: 0.5rem;
-        right: 0.5rem;
+        bottom: 0.375rem;
+        right: 0.375rem;
         background: rgba(0, 0, 0, 0.75);
         color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.75rem;
+        padding: 0.1875rem 0.375rem;
+        border-radius: 3px;
+        font-size: 0.625rem;
     }
 
     .recording-info {
-        padding: 1rem;
+        padding: 0.75rem;
     }
 
     .recording-title {
-        font-size: 0.875rem;
+        font-size: 0.8rem;
         font-weight: 600;
         color: var(--gray-900);
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.375rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
     .recording-meta {
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
     .recording-date {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
         color: var(--gray-500);
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.1875rem;
     }
 
     .recording-details {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.75rem;
-        font-size: 0.75rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.65rem;
     }
 
     /* Status styling */
     .recording-status {
-        padding: 0.125rem 0.5rem;
-        border-radius: 12px;
-        font-size: 0.75rem;
+        padding: 0.09375rem 0.375rem;
+        border-radius: 10px;
+        font-size: 0.625rem;
         font-weight: 500;
         text-transform: capitalize;
     }
@@ -482,32 +540,57 @@
     .status-completed,
     .status-synced,
     .sync-status-synced {
-        background-color: #dcfce7;
         color: #166534;
     }
 
     .status-processing,
     .sync-status-processing {
-        background-color: #fef3c7;
         color: #92400e;
     }
 
     .status-failed,
     .sync-status-failed {
-        background-color: #fee2e2;
         color: #dc2626;
     }
 
     .status-pending,
     .sync-status-pending {
-        background-color: #e0e7ff;
         color: #3730a3;
     }
 
     .status-local,
     .sync-status-local {
-        background-color: #f3f4f6;
         color: #374151;
+    }
+
+    /* Override any background/padding for status icons in both list and card view */
+    .list-meta .sync-status-synced,
+    .list-meta .sync-status-processing,
+    .list-meta .sync-status-failed,
+    .list-meta .sync-status-pending,
+    .list-meta .sync-status-local,
+    .list-meta .status-completed,
+    .list-meta .status-synced,
+    .list-meta .status-processing,
+    .list-meta .status-failed,
+    .list-meta .status-pending,
+    .list-meta .status-local,
+    .sync-indicator .sync-status-synced,
+    .sync-indicator .sync-status-processing,
+    .sync-indicator .sync-status-failed,
+    .sync-indicator .sync-status-pending,
+    .sync-indicator .sync-status-local,
+    .sync-indicator .status-completed,
+    .sync-indicator .status-synced,
+    .sync-indicator .status-processing,
+    .sync-indicator .status-failed,
+    .sync-indicator .status-pending,
+    .sync-indicator .status-local {
+        background: none !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        border: none !important;
     }
 
     .recording-actions {
@@ -518,26 +601,26 @@
 
     .action-buttons {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.375rem;
     }
 
     .download-btn, .delete-btn {
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
+        padding: 0.375rem 0.5rem;
+        border-radius: 5px;
+        font-size: 0.625rem;
         text-decoration: none;
         border: none;
         cursor: pointer;
         transition: all 0.2s;
         display: inline-flex;
         align-items: center;
-        gap: 0.375rem;
+        gap: 0.25rem;
         font-weight: 500;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .download-btn {
-        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        background: linear-gradient(135deg, #4876c0ff, #425998ff);
         color: white;
     }
 
@@ -548,7 +631,7 @@
     }
 
     .delete-btn {
-        background: linear-gradient(135deg, #ef4444, #dc2626);
+        background: linear-gradient(135deg, #c14646ff, #b72525ff);
         color: white;
     }
 
@@ -671,6 +754,9 @@
 
 <script>
     function setView(viewType) {
+        // Save view preference to localStorage
+        localStorage.setItem('recordingsView', viewType);
+        
         // Update toggle buttons
         document.querySelectorAll('.view-toggle-btn').forEach(btn => btn.classList.remove('active'));
         event.target.closest('.view-toggle-btn').classList.add('active');
@@ -686,6 +772,56 @@
             if (listView) listView.style.display = 'none';
             if (gridView) gridView.style.display = 'grid';
         }
+        
+        // Update pagination links to preserve view mode
+        updatePaginationLinks(viewType);
+    }
+    
+    function updatePaginationLinks(viewType) {
+        // Update all pagination links to include view parameter
+        document.querySelectorAll('.pagination a').forEach(link => {
+            const url = new URL(link.href);
+            url.searchParams.set('view', viewType);
+            link.href = url.toString();
+        });
+    }
+    
+    function initializeView() {
+        // Get view preference from localStorage or URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlView = urlParams.get('view');
+        const savedView = localStorage.getItem('recordingsView') || 'list';
+        const currentView = urlView || savedView;
+        
+        // Set up the view without triggering setView to avoid localStorage overwrite
+        const listView = document.querySelector('.recordings-list');
+        const gridView = document.querySelector('.recordings-grid');
+        
+        // Update toggle buttons
+        document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if ((currentView === 'list' && btn.onclick.toString().includes("'list'")) ||
+                (currentView === 'grid' && btn.onclick.toString().includes("'grid'"))) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Update view containers
+        if (currentView === 'list') {
+            if (listView) listView.style.display = 'block';
+            if (gridView) gridView.style.display = 'none';
+        } else if (currentView === 'grid') {
+            if (listView) listView.style.display = 'none';
+            if (gridView) gridView.style.display = 'grid';
+        }
+        
+        // Save the current view to localStorage if it came from URL
+        if (urlView) {
+            localStorage.setItem('recordingsView', currentView);
+        }
+        
+        // Update pagination links
+        updatePaginationLinks(currentView);
     }
 
     function playRecording(recordingId, event) {
@@ -844,19 +980,9 @@
         }
     }
 
-    // Initialize list view as default
+    // Initialize view based on preference or URL parameter
     document.addEventListener('DOMContentLoaded', function() {
-        // Hide grid view initially
-        const gridView = document.querySelector('.recordings-grid');
-        if (gridView) {
-            gridView.style.display = 'none';
-        }
-        
-        // Ensure list view is active
-        const listView = document.querySelector('.recordings-list');
-        if (listView) {
-            listView.style.display = 'block';
-        }
+        initializeView();
     });
 </script>
 {% endblock %}
