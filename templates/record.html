@@ -35,11 +35,12 @@
 
         <!-- Actions -->
         <div class="actions">
-            <button class="btn-copy" id="copyBtn" onclick="copyTranscript()" title="Copy All Transcriptions" disabled>
-                📋
-            </button>
             <button class="btn-clear" id="clearBtn" onclick="clearTranscript()" title="Clear Transcriptions" disabled>
-                🗑️
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c0 1 1 2 2 2v2"/>
+                </svg>
             </button>
         </div>
     </div>
@@ -83,32 +84,32 @@
         z-index: 100;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-        margin: -1rem -1rem 1rem -1rem;
-        padding: 0.75rem 1rem;
+        box-shadow: 0 3.4px 17px rgba(0, 0, 0, 0.15);
+        margin: -0.85rem -0.85rem 0.85rem -0.85rem;
+        padding: 0.64rem 0.85rem;
     }
 
     .control-row {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 0.85rem;
         flex-wrap: nowrap;
     }
 
     /* Record Controls - Ultra Compact */
     .record-controls {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.425rem;
         flex-shrink: 0;
     }
 
     .btn-play, .btn-stop {
-        width: 44px;
-        height: 44px;
+        width: 37.4px;
+        height: 37.4px;
         border-radius: 50%;
         border: none;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 13.6px;
         font-weight: bold;
         transition: all 0.2s ease;
         display: flex;
@@ -150,7 +151,7 @@
     .meeting-info {
         flex: 1;
         display: flex;
-        gap: 0.75rem;
+        gap: 0.64rem;
         min-width: 0;
     }
 
@@ -158,11 +159,11 @@
         flex: 2;
         background: rgba(255, 255, 255, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 6px;
-        padding: 0.5rem 0.75rem;
+        border-radius: 5.1px;
+        padding: 0.425rem 0.64rem;
         color: white;
-        font-size: 0.875rem;
-        min-width: 120px;
+        font-size: 0.74rem;
+        min-width: 102px;
     }
 
     .title-input::placeholder {
@@ -177,17 +178,17 @@
 
     .monitor-selector {
         flex: 1;
-        min-width: 100px;
+        min-width: 85px;
     }
 
     .monitor-select {
         width: 100%;
         background: rgba(255, 255, 255, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 6px;
-        padding: 0.5rem;
+        border-radius: 5.1px;
+        padding: 0.425rem;
         color: white;
-        font-size: 0.875rem;
+        font-size: 0.74rem;
         cursor: pointer;
     }
 
@@ -200,42 +201,42 @@
     .status-info {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.64rem;
         flex-shrink: 0;
     }
 
     .timer {
         font-family: 'Courier New', monospace;
-        font-size: 1.1rem;
+        font-size: 0.935rem;
         font-weight: bold;
         background: rgba(0, 0, 0, 0.2);
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        min-width: 80px;
+        padding: 0.425rem 0.64rem;
+        border-radius: 5.1px;
+        min-width: 68px;
         text-align: center;
     }
 
     .status-dot {
-        font-size: 1.2rem;
+        font-size: 1.02rem;
         cursor: help;
     }
 
     /* Actions */
     .actions {
         display: flex;
-        gap: 0.5rem;
+        gap: 0.425rem;
         flex-shrink: 0;
     }
 
     .btn-copy, .btn-clear {
-        width: 36px;
-        height: 36px;
-        border-radius: 6px;
+        width: 30.6px;
+        height: 30.6px;
+        border-radius: 5.1px;
         border: 1px solid rgba(255, 255, 255, 0.3);
         background: rgba(255, 255, 255, 0.15);
         color: white;
         cursor: pointer;
-        font-size: 14px;
+        font-size: 11.9px;
         transition: all 0.2s ease;
     }
 
@@ -252,10 +253,10 @@
 
     /* Upload Bar */
     .upload-bar {
-        margin-top: 0.75rem;
+        margin-top: 0.64rem;
         background: rgba(0, 0, 0, 0.2);
-        border-radius: 6px;
-        padding: 0.5rem;
+        border-radius: 5.1px;
+        padding: 0.425rem;
         position: relative;
         overflow: hidden;
     }
@@ -267,13 +268,13 @@
         height: 100%;
         background: linear-gradient(90deg, #10b981, #059669);
         transition: width 0.3s ease;
-        border-radius: 6px;
+        border-radius: 5.1px;
     }
 
     .upload-text {
         position: relative;
         z-index: 1;
-        font-size: 0.875rem;
+        font-size: 0.74rem;
         font-weight: 500;
     }
 
@@ -438,38 +439,38 @@
         }
         
         .status-info .timer {
-            font-size: 1rem;
-            min-width: 70px;
+            font-size: 0.85rem;
+            min-width: 59.5px;
         }
         
         .transcript-display {
-            height: calc(100vh - 240px);
+            height: calc(100vh - 204px);
         }
         
         .transcript-flow {
-            padding: 1rem;
+            padding: 0.85rem;
         }
     }
 
     @media (max-width: 480px) {
         .control-panel {
-            padding: 0.5rem;
+            padding: 0.425rem;
         }
         
         .btn-play, .btn-stop {
-            width: 40px;
-            height: 40px;
-            font-size: 14px;
+            width: 34px;
+            height: 34px;
+            font-size: 11.9px;
         }
         
         .actions {
-            gap: 0.25rem;
+            gap: 0.2125rem;
         }
         
         .btn-copy, .btn-clear {
-            width: 32px;
-            height: 32px;
-            font-size: 12px;
+            width: 27.2px;
+            height: 27.2px;
+            font-size: 10.2px;
         }
     }
 </style>
@@ -595,12 +596,13 @@
     }
 
     function updateUI() {
+        console.log('updateUI called - isRecording:', isRecording, 'transcriptContent length:', transcriptContent ? transcriptContent.length : 0);
+        
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const titleInput = document.getElementById('recordingTitle');
         const monitorSelect = document.getElementById('monitorSelect');
         const statusDot = document.getElementById('statusDot');
-        const copyBtn = document.getElementById('copyBtn');
         const clearBtn = document.getElementById('clearBtn');
 
         if (isRecording) {
@@ -611,7 +613,6 @@
             statusDot.textContent = '🔴';
             statusDot.className = 'status-dot recording-pulse';
             statusDot.title = 'Recording in progress';
-            copyBtn.disabled = false;
             clearBtn.disabled = false;
         } else {
             startBtn.disabled = false;
@@ -621,7 +622,6 @@
             statusDot.textContent = transcriptContent ? '✅' : '⚪';
             statusDot.className = 'status-dot';
             statusDot.title = transcriptContent ? 'Recording completed' : 'Ready to record';
-            copyBtn.disabled = !transcriptContent;
             clearBtn.disabled = !transcriptContent;
         }
     }
@@ -735,6 +735,7 @@
 
             // Only update if content changed
             if (newContent !== transcriptContent) {
+                console.log('Transcript content updated. Length:', newContent.length, 'Previous length:', transcriptContent.length);
                 transcriptContent = newContent;
                 
                 // Calculate stats
@@ -773,37 +774,7 @@
         }
     }
 
-    function copyTranscript() {
-        const textContent = transcriptContent.replace(/<[^>]*>/g, '').trim();
-        
-        if (!textContent) {
-            alert('No transcription to copy');
-            return;
-        }
 
-        navigator.clipboard.writeText(textContent).then(() => {
-            // Visual feedback
-            const btn = document.getElementById('copyBtn');
-            const originalText = btn.textContent;
-            btn.textContent = '✅';
-            btn.style.background = 'rgba(16, 185, 129, 0.3)';
-            
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.background = '';
-            }, 1500);
-        }).catch(err => {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = textContent;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            
-            alert('Transcription copied to clipboard!');
-        });
-    }
 
     function clearTranscript() {
         if (isRecording) {
@@ -875,5 +846,7 @@
         }
     `;
     document.head.appendChild(style);
+
+
 </script>
 {% endblock %}
