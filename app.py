@@ -9,6 +9,7 @@ from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 from dual_stream import DualModeStreamer
 from models import db, User, Recording, init_db
+import requests
 import threading
 import time
 import subprocess
@@ -492,6 +493,10 @@ def start_recording():
                                 pass  # Fall back to calculated duration
                     
                     db.session.commit()
+                    
+                    # Upload transcript file if it exists
+                    if rec and rec.has_transcript:
+                        upload_transcript_to_server(rec)
     
     recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
     recording_state['thread'].start()
@@ -596,6 +601,55 @@ def patched_send(self, text):
     return original_send(self, text)
 DualModeStreamer.send_text_to_server = patched_send
 
+def upload_transcript_to_server(recording):
+    """Upload transcript file to server after recording completion"""
+    try:
+        if not recording.has_transcript:
+            return
+        
+        transcript_path = recording.transcript_path
+        if not transcript_path or not os.path.exists(transcript_path):
+            return
+        
+        # Use the same server configuration as the streamer
+        if 'streamer' in recording_state and recording_state['streamer']:
+            server_ip = recording_state['streamer'].server_ip
+            server_port = 8000  # Upload server runs on port 8000
+            upload_url = f"http://{server_ip}:{server_port}/upload-transcript"
+        else:
+            print("⚠️ No server configuration found, skipping transcript upload")
+            return
+        
+        def upload_transcript():
+            try:
+                with open(transcript_path, 'rb') as f:
+                    files = {'transcript': f}
+                    data = {
+                        'recording_title': recording.title,
+                        'recording_id': str(recording.id)
+                    }
+                    
+                    response = requests.post(
+                        upload_url,
+                        files=files,
+                        data=data,
+                        timeout=30
+                    )
+                    
+                    if response.status_code == 200:
+                        print(f"📤 Transcript uploaded successfully for '{recording.title}' to {server_ip}")
+                    else:
+                        print(f"⚠️ Failed to upload transcript: {response.status_code}")
+                        
+            except Exception as e:
+                print(f"⚠️ Transcript upload error: {e}")
+        
+        # Upload in background thread (non-blocking)
+        threading.Thread(target=upload_transcript, daemon=True).start()
+        
+    except Exception as e:
+        print(f"⚠️ Transcript upload setup error: {e}")
+
 @app.route('/video/<int:recording_id>')
 @login_required
 def serve_video(recording_id):
@@ -690,6 +744,24 @@ def download_recording(recording_id):
         download_name=filename,
         mimetype='video/x-matroska'  # MKV mimetype
     )
+
+@app.route('/upload-transcript/<int:recording_id>', methods=['POST'])
+@login_required
+def manual_upload_transcript(recording_id):
+    """Manually upload transcript for a recording"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    try:
+        upload_transcript_to_server(recording)
+        return jsonify({
+            'success': True,
+            'message': f'Transcript upload started for "{recording.title}"'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Upload failed: {str(e)}'
+        }), 500
 
 @app.route('/download-transcript/<int:recording_id>')
 @login_required

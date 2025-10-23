@@ -197,8 +197,12 @@ class DualModeStreamer:
                     )
                     
                     if response.status_code == 200:
-                        print(f"✅ Upload completed: {file_path}")
+                        print(f"✅ Video upload completed: {file_path}")
                         self.upload_status = {'active': False, 'progress': 100, 'file': file_path, 'success': True}
+                        
+                        # Upload transcript file if it exists
+                        self.upload_transcript_file(file_path)
+                        
                         # Call upload callback if provided
                         if hasattr(self, 'upload_callback') and self.upload_callback:
                             try:
@@ -228,6 +232,58 @@ class DualModeStreamer:
         # Start upload in daemon thread (non-blocking)
         upload_thread = threading.Thread(target=upload_worker, daemon=True)
         upload_thread.start()
+    
+    def upload_transcript_file(self, video_path):
+        """Upload transcript file if it exists"""
+        try:
+            # Look for transcript file based on video filename
+            video_base = os.path.splitext(video_path)[0]
+            transcript_path = f"{video_base}_transcript.txt"
+            
+            # Also check for title-based transcript files in recordings directory
+            recordings_dir = Path("recordings")
+            if recordings_dir.exists():
+                for transcript_file in recordings_dir.glob("*_transcript.txt"):
+                    # Use the most recent transcript file if multiple exist
+                    transcript_path = str(transcript_file)
+                    break
+            
+            if not os.path.exists(transcript_path):
+                print("ℹ️ No transcript file found to upload")
+                return
+            
+            def upload_transcript_worker():
+                try:
+                    print(f"📤 Starting transcript upload: {transcript_path}")
+                    
+                    with open(transcript_path, 'rb') as f:
+                        files = {'transcript': f}
+                        data = {
+                            'recording_title': os.path.basename(video_path),
+                            'recording_id': str(int(time.time()))  # Use timestamp as ID
+                        }
+                        
+                        response = requests.post(
+                            f"http://{self.server_ip}:8000/upload-transcript",
+                            files=files,
+                            data=data,
+                            timeout=60
+                        )
+                        
+                        if response.status_code == 200:
+                            print(f"✅ Transcript upload completed: {transcript_path}")
+                        else:
+                            print(f"⚠️ Transcript upload failed: HTTP {response.status_code}")
+                            
+                except Exception as e:
+                    print(f"⚠️ Transcript upload error: {e}")
+            
+            # Upload transcript in background thread
+            transcript_thread = threading.Thread(target=upload_transcript_worker, daemon=True)
+            transcript_thread.start()
+            
+        except Exception as e:
+            print(f"⚠️ Transcript upload setup error: {e}")
     
     def dual_mode_record(self):
         """Main function: Start both local transcription AND video recording - NO TIME LIMIT"""
@@ -277,8 +333,11 @@ class DualModeStreamer:
         if success:
             print("\n" + "=" * 50)
             print("✅ SESSION COMPLETED")
-            print(f"📁 Video: {output_file}")
-            print(f"🧠 Transcriptions sent to server")
+            print(f"📁 Video saved locally: {output_file}")
+            print(f"📤 Video upload started to: {self.server_ip}:8000")
+            print(f"🧠 Live transcriptions sent to server: {self.server_ip}:{self.server_port}")
+            print(f"💾 Local transcript file will be uploaded after video upload")
+            print("🔄 Background uploads in progress...")
         
         return success
     
