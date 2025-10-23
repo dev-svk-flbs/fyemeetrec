@@ -353,7 +353,7 @@ def recordings():
     page = request.args.get('page', 1, type=int)
     recordings = Recording.query.filter_by(user_id=current_user.id)\
         .order_by(Recording.created_at.desc())\
-        .paginate(page=page, per_page=12, error_out=False)
+        .paginate(page=page, per_page=5, error_out=False)
     
     return render_template('recordings.html', recordings=recordings)
 
