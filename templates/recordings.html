@@ -105,13 +105,27 @@
                 <a href="{{ url_for('download_recording', recording_id=recording.id) }}" 
                    class="download-btn" 
                    onclick="event.stopPropagation()" 
-                   title="Download recording">
+                   title="Download video">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="7,10 12,15 17,10"/>
                         <line x1="12" y1="15" x2="12" y2="3"/>
                     </svg>
                 </a>
+                {% if recording.has_transcript %}
+                <a href="{{ url_for('download_transcript', recording_id=recording.id) }}" 
+                   class="download-btn transcript-btn" 
+                   onclick="event.stopPropagation()" 
+                   title="Download transcript">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10,9 9,9 8,9"/>
+                    </svg>
+                </a>
+                {% endif %}
                 <button class="delete-btn" 
                         onclick="deleteRecording({{ recording.id }}, '{{ recording.title }}')"
                         title="Delete recording">
@@ -201,11 +215,24 @@
                         {% if recording.file_path %}
                         <a href="{{ url_for('download_recording', recording_id=recording.id) }}" 
                            class="download-btn" 
-                           title="Download {{ recording.filename }}">
+                           title="Download video">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                                 <polyline points="7,10 12,15 17,10"/>
                                 <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+                        {% if recording.has_transcript %}
+                        <a href="{{ url_for('download_transcript', recording_id=recording.id) }}" 
+                           class="download-btn transcript-btn" 
+                           title="Download transcript">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14,2 14,8 20,8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10,9 9,9 8,9"/>
                             </svg>
                         </a>
                         {% endif %}
@@ -641,6 +668,15 @@
         box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
     }
 
+    .transcript-btn {
+        background: linear-gradient(135deg, #059669, #047857) !important;
+    }
+
+    .transcript-btn:hover {
+        background: linear-gradient(135deg, #047857, #065f46) !important;
+        box-shadow: 0 4px 8px rgba(5, 150, 105, 0.3);
+    }
+
     .delete-btn {
         background: linear-gradient(135deg, #c14646ff, #b72525ff);
         color: white;
@@ -978,15 +1014,29 @@
 
     function cleanupOrphanedRecordings() {
         if (confirm('This will remove database entries for recordings without files. Continue?')) {
-            fetch('/cleanup', { method: 'POST' })
-            .then(response => response.json())
+            fetch('/cleanup-orphaned', { 
+                method: 'POST',
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
             .then(data => {
-                alert(`Cleaned up ${data.cleaned} orphaned records`);
+                if (data.success) {
+                    alert(`Cleanup successful! Removed ${data.cleaned} orphaned records.`);
+                } else {
+                    alert(`Cleanup failed: ${data.message}`);
+                }
                 location.reload();
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('Cleanup failed');
+                console.error('Cleanup error:', error);
+                alert(`Cleanup failed: ${error.message}`);
             });
         }
     }

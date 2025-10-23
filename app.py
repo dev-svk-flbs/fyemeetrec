@@ -554,10 +554,45 @@ def get_transcriptions():
 # Monkey patch to capture transcriptions
 original_send = DualModeStreamer.send_text_to_server
 def patched_send(self, text):
-    recording_state['transcriptions'].append({
+    transcription_entry = {
         'text': text,
-        'timestamp': time.strftime('%H:%M:%S')
-    })
+        'timestamp': time.strftime('%H:%M:%S'),
+        'utc_timestamp': time.time()
+    }
+    recording_state['transcriptions'].append(transcription_entry)
+    
+    # Save to transcript file asynchronously (non-blocking)
+    if 'recording_id' in recording_state:
+        def save_transcript():
+            try:
+                with app.app_context():  # Ensure Flask application context
+                    rec = Recording.query.get(recording_state['recording_id'])
+                    if rec:
+                        # Create transcript file path - use recording title since file_path isn't set during live recording
+                        current_dir = os.path.dirname(os.path.abspath(__file__))
+                        recordings_dir = os.path.join(current_dir, 'recordings')
+                        
+                        # Create a transcript filename based on recording title/timestamp
+                        safe_title = "".join(c for c in rec.title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                        transcript_filename = f"{safe_title}_transcript.txt"
+                        transcript_path = os.path.join(recordings_dir, transcript_filename)
+                        
+                        # Ensure recordings directory exists
+                        os.makedirs(recordings_dir, exist_ok=True)
+                        
+                        # Append transcript line to file
+                        with open(transcript_path, 'a', encoding='utf-8') as f:
+                            f.write(f"[{transcription_entry['timestamp']}] {text}\n")
+                        
+                        print(f"💾 Transcript saved to: {transcript_path}")
+                    else:
+                        print(f"⚠️ Recording not found for ID {recording_state['recording_id']}")
+            except Exception as e:
+                print(f"⚠️ Transcript save error: {e}")
+        
+        # Run in background thread (no latency impact)
+        threading.Thread(target=save_transcript, daemon=True).start()
+    
     return original_send(self, text)
 DualModeStreamer.send_text_to_server = patched_send
 
@@ -656,6 +691,31 @@ def download_recording(recording_id):
         mimetype='video/x-matroska'  # MKV mimetype
     )
 
+@app.route('/download-transcript/<int:recording_id>')
+@login_required
+def download_transcript(recording_id):
+    """Download transcript file for a recording"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    # Get transcript file path using the model property
+    transcript_path = recording.transcript_path
+    
+    if not transcript_path or not os.path.exists(transcript_path):
+        print(f"⚠️ Transcript not found for recording {recording_id}: {transcript_path}")
+        abort(404)
+    
+    # Get filename for download
+    transcript_filename = os.path.basename(transcript_path)
+    
+    print(f"💾 Serving transcript: {transcript_path}")
+    
+    return send_file(
+        transcript_path,
+        as_attachment=True,
+        download_name=transcript_filename,
+        mimetype='text/plain'
+    )
+
 @app.route('/sync-status/<int:recording_id>', methods=['POST'])
 @login_required
 def update_sync_status(recording_id):
@@ -747,31 +807,43 @@ def delete_recording(recording_id):
         }), 500
 
 @app.route('/cleanup-orphaned', methods=['POST'])
+@app.route('/cleanup', methods=['POST'])  # Legacy route for cached browsers
 @login_required
 def cleanup_orphaned_recordings():
     """Delete all recordings that have no corresponding file"""
-    orphaned_recordings = Recording.query.filter_by(user_id=current_user.id).filter(
-        (Recording.file_path == None) | (Recording.file_path == '')
-    ).all()
+    all_recordings = Recording.query.filter_by(user_id=current_user.id).all()
     
     deleted_count = 0
     deleted_titles = []
     
-    for recording in orphaned_recordings:
-        deleted_titles.append(recording.title)
-        db.session.delete(recording)
-        deleted_count += 1
+    for recording in all_recordings:
+        # Check if recording has no file_path or if the file doesn't exist
+        is_orphaned = False
+        
+        if not recording.file_path or recording.file_path == '':
+            is_orphaned = True
+        else:
+            # Check if the actual file exists
+            if not recording.file_exists:
+                is_orphaned = True
+        
+        if is_orphaned:
+            deleted_titles.append(recording.title)
+            db.session.delete(recording)
+            deleted_count += 1
     
     try:
         db.session.commit()
+        print(f"🧹 Cleanup completed: {deleted_count} orphaned recordings deleted")
         return jsonify({
             'success': True,
+            'cleaned': deleted_count,
             'message': f'Cleaned up {deleted_count} orphaned recording(s)',
-            'deleted_count': deleted_count,
             'deleted_titles': deleted_titles
         })
     except Exception as e:
         db.session.rollback()
+        print(f"⚠️ Cleanup failed: {e}")
         return jsonify({
             'success': False,
             'message': f'Failed to cleanup orphaned recordings: {str(e)}'

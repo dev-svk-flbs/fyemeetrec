@@ -148,6 +148,36 @@ class Recording(db.Model):
         resolved_path = self.resolved_file_path
         return resolved_path and os.path.exists(resolved_path)
     
+    @property
+    def transcript_path(self):
+        """Get transcript file path"""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        recordings_dir = os.path.join(current_dir, 'recordings')
+        
+        # First try the new naming scheme (based on title)
+        safe_title = "".join(c for c in self.title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        transcript_filename = f"{safe_title}_transcript.txt"
+        transcript_path = os.path.join(recordings_dir, transcript_filename)
+        
+        if os.path.exists(transcript_path):
+            return transcript_path
+        
+        # Fall back to old naming scheme (based on video file)
+        resolved_path = self.resolved_file_path
+        if resolved_path:
+            old_transcript_path = os.path.splitext(resolved_path)[0] + '_transcript.txt'
+            if os.path.exists(old_transcript_path):
+                return old_transcript_path
+        
+        # Return the new path even if it doesn't exist yet (for creation)
+        return transcript_path
+    
+    @property
+    def has_transcript(self):
+        """Check if transcript file exists"""
+        transcript_path = self.transcript_path
+        return transcript_path and os.path.exists(transcript_path)
+    
     def __repr__(self):
         return f'<Recording {self.title}>'
 
