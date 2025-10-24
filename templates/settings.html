@@ -21,7 +21,9 @@
     {% endif %}
 {% endwith %}
 
-<form method="POST" class="settings-form">
+<div class="settings-layout">
+    <div class="settings-main">
+        <form method="POST" class="settings-form">
     <div class="settings-section">
         <div class="section-header">
             <span class="section-icon">🎥</span>
@@ -126,19 +128,311 @@
 
     </div>
 
-    <div class="form-actions">
-        <button type="button" class="btn-secondary" onclick="resetForm()">
-            <span>↶</span>
-            Cancel
-        </button>
-        <button type="submit" class="btn-primary">
-            <span>💾</span>
-            Save Settings
-        </button>
+        <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="resetForm()">
+                <span>↶</span>
+                Cancel
+            </button>
+            <button type="submit" class="btn-primary">
+                <span>💾</span>
+                Save Settings
+            </button>
+        </div>
+    </form>
     </div>
-</form>
+    
+    <div class="settings-sidebar">
+        <div class="info-card">
+            <div class="info-card-header">
+                <span class="info-icon">💡</span>
+                <h3>Quick Tips</h3>
+            </div>
+            <div class="info-card-content">
+                <div class="tip-item">
+                    <span class="tip-icon">⌨️</span>
+                    <div class="tip-text">
+                        <strong>Hotkeys</strong>
+                        <p>Use Ctrl+Shift+F9 to start recording and Ctrl+Shift+F10 to stop</p>
+                    </div>
+                </div>
+                
+                <div class="tip-item">
+                    <span class="tip-icon">🖥️</span>
+                    <div class="tip-text">
+                        <strong>Monitor Setup</strong>
+                        <p>Arrange monitors to match your physical setup for accurate recording</p>
+                    </div>
+                </div>
+                
+                <div class="tip-item">
+                    <span class="tip-icon">☁️</span>
+                    <div class="tip-text">
+                        <strong>Cloud Backup</strong>
+                        <p>Recordings are automatically uploaded to cloud storage for safety</p>
+                    </div>
+                </div>
+                
+                <div class="tip-item">
+                    <span class="tip-icon">📱</span>
+                    <div class="tip-text">
+                        <strong>Single User</strong>
+                        <p>This system is designed for one user - no login required after setup</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <span class="info-icon">📊</span>
+                <h3>System Info</h3>
+            </div>
+            <div class="info-card-content">
+                <div class="stat-item">
+                    <span class="stat-label">Total Recordings</span>
+                    <span class="stat-value">{{ total_recordings or 0 }}</span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Storage Used</span>
+                    <span class="stat-value">{{ storage_used or "0 GB" }}</span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Last Recording</span>
+                    <span class="stat-value">{{ last_recording or "Never" }}</span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Monitors Detected</span>
+                    <span class="stat-value">{{ monitors|length if monitors else 0 }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <span class="info-icon">⚙️</span>
+                <h3>Advanced</h3>
+            </div>
+            <div class="info-card-content">
+                <div class="action-item">
+                    <a href="{{ url_for('admin_dashboard') }}" class="action-link">
+                        <span class="action-icon">📈</span>
+                        <div class="action-text">
+                            <strong>Advanced Dashboard</strong>
+                            <p>View detailed analytics and manage recordings</p>
+                        </div>
+                    </a>
+                </div>
+                
+                <div class="action-item">
+                    <button type="button" class="action-link" onclick="clearLocalData()">
+                        <span class="action-icon">🗑️</span>
+                        <div class="action-text">
+                            <strong>Clear Local Data</strong>
+                            <p>Remove local recordings (cloud copies remain safe)</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
+    .settings-layout {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 2rem;
+        max-width: 1200px;
+    }
+
+    .settings-main {
+        min-width: 0; /* Prevents grid overflow */
+    }
+
+    .settings-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .settings-form {
+        max-width: none;
+    }
+
+    /* Information Cards */
+    .info-card {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+    }
+
+    .info-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        background: var(--gray-50);
+        border-bottom: 1px solid var(--gray-200);
+    }
+
+    .info-icon {
+        font-size: 1.25rem;
+    }
+
+    .info-card-header h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0;
+    }
+
+    .info-card-content {
+        padding: 1rem 1.25rem;
+    }
+
+    /* Tips */
+    .tip-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .tip-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .tip-icon {
+        font-size: 1.25rem;
+        margin-top: 0.125rem;
+        flex-shrink: 0;
+    }
+
+    .tip-text strong {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 0.25rem;
+    }
+
+    .tip-text p {
+        font-size: 0.8rem;
+        color: var(--gray-600);
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Stats */
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--gray-100);
+    }
+
+    .stat-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .stat-item:first-child {
+        padding-top: 0;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+
+    .stat-value {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+
+    /* Actions */
+    .action-item {
+        margin-bottom: 1rem;
+    }
+
+    .action-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .action-link {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        text-decoration: none;
+        color: inherit;
+        width: 100%;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .action-link:hover {
+        background: var(--gray-100);
+        border-color: var(--primary-blue);
+        transform: translateY(-1px);
+    }
+
+    .action-icon {
+        font-size: 1.25rem;
+        margin-top: 0.125rem;
+        flex-shrink: 0;
+    }
+
+    .action-text strong {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 0.25rem;
+    }
+
+    .action-text p {
+        font-size: 0.8rem;
+        color: var(--gray-600);
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .settings-layout {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .settings-sidebar {
+            order: -1; /* Move sidebar above main content on mobile */
+        }
+    }
+
+    @media (max-width: 768px) {
+        .settings-sidebar {
+            gap: 1rem;
+        }
+
+        .info-card-content {
+            padding: 0.75rem 1rem;
+        }
+
+        .tip-item, .action-item {
+            margin-bottom: 1rem;
+        }
+    }
     .settings-form {
         max-width: 800px;
     }
@@ -508,6 +802,45 @@
     function resetForm() {
         if (confirm('Are you sure you want to discard your changes?')) {
             location.reload();
+        }
+    }
+
+    function clearLocalData() {
+        if (confirm('This will delete all local recordings from your device. Cloud backups will remain safe. Continue?')) {
+            if (confirm('Are you absolutely sure? This action cannot be undone.')) {
+                // Show loading state
+                const button = event.target;
+                const originalText = button.innerHTML;
+                button.innerHTML = '<span class="action-icon">⏳</span><div class="action-text"><strong>Clearing...</strong><span>Please wait while we clear local data</span></div>';
+                button.disabled = true;
+                
+                fetch('/clear-local-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ ${data.message}`);
+                        // Refresh the page to update statistics
+                        location.reload();
+                    } else {
+                        alert(`❌ Error: ${data.message}`);
+                        // Restore button
+                        button.innerHTML = originalText;
+                        button.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('❌ Failed to clear local data. Please try again.');
+                    // Restore button
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                });
+            }
         }
     }
 

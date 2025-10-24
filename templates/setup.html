@@ -214,13 +214,7 @@
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" required autocomplete="email" placeholder="Enter your email">
-                    <div class="form-help">We'll use this for your account</div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required autocomplete="new-password" placeholder="Create a password">
-                    <div class="form-help">At least 6 characters</div>
+                    <div class="form-help">For identification purposes</div>
                 </div>
                 
                 <button type="submit" class="setup-button" id="setupButton">
@@ -248,7 +242,6 @@
             
             const username = document.getElementById('username').value;
             const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
             
             // Show loading state
             button.disabled = true;
@@ -262,7 +255,7 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, email })
                 });
                 
                 const data = await response.json();

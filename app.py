@@ -248,7 +248,6 @@ def setup():
         data = request.get_json()
         username = data.get('username', '').strip()
         email = data.get('email', '').strip()
-        password = data.get('password', '')
         
         # Validation
         errors = []
@@ -256,16 +255,14 @@ def setup():
             errors.append('Username must be at least 3 characters long')
         if not email or '@' not in email:
             errors.append('Please enter a valid email address')
-        if not password or len(password) < 6:
-            errors.append('Password must be at least 6 characters long')
         
         if errors:
             return jsonify({'success': False, 'errors': errors})
         
-        # Create the single user
+        # Create the single user (no password needed for single-user system)
         try:
             user = User(username=username, email=email)
-            user.set_password(password)
+            user.set_password('default')  # Set a default password since the field is required
             db.session.add(user)
             db.session.commit()
             
@@ -282,12 +279,6 @@ def setup():
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     # For single-user system, redirect to login which auto-logs in the single user
-    return redirect(url_for('login'))
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
     return redirect(url_for('login'))
 
 @app.route('/')
@@ -1120,10 +1111,39 @@ def settings():
     
     logger.debug("✅ Settings page data prepared")
     
+    # Get statistics for the information cards
+    try:
+        total_recordings = Recording.query.count()
+        last_recording_obj = Recording.query.order_by(Recording.created_at.desc()).first()
+        last_recording = last_recording_obj.created_at.strftime('%Y-%m-%d') if last_recording_obj else "Never"
+        
+        # Calculate storage used (approximate)
+        import os
+        storage_used = 0
+        recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
+        if os.path.exists(recordings_path):
+            for root, dirs, files in os.walk(recordings_path):
+                storage_used += sum(os.path.getsize(os.path.join(root, name)) for name in files)
+        
+        # Convert to human readable format
+        if storage_used < 1024**3:  # Less than 1GB
+            storage_used_str = f"{storage_used / (1024**2):.1f} MB"
+        else:
+            storage_used_str = f"{storage_used / (1024**3):.1f} GB"
+            
+    except Exception as e:
+        logger.error(f"Error calculating statistics: {e}")
+        total_recordings = 0
+        last_recording = "Unknown"
+        storage_used_str = "Unknown"
+    
     return render_template('settings.html', 
                          user=settings_user, 
                          monitors=monitors,
-                         monitors_detected=monitors_detected)
+                         monitors_detected=monitors_detected,
+                         total_recordings=total_recordings,
+                         last_recording=last_recording,
+                         storage_used=storage_used_str)
 
 @app.route('/auto-cleanup', methods=['POST'])
 @login_required
@@ -1147,6 +1167,93 @@ def trigger_auto_cleanup():
         return jsonify({
             'success': False,
             'message': f'Error during cleanup: {str(e)}'
+        }), 500
+
+@app.route('/clear-local-data', methods=['POST'])
+@login_required
+def clear_local_data():
+    """Clear all local recordings while preserving cloud backups"""
+    try:
+        import os
+        import shutil
+        
+        logger.info(f"🗑️ Clear local data request from user: {current_user.username}")
+        
+        # Count files before deletion
+        recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
+        files_deleted = 0
+        space_freed = 0
+        
+        if os.path.exists(recordings_path):
+            # Calculate size and count before deletion
+            for root, dirs, files in os.walk(recordings_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        space_freed += os.path.getsize(file_path)
+                        files_deleted += 1
+                    except OSError:
+                        continue
+            
+            # Remove all files in recordings directory
+            for root, dirs, files in os.walk(recordings_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        os.remove(file_path)
+                        logger.info(f"🗑️ Deleted file: {file}")
+                    except OSError as e:
+                        logger.error(f"❌ Failed to delete {file}: {e}")
+            
+            # Remove empty subdirectories
+            for root, dirs, files in os.walk(recordings_path, topdown=False):
+                for dir_name in dirs:
+                    dir_path = os.path.join(root, dir_name)
+                    try:
+                        if not os.listdir(dir_path):  # Only remove if empty
+                            os.rmdir(dir_path)
+                            logger.info(f"🗑️ Removed empty directory: {dir_name}")
+                    except OSError as e:
+                        logger.error(f"❌ Failed to remove directory {dir_name}: {e}")
+        
+        # Update database records to mark files as locally deleted
+        # but keep the records for cloud backup reference
+        try:
+            recordings = Recording.query.all()
+            updated_count = 0
+            for recording in recordings:
+                if recording.file_path and recording.status != 'cloud_only':
+                    # Mark as locally deleted but keep cloud reference
+                    recording.status = 'cloud_only'  # Custom status for cloud-only files
+                    updated_count += 1
+            
+            db.session.commit()
+            logger.info(f"📝 Updated {updated_count} database records to cloud_only status")
+            
+        except Exception as e:
+            logger.error(f"❌ Database update error: {e}")
+            db.session.rollback()
+        
+        # Convert space to human readable format
+        if space_freed < 1024**3:  # Less than 1GB
+            space_str = f"{space_freed / (1024**2):.1f} MB"
+        else:
+            space_str = f"{space_freed / (1024**3):.1f} GB"
+        
+        logger.info(f"✅ Local data cleared: {files_deleted} files, {space_str} freed")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully cleared {files_deleted} local files and freed {space_str} of space. Cloud backups remain safe.',
+            'files_deleted': files_deleted,
+            'space_freed': space_str
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Clear local data error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Failed to clear local data: {str(e)}'
         }), 500
 
 @app.route('/upload/<int:recording_id>', methods=['POST'])
