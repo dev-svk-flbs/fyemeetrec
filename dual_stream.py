@@ -41,7 +41,6 @@ class DualModeStreamer:
         self.recording_active = False
         self.transcription_active = False
         self.audio_queue = queue.Queue()
-        self.upload_status = {'active': False, 'progress': 0, 'file': None}
         
         # Monitor configuration
         self.monitor_config = monitor_config or {
@@ -56,10 +55,8 @@ class DualModeStreamer:
         
         # Initialize Faster-Whisper model
         logger.info("🔄 Loading Faster-Whisper model...")
-        print("🔄 Loading Faster-Whisper model...")
         self.whisper_model = WhisperModel("base.en", compute_type="int8")
-        logger.info("✅ Faster-Whisper model loaded successfully")
-        print("✅ Faster-Whisper model loaded")
+        logger.info("✅ Faster-Whisper model loaded")
         
     def check_setup(self):
         """Verify VoiceMeeter B1 is available"""
@@ -72,20 +69,16 @@ class DualModeStreamer:
             
             if self.audio_source in output_text:
                 logger.info("✅ VoiceMeeter B1 ready")
-                print("✅ VoiceMeeter B1 ready")
                 return True
             else:
                 logger.error(f"❌ VoiceMeeter B1 not found! Audio source '{self.audio_source}' not available")
-                print("❌ VoiceMeeter B1 not found!")
                 return False
                 
         except FileNotFoundError:
             logger.error("❌ FFmpeg not found!")
-            print("❌ FFmpeg not found!")
             return False
         except Exception as e:
             logger.error(f"❌ Setup check error: {e}")
-            print(f"❌ Error: {e}")
             return False
     
     def capture_audio_for_transcription(self):
@@ -152,7 +145,7 @@ class DualModeStreamer:
                             transcription_count += 1
                             timestamp = time.strftime('%H:%M:%S')
                             logger.info(f"💬 [{timestamp}] Transcription #{transcription_count}: {text}")
-                            print(f"💬 [{timestamp}] {text}")
+
                             self.send_text_to_server(text)
                         else:
                             logger.debug("🔇 Empty transcription segment")
@@ -220,9 +213,7 @@ class DualModeStreamer:
         ffmpeg_logger.debug(f"   🔧 Full command: {' '.join(cmd)}")
         
         # Print key info to console for immediate visibility
-        print(f"📺 Recording Monitor: {self.monitor_config['name']}")
-        print(f"📍 Position: ({self.monitor_config['x']}, {self.monitor_config['y']})")
-        print(f"📐 Resolution: {self.monitor_config['width']}x{self.monitor_config['height']}")
+
 
         self.recording_active = True
         try:
@@ -254,9 +245,8 @@ class DualModeStreamer:
                 file_size = Path(output_file).stat().st_size
                 logger.info(f"✅ Local recording saved: {output_file}")
                 logger.info(f"📊 File size: {file_size / (1024*1024):.1f} MB")
-                print(f"✅ Local recording saved: {output_file}")
-                # Start background upload
-                self.start_background_upload(output_file)
+
+
                 return True
             else:
                 logger.error(f"❌ Recording failed - output file not created: {output_file}")
@@ -278,110 +268,7 @@ class DualModeStreamer:
             self.video_process = None
             logger.info("🔄 Recording cleanup completed")
     
-    def start_background_upload(self, file_path):
-        """Start background upload without blocking"""
-        def upload_worker():
-            try:
-                self.upload_status = {'active': True, 'progress': 0, 'file': file_path}
-                print(f"🔄 Starting upload: {file_path}")
-                
-                with open(file_path, 'rb') as f:
-                    files = {'file': (Path(file_path).name, f, 'video/x-matroska')}
-                    
-                    response = requests.post(
-                        f"http://{self.server_ip}:8000/upload",
-                        files=files,
-                        timeout=600  # 10 minute timeout
-                    )
-                    
-                    if response.status_code == 200:
-                        print(f"✅ Video upload completed: {file_path}")
-                        self.upload_status = {'active': False, 'progress': 100, 'file': file_path, 'success': True}
-                        
-                        # Upload transcript file if it exists
-                        self.upload_transcript_file(file_path)
-                        
-                        # Call upload callback if provided
-                        if hasattr(self, 'upload_callback') and self.upload_callback:
-                            try:
-                                self.upload_callback(file_path, True, response.text)
-                            except Exception as callback_error:
-                                print(f"⚠️ Upload callback error: {callback_error}")
-                    else:
-                        print(f"❌ Upload failed: {response.status_code}")
-                        self.upload_status = {'active': False, 'progress': 0, 'file': file_path, 'success': False}
-                        # Call upload callback if provided
-                        if hasattr(self, 'upload_callback') and self.upload_callback:
-                            try:
-                                self.upload_callback(file_path, False, f"HTTP {response.status_code}")
-                            except Exception as callback_error:
-                                print(f"⚠️ Upload callback error: {callback_error}")
-                        
-            except Exception as e:
-                print(f"❌ Upload error: {e}")
-                self.upload_status = {'active': False, 'progress': 0, 'file': file_path, 'success': False}
-                # Call upload callback if provided
-                if hasattr(self, 'upload_callback') and self.upload_callback:
-                    try:
-                        self.upload_callback(file_path, False, str(e))
-                    except Exception as callback_error:
-                        print(f"⚠️ Upload callback error: {callback_error}")
-        
-        # Start upload in daemon thread (non-blocking)
-        upload_thread = threading.Thread(target=upload_worker, daemon=True)
-        upload_thread.start()
-    
-    def upload_transcript_file(self, video_path):
-        """Upload transcript file if it exists"""
-        try:
-            # Look for transcript file based on video filename
-            video_base = os.path.splitext(video_path)[0]
-            transcript_path = f"{video_base}_transcript.txt"
-            
-            # Also check for title-based transcript files in recordings directory
-            recordings_dir = Path("recordings")
-            if recordings_dir.exists():
-                for transcript_file in recordings_dir.glob("*_transcript.txt"):
-                    # Use the most recent transcript file if multiple exist
-                    transcript_path = str(transcript_file)
-                    break
-            
-            if not os.path.exists(transcript_path):
-                print("ℹ️ No transcript file found to upload")
-                return
-            
-            def upload_transcript_worker():
-                try:
-                    print(f"📤 Starting transcript upload: {transcript_path}")
-                    
-                    with open(transcript_path, 'rb') as f:
-                        files = {'transcript': f}
-                        data = {
-                            'recording_title': os.path.basename(video_path),
-                            'recording_id': str(int(time.time()))  # Use timestamp as ID
-                        }
-                        
-                        response = requests.post(
-                            f"http://{self.server_ip}:8000/upload-transcript",
-                            files=files,
-                            data=data,
-                            timeout=60
-                        )
-                        
-                        if response.status_code == 200:
-                            print(f"✅ Transcript upload completed: {transcript_path}")
-                        else:
-                            print(f"⚠️ Transcript upload failed: HTTP {response.status_code}")
-                            
-                except Exception as e:
-                    print(f"⚠️ Transcript upload error: {e}")
-            
-            # Upload transcript in background thread
-            transcript_thread = threading.Thread(target=upload_transcript_worker, daemon=True)
-            transcript_thread.start()
-            
-        except Exception as e:
-            print(f"⚠️ Transcript upload setup error: {e}")
+
     
     def dual_mode_record(self):
         """Main function: Start both local transcription AND video recording - NO TIME LIMIT"""
@@ -406,11 +293,7 @@ class DualModeStreamer:
         logger.info(f"📺 Monitor → {self.monitor_config['name']} ({self.monitor_config['width']}x{self.monitor_config['height']} at {self.monitor_config['x']},{self.monitor_config['y']})")
         logger.info(f"🎥 Video → {output_file}")
         
-        print(f"🚀 STARTING RECORDING SESSION")
-        print(f"🧠 Transcription → {self.server_ip}:{self.server_port}")
-        print(f"📺 Monitor → {self.monitor_config['name']} ({self.monitor_config['width']}x{self.monitor_config['height']} at {self.monitor_config['x']},{self.monitor_config['y']})")
-        print(f"🎥 Video → {output_file}")
-        print("=" * 50)
+
         
         # Start FFmpeg audio capture in background thread
         logger.info("🎤 Starting audio capture thread...")

@@ -395,29 +395,11 @@ def start_recording():
     recording_state['selected_monitor'] = selected_monitor
     recording_state['recording_id'] = recording.id
     
-    # Create upload callback function
-    def upload_callback(file_path, success, message):
-        """Called when upload completes or fails"""
-        with app.app_context():
-            if 'recording_id' in recording_state:
-                rec = Recording.query.get(recording_state['recording_id'])
-                if rec:
-                    if success:
-                        rec.uploaded = True
-                        rec.upload_url = message if message.startswith('http') else None
-                        logger.info(f"📊 Database updated: Recording #{rec.id} marked as uploaded")
-                        print(f"📊 Database updated: Recording #{rec.id} marked as uploaded")
-                    else:
-                        logger.error(f"📊 Upload failed for recording #{rec.id}: {message}")
-                        print(f"📊 Upload failed for recording #{rec.id}: {message}")
-                    db.session.commit()
-
     # Create streamer instance with monitor config
     logger.info("🚀 Creating DualModeStreamer instance...")
     recording_state['streamer'] = DualModeStreamer(
         monitor_config=selected_monitor
     )
-    recording_state['streamer'].upload_callback = upload_callback  # Set the callback
     recording_state['active'] = True
     recording_state['transcriptions'] = []
     
@@ -474,10 +456,6 @@ def start_recording():
                     
                     db.session.commit()
                     logger.info(f"✅ Database record {rec.id} updated successfully")
-                    
-                    # Upload transcript file if it exists
-                    if rec and rec.has_transcript:
-                        upload_transcript_to_server(rec)
     
     recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
     recording_state['thread'].start()
@@ -524,16 +502,9 @@ def stop_recording():
 @app.route('/status')
 @login_required
 def get_status():
-    upload_status = {}
-    if recording_state.get('streamer'):
-        upload_status = recording_state['streamer'].upload_status
-    
     return jsonify({
         'active': recording_state['active'],
-        'transcription_count': len(recording_state['transcriptions']),
-        'upload_active': upload_status.get('active', False),
-        'upload_progress': upload_status.get('progress', 0),
-        'upload_file': upload_status.get('file', None)
+        'transcription_count': len(recording_state['transcriptions'])
     })
 
 @app.route('/transcriptions')
@@ -574,11 +545,8 @@ def patched_send(self, text):
                         with open(transcript_path, 'a', encoding='utf-8') as f:
                             f.write(f"[{transcription_entry['timestamp']}] {text}\n")
                         
-                        print(f"💾 Transcript saved to: {transcript_path}")
-                    else:
-                        print(f"⚠️ Recording not found for ID {recording_state['recording_id']}")
             except Exception as e:
-                print(f"⚠️ Transcript save error: {e}")
+                logger.error(f"⚠️ Transcript save error: {e}")
         
         # Run in background thread (no latency impact)
         threading.Thread(target=save_transcript, daemon=True).start()
@@ -586,105 +554,44 @@ def patched_send(self, text):
     return original_send(self, text)
 DualModeStreamer.send_text_to_server = patched_send
 
-def upload_transcript_to_server(recording):
-    """Upload transcript file to server after recording completion"""
-    try:
-        if not recording.has_transcript:
-            return
-        
-        transcript_path = recording.transcript_path
-        if not transcript_path or not os.path.exists(transcript_path):
-            return
-        
-        # Use the same server configuration as the streamer
-        if 'streamer' in recording_state and recording_state['streamer']:
-            server_ip = recording_state['streamer'].server_ip
-            server_port = 8000  # Upload server runs on port 8000
-            upload_url = f"http://{server_ip}:{server_port}/upload-transcript"
-        else:
-            print("⚠️ No server configuration found, skipping transcript upload")
-            return
-        
-        def upload_transcript():
-            try:
-                with open(transcript_path, 'rb') as f:
-                    files = {'transcript': f}
-                    data = {
-                        'recording_title': recording.title,
-                        'recording_id': str(recording.id)
-                    }
-                    
-                    response = requests.post(
-                        upload_url,
-                        files=files,
-                        data=data,
-                        timeout=30
-                    )
-                    
-                    if response.status_code == 200:
-                        print(f"📤 Transcript uploaded successfully for '{recording.title}' to {server_ip}")
-                    else:
-                        print(f"⚠️ Failed to upload transcript: {response.status_code}")
-                        
-            except Exception as e:
-                print(f"⚠️ Transcript upload error: {e}")
-        
-        # Upload in background thread (non-blocking)
-        threading.Thread(target=upload_transcript, daemon=True).start()
-        
-    except Exception as e:
-        print(f"⚠️ Transcript upload setup error: {e}")
+
 
 @app.route('/video/<int:recording_id>')
 @login_required
 def serve_video(recording_id):
     """Serve video file for playback"""
-    print(f"🎥 VIDEO REQUEST: User {current_user.username} requesting video ID {recording_id}")
-    
     recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
-    print(f"🎥 FOUND RECORDING: '{recording.title}' - Stored Path: {recording.file_path}")
     
     # Use resolved file path that works across different machines
     resolved_path = recording.resolved_file_path
-    print(f"🎥 RESOLVED PATH: {resolved_path}")
     
     if not resolved_path or not os.path.exists(resolved_path):
-        print(f"❌ VIDEO FILE NOT FOUND: {resolved_path}")
         abort(404)
     
     # Get MIME type for the video file
     mime_type, _ = mimetypes.guess_type(resolved_path)
     if not mime_type:
         mime_type = 'video/mp4'  # Default fallback
-    
-    print(f"🎥 SERVING VIDEO: {resolved_path} (MIME: {mime_type})")
+
     return send_file(resolved_path, mimetype=mime_type)
 
 @app.route('/thumbnail/<int:recording_id>')
 @login_required
 def serve_thumbnail(recording_id):
     """Serve thumbnail image for video preview"""
-    print(f"🖼️ THUMBNAIL REQUEST: User {current_user.username} requesting thumbnail for recording ID {recording_id}")
-    
     recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
-    print(f"🖼️ FOUND RECORDING: '{recording.title}' - Stored Path: {recording.file_path}")
     
     # Use resolved file path that works across different machines
     resolved_path = recording.resolved_file_path
-    print(f"🖼️ RESOLVED PATH: {resolved_path}")
     
     if not resolved_path or not os.path.exists(resolved_path):
-        print(f"❌ VIDEO FILE NOT FOUND: {resolved_path}")
         abort(404)
     
     # Generate thumbnail path based on resolved path
     base_name = os.path.splitext(resolved_path)[0]
     thumbnail_path = f"{base_name}_thumb.jpg"
-    print(f"🖼️ THUMBNAIL PATH: {thumbnail_path}")
-    
     # Generate thumbnail if it doesn't exist
     if not os.path.exists(thumbnail_path):
-        print(f"🖼️ GENERATING THUMBNAIL: Creating thumbnail for {resolved_path}")
         try:
             # Use ffmpeg to generate thumbnail at 5 second mark
             subprocess.run([
@@ -696,16 +603,9 @@ def serve_thumbnail(recording_id):
                 '-vf', 'scale=320:240',  # Scale to reasonable size
                 thumbnail_path
             ], check=True, capture_output=True)
-            print(f"✅ THUMBNAIL GENERATED: Successfully created {thumbnail_path}")
         except Exception as e:
-            error_msg = f"Failed to generate thumbnail: {e}"
-            print(f"❌ THUMBNAIL ERROR: {error_msg}")
             # Return a default placeholder or 404
             abort(404)
-    else:
-        print(f"✅ THUMBNAIL EXISTS: Using existing thumbnail {thumbnail_path}")
-    
-    print(f"🖼️ SERVING THUMBNAIL: {thumbnail_path}")
     return send_file(thumbnail_path, mimetype='image/jpeg')
 
 @app.route('/download/<int:recording_id>')
@@ -758,13 +658,10 @@ def download_transcript(recording_id):
     transcript_path = recording.transcript_path
     
     if not transcript_path or not os.path.exists(transcript_path):
-        print(f"⚠️ Transcript not found for recording {recording_id}: {transcript_path}")
         abort(404)
     
     # Get filename for download
     transcript_filename = os.path.basename(transcript_path)
-    
-    print(f"💾 Serving transcript: {transcript_path}")
     
     return send_file(
         transcript_path,
@@ -794,15 +691,13 @@ def update_sync_status(recording_id):
 @login_required
 def delete_recording(recording_id):
     """Delete a recording from database and optionally from filesystem"""
-    print(f"🗑️ DELETE REQUEST: User {current_user.username} attempting to delete recording ID {recording_id}")
+    logger.info(f"🗑️ DELETE REQUEST: User {current_user.username} attempting to delete recording ID {recording_id}")
     
     recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
-    print(f"🗑️ FOUND RECORDING: '{recording.title}' - Stored Path: {recording.file_path}")
     
     # Get delete options from request
     data = request.get_json() or {}
     delete_file = data.get('delete_file', True)  # Default to deleting file
-    print(f"🗑️ DELETE OPTIONS: delete_file={delete_file}, request_data={data}")
     
     deleted_items = []
     errors = []
