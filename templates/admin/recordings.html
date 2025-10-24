@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Recordings - FYE Meeting Recorder{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1 style="color: var(--gray-800); margin: 0;">📹 Recordings Database</h1>
+    <a href="{{ url_for('admin_dashboard') }}" style="color: var(--secondary-blue); text-decoration: none; font-weight: 600;">← Back to Admin</a>
+</div>
+
+<!-- Filters and Search -->
+<div style="background: white; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; box-shadow: var(--shadow-md);">
+    <form method="GET" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 1rem; align-items: end;">
+        <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--gray-700);">Search</label>
+            <input type="text" name="search" value="{{ search }}" placeholder="Search recordings, users..." 
+                   style="width: 100%; padding: 0.75rem; border: 2px solid var(--gray-200); border-radius: 6px;">
+        </div>
+        
+        <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--gray-700);">Status</label>
+            <select name="status" style="width: 100%; padding: 0.75rem; border: 2px solid var(--gray-200); border-radius: 6px;">
+                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                <option value="uploaded" {% if status_filter == 'uploaded' %}selected{% endif %}>Cloud Synced</option>
+                <option value="local" {% if status_filter == 'local' %}selected{% endif %}>Local Only</option>
+                <option value="uploading" {% if status_filter == 'uploading' %}selected{% endif %}>Uploading</option>
+                <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
+            </select>
+        </div>
+        
+        <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--gray-700);">User</label>
+            <select name="user" style="width: 100%; padding: 0.75rem; border: 2px solid var(--gray-200); border-radius: 6px;">
+                <option value="all" {% if user_filter == 'all' %}selected{% endif %}>All Users</option>
+                {% for user in users %}
+                <option value="{{ user.id }}" {% if user_filter == user.id|string %}selected{% endif %}>{{ user.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div>
+            <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--gray-700);">Sort</label>
+            <select name="sort" style="width: 100%; padding: 0.75rem; border: 2px solid var(--gray-200); border-radius: 6px;">
+                <option value="created_at" {% if sort_by == 'created_at' %}selected{% endif %}>Date Created</option>
+                <option value="title" {% if sort_by == 'title' %}selected{% endif %}>Title</option>
+                <option value="username" {% if sort_by == 'username' %}selected{% endif %}>User</option>
+                <option value="duration" {% if sort_by == 'duration' %}selected{% endif %}>Duration</option>
+                <option value="file_size" {% if sort_by == 'file_size' %}selected{% endif %}>File Size</option>
+                <option value="upload_status" {% if sort_by == 'upload_status' %}selected{% endif %}>Status</option>
+            </select>
+        </div>
+        
+        <button type="submit" style="background: var(--secondary-blue); color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">
+            Filter
+        </button>
+    </form>
+</div>
+
+<!-- Results Summary -->
+<div style="background: white; padding: 1rem 1.5rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: var(--shadow-sm);">
+    <p style="margin: 0; color: var(--gray-600);">
+        Showing {{ recordings.items|length }} of {{ recordings.total }} recordings
+        {% if search %} matching "{{ search }}"{% endif %}
+        {% if status_filter != 'all' %} with {{ status_filter }} status{% endif %}
+    </p>
+</div>
+
+<!-- Recordings Table -->
+{% if recordings.items %}
+<div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-md);">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: var(--gray-800); color: white;">
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">
+                    <a href="?sort=title&order={{ 'asc' if sort_by == 'title' and sort_order == 'desc' else 'desc' }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}" 
+                       style="color: white; text-decoration: none;">
+                        Recording {% if sort_by == 'title' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                    </a>
+                </th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">
+                    <a href="?sort=username&order={{ 'asc' if sort_by == 'username' and sort_order == 'desc' else 'desc' }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}" 
+                       style="color: white; text-decoration: none;">
+                        User {% if sort_by == 'username' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                    </a>
+                </th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">
+                    <a href="?sort=duration&order={{ 'asc' if sort_by == 'duration' and sort_order == 'desc' else 'desc' }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}" 
+                       style="color: white; text-decoration: none;">
+                        Duration {% if sort_by == 'duration' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                    </a>
+                </th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">
+                    <a href="?sort=file_size&order={{ 'asc' if sort_by == 'file_size' and sort_order == 'desc' else 'desc' }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}" 
+                       style="color: white; text-decoration: none;">
+                        Size {% if sort_by == 'file_size' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                    </a>
+                </th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">
+                    <a href="?sort=upload_status&order={{ 'asc' if sort_by == 'upload_status' and sort_order == 'desc' else 'desc' }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}" 
+                       style="color: white; text-decoration: none;">
+                        Status {% if sort_by == 'upload_status' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                    </a>
+                </th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">
+                    <a href="?sort=created_at&order={{ 'asc' if sort_by == 'created_at' and sort_order == 'desc' else 'desc' }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}" 
+                       style="color: white; text-decoration: none;">
+                        Created {% if sort_by == 'created_at' %}{{ '↑' if sort_order == 'asc' else '↓' }}{% endif %}
+                    </a>
+                </th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for recording, user in recordings.items %}
+            <tr style="border-bottom: 1px solid var(--gray-200);" onmouseover="this.style.backgroundColor='var(--gray-50)'" onmouseout="this.style.backgroundColor='white'">
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div>
+                        <a href="{{ url_for('admin_recording_detail', recording_id=recording.id) }}" 
+                           style="font-weight: 600; color: var(--gray-800); text-decoration: none;">
+                            {{ recording.title }}
+                        </a>
+                        <div style="color: var(--gray-500); font-size: 0.9rem; margin-top: 0.25rem;">
+                            ID: {{ recording.id }}
+                        </div>
+                    </div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; margin-right: 0.5rem;">
+                            {{ user.username[0].upper() }}
+                        </div>
+                        <div>
+                            <div style="font-weight: 600;">{{ user.username }}</div>
+                            <div style="color: var(--gray-500); font-size: 0.9rem;">{{ user.email }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    {{ format_duration(recording.duration) }}
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    {{ format_file_size(recording.file_size) }}
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    {% if recording.upload_status == 'completed' and recording.uploaded %}
+                        <span style="background-color: #d4edda; color: #155724; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">✅ Synced</span>
+                    {% elif recording.upload_status == 'uploading' %}
+                        <span style="background-color: #cce5ff; color: #004085; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">⬆️ Uploading</span>
+                    {% elif recording.upload_status == 'failed' %}
+                        <span style="background-color: #f8d7da; color: #721c24; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">❌ Failed</span>
+                    {% else %}
+                        <span style="background-color: #fff3cd; color: #856404; padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">💾 Local</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="color: var(--gray-600); font-size: 0.9rem;">
+                        {{ recording.created_at.strftime('%Y-%m-%d') if recording.created_at else 'N/A' }}
+                        <br>
+                        <span style="color: var(--gray-500);">{{ recording.created_at.strftime('%H:%M') if recording.created_at else '' }}</span>
+                    </div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <a href="{{ url_for('admin_recording_detail', recording_id=recording.id) }}" 
+                       style="background: var(--secondary-blue); color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px; font-size: 0.9rem; font-weight: 600;">
+                        View Details
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if recordings.pages > 1 %}
+<div style="display: flex; justify-content: center; margin-top: 2rem;">
+    <nav style="display: flex; gap: 0.5rem;">
+        {% if recordings.has_prev %}
+            <a href="?page={{ recordings.prev_num }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}&sort={{ sort_by }}&order={{ sort_order }}" 
+               style="padding: 0.5rem 1rem; background: white; border: 2px solid var(--gray-200); text-decoration: none; color: var(--gray-700); border-radius: 4px;">
+                ← Previous
+            </a>
+        {% endif %}
+        
+        {% for page_num in recordings.iter_pages() %}
+            {% if page_num %}
+                {% if page_num != recordings.page %}
+                    <a href="?page={{ page_num }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}&sort={{ sort_by }}&order={{ sort_order }}" 
+                       style="padding: 0.5rem 1rem; background: white; border: 2px solid var(--gray-200); text-decoration: none; color: var(--gray-700); border-radius: 4px;">
+                        {{ page_num }}
+                    </a>
+                {% else %}
+                    <span style="padding: 0.5rem 1rem; background: var(--secondary-blue); color: white; border-radius: 4px; font-weight: 600;">
+                        {{ page_num }}
+                    </span>
+                {% endif %}
+            {% else %}
+                <span style="padding: 0.5rem; color: var(--gray-500);">…</span>
+            {% endif %}
+        {% endfor %}
+        
+        {% if recordings.has_next %}
+            <a href="?page={{ recordings.next_num }}&search={{ search }}&status={{ status_filter }}&user={{ user_filter }}&sort={{ sort_by }}&order={{ sort_order }}" 
+               style="padding: 0.5rem 1rem; background: white; border: 2px solid var(--gray-200); text-decoration: none; color: var(--gray-700); border-radius: 4px;">
+                Next →
+            </a>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}
+
+{% else %}
+<div style="background: white; padding: 3rem; text-align: center; border-radius: 8px; box-shadow: var(--shadow-md);">
+    <p style="color: var(--gray-500); font-size: 1.1rem; margin: 0;">📋 No recordings found matching your criteria</p>
+    {% if search or status_filter != 'all' or user_filter != 'all' %}
+    <a href="{{ url_for('admin_recordings') }}" style="color: var(--secondary-blue); text-decoration: none; font-weight: 600; margin-top: 1rem; display: inline-block;">
+        Clear all filters
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

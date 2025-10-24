@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Users - FYE Meeting Recorder{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1 style="color: var(--gray-800); margin: 0;">👥 Users Database</h1>
+    <a href="{{ url_for('admin_dashboard') }}" style="color: var(--secondary-blue); text-decoration: none; font-weight: 600;">← Back to Admin</a>
+</div>
+
+{% if users_data %}
+<div style="background: white; border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-md);">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: var(--gray-800); color: white;">
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">User</th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">Recordings</th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">Total Storage</th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">Total Duration</th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">Cloud Synced</th>
+                <th style="padding: 1rem; text-align: left; font-weight: 600;">Joined</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user, recording_count, total_size, total_duration, uploaded_count in users_data %}
+            <tr style="border-bottom: 1px solid var(--gray-200);" onmouseover="this.style.backgroundColor='var(--gray-50)'" onmouseout="this.style.backgroundColor='white'">
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="display: flex; align-items: center;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; margin-right: 0.75rem; font-size: 1.1rem;">
+                            {{ user.username[0].upper() }}
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--gray-800);">{{ user.username }}</div>
+                            <div style="color: var(--gray-500); font-size: 0.9rem;">{{ user.email }}</div>
+                            <div style="color: var(--gray-400); font-size: 0.8rem;">ID: {{ user.id }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 1.3rem; font-weight: bold; color: var(--secondary-blue);">{{ recording_count or 0 }}</div>
+                        <div style="color: var(--gray-500); font-size: 0.9rem;">recordings</div>
+                    </div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="font-weight: 600;">{{ format_file_size(total_size or 0) }}</div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="font-weight: 600;">{{ format_duration(total_duration or 0) }}</div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    {% set sync_percentage = ((uploaded_count or 0) / (recording_count or 1) * 100) | round(1) if recording_count > 0 else 0 %}
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="font-weight: 600;">{{ uploaded_count or 0 }}/{{ recording_count or 0 }}</div>
+                        <div style="background: var(--gray-200); height: 6px; width: 60px; border-radius: 3px; overflow: hidden;">
+                            <div style="background: var(--success-green); height: 100%; width: {{ sync_percentage }}%; transition: width 0.3s;"></div>
+                        </div>
+                        <div style="color: var(--gray-500); font-size: 0.9rem;">{{ sync_percentage }}%</div>
+                    </div>
+                </td>
+                <td style="padding: 1rem; vertical-align: middle;">
+                    <div style="color: var(--gray-600); font-size: 0.9rem;">
+                        {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else 'N/A' }}
+                        <br>
+                        <span style="color: var(--gray-500);">{{ user.created_at.strftime('%H:%M') if user.created_at else '' }}</span>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div style="background: white; padding: 1.5rem; border-radius: 8px; margin-top: 2rem; box-shadow: var(--shadow-md);">
+    <h3 style="color: var(--gray-800); margin-bottom: 1rem;">📊 User Statistics</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div style="text-align: center; padding: 1rem; background: var(--gray-50); border-radius: 6px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--secondary-blue);">{{ users_data|length }}</div>
+            <div style="color: var(--gray-600); font-size: 0.9rem;">Total Users</div>
+        </div>
+        <div style="text-align: center; padding: 1rem; background: var(--gray-50); border-radius: 6px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--success-green);">
+                {{ users_data|selectattr('0.created_at')|selectattr('0.created_at', 'gt', (moment().subtract(30, 'days')))|list|length or 0 }}
+            </div>
+            <div style="color: var(--gray-600); font-size: 0.9rem;">Active This Month</div>
+        </div>
+        <div style="text-align: center; padding: 1rem; background: var(--gray-50); border-radius: 6px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: var(--warning-yellow);">
+                {{ (users_data|sum(attribute='1')|float / users_data|length)|round(1) if users_data|length > 0 else 0 }}
+            </div>
+            <div style="color: var(--gray-600); font-size: 0.9rem;">Avg Recordings/User</div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div style="background: white; padding: 3rem; text-align: center; border-radius: 8px; box-shadow: var(--shadow-md);">
+    <p style="color: var(--gray-500); font-size: 1.1rem; margin: 0;">👤 No users found</p>
+</div>
+{% endif %}
+{% endblock %}

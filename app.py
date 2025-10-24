@@ -57,6 +57,34 @@ login_manager.login_message_category = 'info'
 init_db(app)
 logger.info("🗄️ Database initialized")
 
+# Utility functions for both Python code and templates
+def format_file_size(size_bytes):
+    """Format file size in human readable format"""
+    if not size_bytes:
+        return "0 B"
+    
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f} TB"
+
+def format_duration(seconds):
+    """Format duration as HH:MM:SS"""
+    if not seconds:
+        return "00:00:00"
+    
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+
+# Add utility functions to template context
+@app.context_processor
+def utility_processor():
+    """Add utility functions to all templates"""
+    return dict(format_file_size=format_file_size, format_duration=format_duration)
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -1193,6 +1221,191 @@ def get_all_upload_status():
             'success': False,
             'message': f'Status check failed: {str(e)}'
         }), 500
+
+# =============================================
+# ADMIN ROUTES - Database Viewer
+# =============================================
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    """Admin dashboard showing database overview"""
+    try:
+        # Get summary statistics
+        total_recordings = Recording.query.count()
+        uploaded_count = Recording.query.filter_by(uploaded=True).count()
+        total_size = db.session.query(db.func.sum(Recording.file_size)).scalar() or 0
+        total_duration = db.session.query(db.func.sum(Recording.duration)).scalar() or 0
+        users_count = User.query.count()
+        
+        # Get recent recordings with user info
+        recent_recordings = db.session.query(Recording, User).join(User)\
+            .order_by(Recording.created_at.desc()).limit(5).all()
+        
+        # Get upload status counts
+        upload_stats = db.session.query(Recording.upload_status, db.func.count(Recording.id))\
+            .group_by(Recording.upload_status).all()
+        
+        upload_counts = {status: count for status, count in upload_stats}
+        
+        stats = {
+            'total_recordings': total_recordings,
+            'uploaded_count': uploaded_count,
+            'local_only': total_recordings - uploaded_count,
+            'total_size': format_file_size(total_size),
+            'total_duration': format_duration(total_duration),
+            'users_count': users_count,
+            'upload_percentage': int((uploaded_count / total_recordings * 100)) if total_recordings > 0 else 0,
+            'upload_counts': upload_counts
+        }
+        
+        return render_template('admin/dashboard.html', stats=stats, recent_recordings=recent_recordings)
+        
+    except Exception as e:
+        logger.error(f"❌ Admin dashboard error: {e}")
+        return f"Database error: {e}", 500
+
+@app.route('/admin/recordings')
+@login_required
+def admin_recordings():
+    """Admin recordings list with advanced filtering"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = 20
+        search = request.args.get('search', '').strip()
+        status_filter = request.args.get('status', 'all')
+        user_filter = request.args.get('user', 'all')
+        sort_by = request.args.get('sort', 'created_at')
+        sort_order = request.args.get('order', 'desc')
+        
+        # Build query
+        query = db.session.query(Recording, User).join(User)
+        
+        if search:
+            query = query.filter(
+                db.or_(
+                    Recording.title.contains(search),
+                    User.username.contains(search),
+                    User.email.contains(search)
+                )
+            )
+        
+        if status_filter != 'all':
+            if status_filter == 'uploaded':
+                query = query.filter(Recording.uploaded == True)
+            elif status_filter == 'local':
+                query = query.filter(Recording.uploaded == False)
+            elif status_filter == 'failed':
+                query = query.filter(Recording.upload_status == 'failed')
+            elif status_filter == 'uploading':
+                query = query.filter(Recording.upload_status == 'uploading')
+        
+        if user_filter != 'all':
+            query = query.filter(User.id == int(user_filter))
+        
+        # Apply sorting
+        if sort_by == 'title':
+            sort_column = Recording.title
+        elif sort_by == 'username':
+            sort_column = User.username
+        elif sort_by == 'duration':
+            sort_column = Recording.duration
+        elif sort_by == 'file_size':
+            sort_column = Recording.file_size
+        elif sort_by == 'upload_status':
+            sort_column = Recording.upload_status
+        else:
+            sort_column = Recording.created_at
+        
+        if sort_order == 'asc':
+            query = query.order_by(sort_column.asc())
+        else:
+            query = query.order_by(sort_column.desc())
+        
+        # Paginate
+        recordings = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        # Get all users for filter dropdown
+        users = User.query.all()
+        
+        return render_template('admin/recordings.html', 
+                             recordings=recordings,
+                             users=users,
+                             search=search,
+                             status_filter=status_filter,
+                             user_filter=user_filter,
+                             sort_by=sort_by,
+                             sort_order=sort_order)
+        
+    except Exception as e:
+        logger.error(f"❌ Admin recordings error: {e}")
+        return f"Database error: {e}", 500
+
+@app.route('/admin/recording/<int:recording_id>')
+@login_required
+def admin_recording_detail(recording_id):
+    """Admin detailed view of a recording"""
+    try:
+        recording = db.session.query(Recording, User).join(User)\
+            .filter(Recording.id == recording_id).first_or_404()
+        
+        # Parse upload metadata if available
+        upload_metadata = None
+        if recording.Recording.upload_metadata:
+            try:
+                upload_metadata = json.loads(recording.Recording.upload_metadata)
+            except:
+                pass
+        
+        return render_template('admin/recording_detail.html', 
+                             recording=recording,
+                             upload_metadata=upload_metadata)
+        
+    except Exception as e:
+        logger.error(f"❌ Admin recording detail error: {e}")
+        return f"Database error: {e}", 500
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    """Admin users list with statistics"""
+    try:
+        # Get users with recording statistics
+        users_data = db.session.query(
+            User,
+            db.func.count(Recording.id).label('recording_count'),
+            db.func.sum(Recording.file_size).label('total_size'),
+            db.func.sum(Recording.duration).label('total_duration'),
+            db.func.count(Recording.id.distinct()).filter(Recording.uploaded == True).label('uploaded_count')
+        ).outerjoin(Recording).group_by(User.id).all()
+        
+        return render_template('admin/users.html', 
+                             users_data=users_data)
+        
+    except Exception as e:
+        logger.error(f"❌ Admin users error: {e}")
+        return f"Database error: {e}", 500
+
+@app.route('/admin/api/stats')
+@login_required
+def admin_api_stats():
+    """API endpoint for admin dashboard stats"""
+    try:
+        total_recordings = Recording.query.count()
+        uploaded = Recording.query.filter_by(uploaded=True).count()
+        uploading = Recording.query.filter_by(upload_status='uploading').count()
+        failed = Recording.query.filter_by(upload_status='failed').count()
+        
+        return jsonify({
+            'total_recordings': total_recordings,
+            'uploaded': uploaded,
+            'uploading': uploading,
+            'failed': failed,
+            'local_only': total_recordings - uploaded
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():

@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Recording Details - Admin - FYE Meeting Recorder{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1 style="color: var(--gray-800); margin: 0;">📹 Recording Details</h1>
+    <div>
+        <a href="{{ url_for('admin_recordings') }}" style="color: var(--secondary-blue); text-decoration: none; font-weight: 600; margin-right: 1rem;">← Back to Recordings</a>
+        <a href="{{ url_for('admin_dashboard') }}" style="color: var(--gray-600); text-decoration: none; font-weight: 600;">Admin Dashboard</a>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
+    <!-- Main Details -->
+    <div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: var(--shadow-md);">
+        <h2 style="color: var(--gray-800); margin-bottom: 1.5rem; border-bottom: 2px solid var(--gray-100); padding-bottom: 1rem;">
+            {{ recording.Recording.title }}
+        </h2>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+            <div>
+                <h3 style="color: var(--gray-700); margin-bottom: 1rem;">📊 Recording Info</h3>
+                <div style="space-y: 0.75rem;">
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong style="color: var(--gray-600);">ID:</strong> {{ recording.Recording.id }}
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong style="color: var(--gray-600);">Duration:</strong> {{ format_duration(recording.Recording.duration) }}
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong style="color: var(--gray-600);">File Size:</strong> {{ format_file_size(recording.Recording.file_size) }}
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong style="color: var(--gray-600);">Resolution:</strong> {{ recording.Recording.resolution or 'N/A' }}
+                    </div>
+                    <div style="margin-bottom: 0.75rem;">
+                        <strong style="color: var(--gray-600);">Monitor:</strong> {{ recording.Recording.monitor_name or 'N/A' }}
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <h3 style="color: var(--gray-700); margin-bottom: 1rem;">👤 User Info</h3>
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; margin-right: 1rem; font-size: 1.2rem;">
+                        {{ recording.User.username[0].upper() }}
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: var(--gray-800);">{{ recording.User.username }}</div>
+                        <div style="color: var(--gray-500);">{{ recording.User.email }}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom: 0.75rem;">
+                    <strong style="color: var(--gray-600);">User ID:</strong> {{ recording.User.id }}
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 2rem;">
+            <h3 style="color: var(--gray-700); margin-bottom: 1rem;">📅 Timestamps</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+                <div>
+                    <strong style="color: var(--gray-600);">Created:</strong><br>
+                    <span style="color: var(--gray-700);">
+                        {{ recording.Recording.created_at.strftime('%Y-%m-%d %H:%M:%S') if recording.Recording.created_at else 'N/A' }}
+                    </span>
+                </div>
+                <div>
+                    <strong style="color: var(--gray-600);">Started:</strong><br>
+                    <span style="color: var(--gray-700);">
+                        {{ recording.Recording.started_at.strftime('%Y-%m-%d %H:%M:%S') if recording.Recording.started_at else 'N/A' }}
+                    </span>
+                </div>
+                <div>
+                    <strong style="color: var(--gray-600);">Ended:</strong><br>
+                    <span style="color: var(--gray-700);">
+                        {{ recording.Recording.ended_at.strftime('%Y-%m-%d %H:%M:%S') if recording.Recording.ended_at else 'N/A' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <h3 style="color: var(--gray-700); margin-bottom: 1rem;">💾 File Paths</h3>
+            <div style="background: var(--gray-50); padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.9rem;">
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Filename:</strong> {{ recording.Recording.filename or 'N/A' }}
+                </div>
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>File Path:</strong> {{ recording.Recording.file_path or 'N/A' }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload Status -->
+    <div>
+        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: var(--shadow-md); margin-bottom: 1.5rem;">
+            <h3 style="color: var(--gray-700); margin-bottom: 1rem;">☁️ Upload Status</h3>
+            
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                {% if recording.Recording.upload_status == 'completed' and recording.Recording.uploaded %}
+                    <div style="background-color: #d4edda; color: #155724; padding: 1rem; border-radius: 6px; font-weight: 600;">
+                        ✅ Cloud Synced
+                    </div>
+                {% elif recording.Recording.upload_status == 'uploading' %}
+                    <div style="background-color: #cce5ff; color: #004085; padding: 1rem; border-radius: 6px; font-weight: 600;">
+                        ⬆️ Uploading...
+                    </div>
+                {% elif recording.Recording.upload_status == 'failed' %}
+                    <div style="background-color: #f8d7da; color: #721c24; padding: 1rem; border-radius: 6px; font-weight: 600;">
+                        ❌ Upload Failed
+                    </div>
+                {% else %}
+                    <div style="background-color: #fff3cd; color: #856404; padding: 1rem; border-radius: 6px; font-weight: 600;">
+                        💾 Local Only
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div style="space-y: 0.75rem;">
+                <div style="margin-bottom: 0.75rem;">
+                    <strong style="color: var(--gray-600);">Status:</strong> {{ recording.Recording.upload_status or 'pending' }}
+                </div>
+                <div style="margin-bottom: 0.75rem;">
+                    <strong style="color: var(--gray-600);">Uploaded:</strong> {{ 'Yes' if recording.Recording.uploaded else 'No' }}
+                </div>
+            </div>
+            
+            {% if recording.Recording.video_url or recording.Recording.transcript_url or recording.Recording.thumbnail_url %}
+            <div style="margin-top: 1.5rem;">
+                <h4 style="color: var(--gray-700); margin-bottom: 0.75rem;">🔗 Cloud URLs</h4>
+                {% if recording.Recording.video_url %}
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Video:</strong><br>
+                    <a href="{{ recording.Recording.video_url }}" target="_blank" style="color: var(--secondary-blue); word-break: break-all; font-size: 0.85rem;">
+                        {{ recording.Recording.video_url }}
+                    </a>
+                </div>
+                {% endif %}
+                {% if recording.Recording.transcript_url %}
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Transcript:</strong><br>
+                    <a href="{{ recording.Recording.transcript_url }}" target="_blank" style="color: var(--secondary-blue); word-break: break-all; font-size: 0.85rem;">
+                        {{ recording.Recording.transcript_url }}
+                    </a>
+                </div>
+                {% endif %}
+                {% if recording.Recording.thumbnail_url %}
+                <div>
+                    <strong>Thumbnail:</strong><br>
+                    <a href="{{ recording.Recording.thumbnail_url }}" target="_blank" style="color: var(--secondary-blue); word-break: break-all; font-size: 0.85rem;">
+                        {{ recording.Recording.thumbnail_url }}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Actions -->
+        <div style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: var(--shadow-md);">
+            <h3 style="color: var(--gray-700); margin-bottom: 1rem;">⚡ Actions</h3>
+            
+            {% if not recording.Recording.uploaded %}
+            <button onclick="triggerUpload({{ recording.Recording.id }})" 
+                    style="width: 100%; background: var(--secondary-blue); color: white; padding: 0.75rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 0.75rem;">
+                🚀 Trigger Upload
+            </button>
+            {% endif %}
+            
+            <button onclick="checkUploadStatus({{ recording.Recording.id }})" 
+                    style="width: 100%; background: var(--gray-600); color: white; padding: 0.75rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 0.75rem;">
+                🔄 Check Status
+            </button>
+            
+            {% if recording.Recording.video_url %}
+            <a href="{{ recording.Recording.video_url }}" target="_blank" 
+               style="display: block; width: 100%; background: var(--success-green); color: white; padding: 0.75rem; text-align: center; text-decoration: none; border-radius: 6px; font-weight: 600; margin-bottom: 0.75rem;">
+                🎥 View Video
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upload Metadata -->
+{% if upload_metadata %}
+<div style="background: white; padding: 2rem; border-radius: 8px; box-shadow: var(--shadow-md); margin-top: 2rem;">
+    <h3 style="color: var(--gray-700); margin-bottom: 1rem;">📋 Upload Metadata</h3>
+    <pre style="background: var(--gray-50); padding: 1.5rem; border-radius: 6px; overflow-x: auto; font-size: 0.9rem; color: var(--gray-700);">{{ upload_metadata | tojson(indent=2) }}</pre>
+</div>
+{% endif %}
+
+<script>
+function triggerUpload(recordingId) {
+    if (!confirm('Are you sure you want to trigger upload for this recording?')) return;
+    
+    fetch(`/upload/${recordingId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Upload triggered successfully!');
+                location.reload();
+            } else {
+                alert('Upload failed: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+}
+
+function checkUploadStatus(recordingId) {
+    fetch(`/upload-status/${recordingId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Status: ${data.sync_status}\nUploaded: ${data.uploaded ? 'Yes' : 'No'}\nCloud Backup: ${data.has_cloud_backup ? 'Yes' : 'No'}`);
+            } else {
+                alert('Status check failed: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error);
+        });
+}
+</script>
+{% endblock %}

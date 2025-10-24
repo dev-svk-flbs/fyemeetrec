@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - FYE Meeting Recorder{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-header {
+        background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+        border-radius: 8px;
+    }
+
+    .admin-header h1 {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .admin-header p {
+        opacity: 0.9;
+        font-size: 1.1rem;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: var(--shadow-md);
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        color: var(--gray-600);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background-color: var(--gray-200);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--success-green), var(--secondary-blue));
+        transition: width 0.3s ease;
+    }
+
+    .recent-section {
+        background: white;
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: var(--shadow-md);
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 2px solid var(--gray-100);
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--gray-800);
+    }
+
+    .view-all-btn {
+        color: var(--secondary-blue);
+        text-decoration: none;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+
+    .view-all-btn:hover {
+        background-color: var(--gray-100);
+        text-decoration: none;
+    }
+
+    .recordings-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .recordings-table th {
+        text-align: left;
+        padding: 0.75rem;
+        color: var(--gray-700);
+        font-weight: 600;
+        border-bottom: 2px solid var(--gray-200);
+    }
+
+    .recordings-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--gray-100);
+        vertical-align: middle;
+    }
+
+    .recordings-table tr:hover {
+        background-color: var(--gray-50);
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .status-completed { background-color: #d4edda; color: #155724; }
+    .status-uploading { background-color: #cce5ff; color: #004085; }
+    .status-failed { background-color: #f8d7da; color: #721c24; }
+    .status-pending { background-color: #fff3cd; color: #856404; }
+
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        margin-right: 0.5rem;
+    }
+
+    .recording-title {
+        font-weight: 600;
+        color: var(--gray-800);
+        text-decoration: none;
+    }
+
+    .recording-title:hover {
+        color: var(--secondary-blue);
+        text-decoration: none;
+    }
+
+    .text-muted {
+        color: var(--gray-500);
+        font-size: 0.9rem;
+    }
+
+    .admin-actions {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .action-btn {
+        background: var(--secondary-blue);
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .action-btn:hover {
+        background: var(--primary-blue);
+        color: white;
+        text-decoration: none;
+    }
+
+    .action-btn.secondary {
+        background: var(--gray-600);
+    }
+
+    .action-btn.secondary:hover {
+        background: var(--gray-700);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div style="text-align: center;">
+        <h1>🛠️ Admin Dashboard</h1>
+        <p>Database overview and system management</p>
+    </div>
+</div>
+
+<div class="admin-actions">
+    <a href="{{ url_for('admin_recordings') }}" class="action-btn">📹 View All Recordings</a>
+    <a href="{{ url_for('admin_users') }}" class="action-btn">👥 Manage Users</a>
+    <a href="{{ url_for('recordings') }}" class="action-btn secondary">🔙 Back to App</a>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-number" data-stat="total_recordings">{{ stats.total_recordings }}</div>
+        <div class="stat-label">Total Recordings</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-number" data-stat="uploaded">{{ stats.uploaded_count }}</div>
+        <div class="stat-label">Cloud Synced</div>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ stats.upload_percentage }}%"></div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-number" data-stat="local_only">{{ stats.local_only }}</div>
+        <div class="stat-label">Local Only</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.users_count }}</div>
+        <div class="stat-label">Active Users</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.total_size }}</div>
+        <div class="stat-label">Total Storage</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-number">{{ stats.total_duration }}</div>
+        <div class="stat-label">Total Duration</div>
+    </div>
+</div>
+
+<div class="recent-section">
+    <div class="section-header">
+        <h2 class="section-title">📹 Recent Recordings</h2>
+        <a href="{{ url_for('admin_recordings') }}" class="view-all-btn">View All →</a>
+    </div>
+    
+    {% if recent_recordings %}
+    <table class="recordings-table">
+        <thead>
+            <tr>
+                <th>Recording</th>
+                <th>User</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for recording, user in recent_recordings %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('admin_recording_detail', recording_id=recording.id) }}" class="recording-title">
+                        {{ recording.title }}
+                    </a>
+                    <div class="text-muted">{{ format_file_size(recording.file_size) }}</div>
+                </td>
+                <td>
+                    <span class="user-avatar">{{ user.username[0].upper() }}</span>
+                    {{ user.username }}
+                </td>
+                <td>{{ format_duration(recording.duration) }}</td>
+                <td>
+                    {% if recording.upload_status == 'completed' and recording.uploaded %}
+                        <span class="status-badge status-completed">Synced</span>
+                    {% elif recording.upload_status == 'uploading' %}
+                        <span class="status-badge status-uploading">Uploading</span>
+                    {% elif recording.upload_status == 'failed' %}
+                        <span class="status-badge status-failed">Failed</span>
+                    {% else %}
+                        <span class="status-badge status-pending">Local</span>
+                    {% endif %}
+                </td>
+                <td class="text-muted">
+                    {{ recording.created_at.strftime('%Y-%m-%d %H:%M') if recording.created_at else 'N/A' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div style="text-align: center; padding: 2rem; color: var(--gray-500);">
+        <p>📋 No recordings found</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh stats every 30 seconds
+    function refreshStats() {
+        fetch('/admin/api/stats')
+            .then(response => response.json())
+            .then(data => {
+                // Update stat numbers
+                const elements = document.querySelectorAll('[data-stat]');
+                elements.forEach(el => {
+                    const stat = el.getAttribute('data-stat');
+                    if (data[stat] !== undefined) {
+                        el.textContent = data[stat];
+                    }
+                });
+                
+                // Update progress bar
+                const progressBar = document.querySelector('.progress-fill');
+                if (progressBar && data.total_recordings > 0) {
+                    const percentage = Math.round((data.uploaded / data.total_recordings) * 100);
+                    progressBar.style.width = percentage + '%';
+                }
+            })
+            .catch(console.error);
+    }
+
+    // Refresh every 30 seconds
+    setInterval(refreshStats, 30000);
+</script>
+{% endblock %}
