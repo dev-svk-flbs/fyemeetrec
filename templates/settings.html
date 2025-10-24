@@ -28,18 +28,80 @@
             <h3 class="section-title">Recording Settings</h3>
         </div>
         
-        <div class="form-group">
-            <label class="form-label" for="default_monitor">Default Monitor</label>
-            <select class="form-select" name="default_monitor" id="default_monitor">
-                {% for monitor in monitors %}
-                <option value="{{ monitor.id }}" 
-                        {% if current_user.default_monitor == monitor.id|string %}selected{% endif %}>
-                    {{ monitor.name }}{% if monitor.primary %} (Primary){% endif %}
-                </option>
-                {% endfor %}
-            </select>
-            <div class="form-help">Choose which monitor to record by default</div>
+        {% if not monitors_detected %}
+        <div class="monitor-detection-notice">
+            <div class="notice-content">
+                <span class="notice-icon">🔍</span>
+                <div class="notice-text">
+                    <h4>Monitor Detection Required</h4>
+                    <p>Click "Detect Monitors" to scan your display setup and configure recording preferences.</p>
+                </div>
+            </div>
+            <button type="button" class="btn-primary" id="detect-monitors-btn">
+                <span>🔍</span>
+                Detect Monitors
+            </button>
         </div>
+        {% else %}
+        <div class="monitor-arrangement-section">
+            <div class="form-group">
+                <label class="form-label">Monitor Arrangement</label>
+                <div class="monitor-arrangement" id="monitor-arrangement">
+                    {% for monitor in monitors %}
+                    <div class="monitor-card" data-monitor-id="{{ monitor.id }}" data-primary="{{ monitor.primary|lower }}">
+                        <div class="monitor-info">
+                            <div class="monitor-number">{{ monitor.id }}</div>
+                            <div class="monitor-details">
+                                {% if monitor.manufacturer and monitor.manufacturer.brand %}
+                                <div class="monitor-brand">{{ monitor.manufacturer.brand }} {{ monitor.manufacturer.model }}</div>
+                                {% else %}
+                                <div class="monitor-brand">Unknown Monitor</div>
+                                {% endif %}
+                                <div class="monitor-specs">{{ monitor.width }}x{{ monitor.height }}{% if monitor.primary %} • Primary{% endif %}</div>
+                                <div class="monitor-position">Position: ({{ monitor.x }}, {{ monitor.y }})</div>
+                                <div class="monitor-primary-control">
+                                    <input type="radio" name="primary_monitor" value="{{ monitor.id }}" id="primary_{{ monitor.id }}" 
+                                           class="primary-radio" {% if monitor.primary %}checked{% endif %}>
+                                    <label for="primary_{{ monitor.id }}" class="primary-label">Set as Primary</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="monitor-drag-handle">⋮⋮</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="form-help">
+                    <strong>1.</strong> Drag monitors to match your physical left-to-right arrangement<br>
+                    <strong>2.</strong> Select which monitor is your Primary (this becomes position 0,0)<br>
+                    <strong>3.</strong> Other monitors will be positioned relative to the primary monitor
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="default_monitor">Default Recording Monitor</label>
+                <select class="form-select" name="default_monitor" id="default_monitor">
+                    {% for monitor in monitors %}
+                    <option value="{{ monitor.id }}" 
+                            {% if user.default_monitor == monitor.id|string %}selected{% endif %}>
+                        Monitor {{ monitor.id }} - {% if monitor.manufacturer and monitor.manufacturer.brand %}{{ monitor.manufacturer.brand }} {{ monitor.manufacturer.model }}{% else %}Unknown Monitor{% endif %}{% if monitor.primary %} (Primary){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-help">Choose which monitor to record by default</div>
+            </div>
+            
+            <div class="monitor-actions">
+                <button type="button" class="btn-secondary" id="refresh-monitors-btn">
+                    <span>🔄</span>
+                    Re-detect Monitors
+                </button>
+                <button type="button" class="btn-primary" id="save-arrangement-btn">
+                    <span>💾</span>
+                    Save Arrangement
+                </button>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <div class="settings-section">
@@ -51,12 +113,12 @@
         <div class="form-group">
             <label class="form-label" for="auto_delete_days">Local Storage Retention</label>
             <select class="form-select" name="auto_delete_days" id="auto_delete_days">
-                <option value="7" {% if current_user.auto_delete_days == 7 %}selected{% endif %}>7 days</option>
-                <option value="14" {% if current_user.auto_delete_days == 14 %}selected{% endif %}>14 days</option>
-                <option value="30" {% if current_user.auto_delete_days == 30 %}selected{% endif %}>30 days</option>
-                <option value="60" {% if current_user.auto_delete_days == 60 %}selected{% endif %}>60 days</option>
-                <option value="90" {% if current_user.auto_delete_days == 90 %}selected{% endif %}>90 days</option>
-                <option value="0" {% if current_user.auto_delete_days == 0 %}selected{% endif %}>Keep forever</option>
+                <option value="7" {% if user.auto_delete_days == 7 %}selected{% endif %}>7 days</option>
+                <option value="14" {% if user.auto_delete_days == 14 %}selected{% endif %}>14 days</option>
+                <option value="30" {% if user.auto_delete_days == 30 %}selected{% endif %}>30 days</option>
+                <option value="60" {% if user.auto_delete_days == 60 %}selected{% endif %}>60 days</option>
+                <option value="90" {% if user.auto_delete_days == 90 %}selected{% endif %}>90 days</option>
+                <option value="0" {% if user.auto_delete_days == 0 %}selected{% endif %}>Keep forever</option>
             </select>
             <div class="form-help">How long to keep local recordings before automatic deletion (cloud backups are always retained)</div>
         </div>
@@ -205,6 +267,214 @@
         padding: 1.5rem 0;
     }
 
+    /* Monitor Detection and Arrangement Styles */
+    .monitor-detection-notice {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.5rem;
+        background: #f8fafc;
+        border: 2px dashed #cbd5e1;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .notice-content {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .notice-icon {
+        font-size: 2rem;
+    }
+
+    .notice-text h4 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gray-900);
+    }
+
+    .notice-text p {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--gray-600);
+    }
+
+    .monitor-arrangement {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        min-height: 120px;
+        overflow-x: auto;
+    }
+
+    .monitor-card {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: white;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        min-width: 200px;
+        cursor: move;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .monitor-card:hover {
+        border-color: var(--primary-blue);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .monitor-card.dragging {
+        opacity: 0.7;
+        transform: rotate(5deg);
+    }
+
+    .monitor-info {
+        flex: 1;
+    }
+
+    .monitor-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        background: var(--primary-blue);
+        color: white;
+        border-radius: 50%;
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .monitor-brand {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 0.25rem;
+    }
+
+    .monitor-specs {
+        font-size: 0.75rem;
+        color: var(--gray-600);
+        margin-bottom: 0.25rem;
+    }
+
+    .monitor-position {
+        font-size: 0.75rem;
+        color: var(--gray-500);
+        font-family: 'Courier New', monospace;
+        margin-bottom: 0.5rem;
+    }
+
+    .monitor-primary-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .primary-radio {
+        width: 1rem;
+        height: 1rem;
+        accent-color: var(--primary-blue);
+    }
+
+    .primary-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--gray-700);
+        cursor: pointer;
+    }
+
+    .primary-label:hover {
+        color: var(--primary-blue);
+    }
+
+    .monitor-card[data-primary="true"] {
+        border: 2px solid var(--primary-blue);
+        background: rgba(59, 130, 246, 0.05);
+    }
+
+    .monitor-card[data-primary="true"] .monitor-number {
+        background: var(--secondary-blue);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .monitor-drag-handle {
+        color: var(--gray-400);
+        font-size: 1.25rem;
+        cursor: move;
+        user-select: none;
+    }
+
+    .monitor-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .btn-loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+    .btn-loading::after {
+        content: '';
+        display: inline-block;
+        width: 3px;
+        height: 3px;
+        margin-left: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+
+    .btn-loading {
+        position: relative;
+    }
+
+    .btn-loading::before {
+        content: '• •';
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.7em;
+        letter-spacing: 2px;
+        animation: fade-dots 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+        0%, 100% {
+            opacity: 0.4;
+            transform: scale(0.7);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes fade-dots {
+        0%, 100% {
+            opacity: 0.3;
+        }
+        50% {
+            opacity: 0.8;
+        }
+    }
+
     @media (max-width: 768px) {
         .form-actions {
             flex-direction: column-reverse;
@@ -212,6 +482,24 @@
 
         .form-select {
             max-width: none;
+        }
+
+        .monitor-detection-notice {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+
+        .monitor-arrangement {
+            flex-direction: column;
+        }
+
+        .monitor-card {
+            min-width: unset;
+        }
+
+        .monitor-actions {
+            flex-direction: column;
         }
     }
 </style>
@@ -222,6 +510,235 @@
             location.reload();
         }
     }
+
+    // Monitor Detection Functionality
+    const detectMonitorsBtn = document.getElementById('detect-monitors-btn');
+    const refreshMonitorsBtn = document.getElementById('refresh-monitors-btn');
+    const saveArrangementBtn = document.getElementById('save-arrangement-btn');
+
+    function showLoading(button, text = 'Loading...') {
+        if (button) {
+            button.classList.add('btn-loading');
+            const span = button.querySelector('span:last-child');
+            if (span) {
+                span.dataset.originalText = span.textContent;
+                span.textContent = text;
+            }
+        }
+    }
+
+    function hideLoading(button) {
+        if (button) {
+            button.classList.remove('btn-loading');
+            const span = button.querySelector('span:last-child');
+            if (span && span.dataset.originalText) {
+                span.textContent = span.dataset.originalText;
+                delete span.dataset.originalText;
+            }
+        }
+    }
+
+    function showMessage(message, type = 'success') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.innerHTML = `
+            <span class="alert-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</span>
+            <span class="alert-message">${message}</span>
+        `;
+        
+        const pageHeader = document.querySelector('.page-header');
+        pageHeader.insertAdjacentElement('afterend', alertDiv);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    // Detect Monitors
+    if (detectMonitorsBtn) {
+        detectMonitorsBtn.addEventListener('click', async function() {
+            showLoading(this, 'Detecting...');
+            
+            try {
+                const response = await fetch('/detect-monitors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message);
+                    // Reload page to show detected monitors
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Failed to detect monitors: ' + error.message, 'error');
+            } finally {
+                hideLoading(this);
+            }
+        });
+    }
+
+    // Re-detect Monitors
+    if (refreshMonitorsBtn) {
+        refreshMonitorsBtn.addEventListener('click', async function() {
+            if (!confirm('This will re-scan your monitors and may change the current arrangement. Continue?')) {
+                return;
+            }
+            
+            showLoading(this, 'Re-detecting...');
+            
+            try {
+                const response = await fetch('/detect-monitors', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message);
+                    // Reload page to show updated monitors
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Failed to re-detect monitors: ' + error.message, 'error');
+            } finally {
+                hideLoading(this);
+            }
+        });
+    }
+
+    // Monitor Drag and Drop
+    let draggedElement = null;
+
+    function initDragAndDrop() {
+        const monitorCards = document.querySelectorAll('.monitor-card');
+        
+        monitorCards.forEach(card => {
+            card.draggable = true;
+            
+            card.addEventListener('dragstart', function(e) {
+                draggedElement = this;
+                this.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', this.outerHTML);
+            });
+            
+            card.addEventListener('dragend', function() {
+                this.classList.remove('dragging');
+                draggedElement = null;
+            });
+            
+            card.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            
+            card.addEventListener('drop', function(e) {
+                e.preventDefault();
+                
+                if (draggedElement !== this) {
+                    const arrangement = document.getElementById('monitor-arrangement');
+                    const cards = Array.from(arrangement.children);
+                    const draggedIndex = cards.indexOf(draggedElement);
+                    const targetIndex = cards.indexOf(this);
+                    
+                    if (draggedIndex < targetIndex) {
+                        arrangement.insertBefore(draggedElement, this.nextSibling);
+                    } else {
+                        arrangement.insertBefore(draggedElement, this);
+                    }
+                }
+            });
+        });
+    }
+
+    // Save Monitor Arrangement
+    if (saveArrangementBtn) {
+        saveArrangementBtn.addEventListener('click', async function() {
+            const arrangement = document.getElementById('monitor-arrangement');
+            const cards = arrangement.querySelectorAll('.monitor-card');
+            const monitorOrder = Array.from(cards).map(card => 
+                parseInt(card.dataset.monitorId)
+            );
+            
+            // Get primary monitor selection
+            const primaryMonitorRadio = document.querySelector('input[name="primary_monitor"]:checked');
+            const primaryMonitorId = primaryMonitorRadio ? parseInt(primaryMonitorRadio.value) : null;
+            
+            if (!primaryMonitorId) {
+                alert('Please select which monitor should be the primary monitor.');
+                return;
+            }
+            
+            showLoading(this, 'Saving...');
+            
+            try {
+                const response = await fetch('/update-monitor-arrangement', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        monitor_order: monitorOrder,
+                        primary_monitor_id: primaryMonitorId
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message);
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Failed to save arrangement: ' + error.message, 'error');
+            } finally {
+                hideLoading(this);
+            }
+        });
+    }
+
+    // Handle primary monitor selection visual feedback
+    function updatePrimaryMonitorDisplay() {
+        const cards = document.querySelectorAll('.monitor-card');
+        const primaryRadio = document.querySelector('input[name="primary_monitor"]:checked');
+        
+        cards.forEach(card => {
+            const isPrimary = primaryRadio && card.dataset.monitorId === primaryRadio.value;
+            card.setAttribute('data-primary', isPrimary);
+        });
+    }
+
+    // Initialize drag and drop on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initDragAndDrop(); 
+        
+        // Add event listeners for primary monitor radio buttons
+        const primaryRadios = document.querySelectorAll('input[name="primary_monitor"]');
+        primaryRadios.forEach(radio => {
+            radio.addEventListener('change', updatePrimaryMonitorDisplay);
+        });
+        
+        // Initial update
+        updatePrimaryMonitorDisplay();
+    });
 
     // Auto-save indicator
     let saveTimeout;

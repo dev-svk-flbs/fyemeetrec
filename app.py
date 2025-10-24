@@ -9,6 +9,8 @@ from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 from dual_stream import DualModeStreamer
 from models import db, User, Recording, init_db
+from settings_config import settings_manager
+from logging_config import app_logger as logger
 import requests
 import threading
 import time
@@ -41,6 +43,9 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
+# Log Flask app initialization
+logger.info("🌐 Flask app initializing...")
+
 # Initialize extensions
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -50,6 +55,7 @@ login_manager.login_message_category = 'info'
 
 # Initialize database
 init_db(app)
+logger.info("🗄️ Database initialized")
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -147,113 +153,25 @@ def get_monitor_manufacturers():
     return []
 
 def get_monitors():
-    """Get list of available monitors using PowerShell with manufacturer info"""
-    try:
-        # Get manufacturer info first
-        manufacturer_list = get_monitor_manufacturers()
-        
-        # First try to get native resolution from VideoController (bypasses scaling)
-        native_res_command = 'Get-CimInstance -ClassName Win32_VideoController | Where-Object {$_.CurrentHorizontalResolution -gt 0} | Select-Object CurrentHorizontalResolution, CurrentVerticalResolution | ConvertTo-Json'
-        
-        native_result = subprocess.run([
-            'powershell', '-Command', native_res_command
-        ], capture_output=True, text=True, shell=False)
-        
-        native_width = 1920  # Default fallback
-        native_height = 1080
-        
-        if native_result.returncode == 0 and native_result.stdout.strip():
-            try:
-                native_data = json.loads(native_result.stdout.strip())
-                if isinstance(native_data, dict):
-                    native_width = native_data.get('CurrentHorizontalResolution', 1920)
-                    native_height = native_data.get('CurrentVerticalResolution', 1080)
-                elif isinstance(native_data, list) and len(native_data) > 0:
-                    native_width = native_data[0].get('CurrentHorizontalResolution', 1920)
-                    native_height = native_data[0].get('CurrentVerticalResolution', 1080)
-            except Exception as e:
-                print(f"Failed to parse native resolution: {e}")
-        
-        # PowerShell command to get monitor positions - using single line approach
-        ps_command = 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Screen]::AllScreens | ForEach-Object { [PSCustomObject]@{ DeviceName = $_.DeviceName; Primary = $_.Primary; X = $_.Bounds.X; Y = $_.Bounds.Y; Width = $_.Bounds.Width; Height = $_.Bounds.Height } } | ConvertTo-Json'
-        
-        result = subprocess.run([
-            'powershell', '-Command', ps_command
-        ], capture_output=True, text=True, shell=False)
-        
-        if result.returncode == 0 and result.stdout.strip():
-            print(f"PowerShell output: {result.stdout.strip()}")  # Debug line
-            monitors_data = json.loads(result.stdout.strip())
-            
-            # Handle single monitor case (JSON returns dict instead of list)
-            if isinstance(monitors_data, dict):
-                monitors_data = [monitors_data]
-            
-            # Calculate scaling factor to detect if Windows scaling is affecting results
-            scaling_factor = 1.0
-            if len(monitors_data) > 0:
-                reported_width = monitors_data[0]['Width']
-                if reported_width > 0 and native_width > reported_width:
-                    scaling_factor = native_width / reported_width
-                    print(f"Detected Windows scaling: {scaling_factor:.2f}x ({reported_width} scaled → {native_width} native)")
-            
-            # Format monitor info for UI
-            monitors = []
-            for i, monitor in enumerate(monitors_data):
-                # Try to get manufacturer info - match by index since both are ordered
-                manufacturer_info = ""
-                if i < len(manufacturer_list):
-                    mfg = manufacturer_list[i]
-                    if mfg['product_id']:
-                        manufacturer_info = f" ({mfg['name']} {mfg['product_id']})"
-                    else:
-                        manufacturer_info = f" ({mfg['name']})"
-                
-                # Use native resolution for primary monitor, scale others proportionally
-                actual_width = monitor['Width']
-                actual_height = monitor['Height']
-                
-                if monitor['Primary'] and scaling_factor > 1.0:
-                    # For primary monitor, use native resolution
-                    actual_width = native_width
-                    actual_height = native_height
-                elif scaling_factor > 1.0:
-                    # For secondary monitors, apply scaling correction
-                    actual_width = int(monitor['Width'] * scaling_factor)
-                    actual_height = int(monitor['Height'] * scaling_factor)
-                
-                # Build display name with manufacturer if available
-                display_name = f"Monitor {i+1}{manufacturer_info}"
-                if monitor['Primary']:
-                    display_name += " - Primary"
-                display_name += f" - {actual_width}x{actual_height}"
-                if monitor['X'] != 0 or monitor['Y'] != 0:
-                    # Scale the positions too if needed
-                    actual_x = int(monitor['X'] * scaling_factor) if scaling_factor > 1.0 else monitor['X']
-                    actual_y = int(monitor['Y'] * scaling_factor) if scaling_factor > 1.0 else monitor['Y']
-                    display_name += f" at ({actual_x}, {actual_y})"
-                
-                monitors.append({
-                    'id': i,
-                    'name': display_name,
-                    'device_name': monitor['DeviceName'],
-                    'primary': monitor['Primary'],
-                    'x': int(monitor['X'] * scaling_factor) if scaling_factor > 1.0 else monitor['X'],
-                    'y': int(monitor['Y'] * scaling_factor) if scaling_factor > 1.0 else monitor['Y'],
-                    'width': actual_width,
-                    'height': actual_height
-                })
-            
-            return monitors
-        else:
-            # Fallback if PowerShell fails - use native resolution if available
-            print(f"PowerShell failed: returncode={result.returncode}, stderr={result.stderr}")  # Debug line
-            return [{'id': 0, 'name': f'Primary Monitor (Default) - {native_width}x{native_height}', 
-                    'x': 0, 'y': 0, 'width': native_width, 'height': native_height, 'primary': True}]
-            
-    except Exception as e:
-        print(f"Error getting monitors: {e}")
-        return [{'id': 0, 'name': 'Primary Monitor (Default) - 1920x1080', 'x': 0, 'y': 0, 'width': 1920, 'height': 1080, 'primary': True}]
+    """Get list of available monitors from settings configuration"""
+    logger.debug("🔍 Getting monitors from settings manager...")
+    monitors = settings_manager.get_all_monitors()
+    logger.info(f"📺 Found {len(monitors)} monitors")
+    for i, monitor in enumerate(monitors):
+        logger.debug(f"   Monitor {i}: {monitor['name']} at ({monitor['x']}, {monitor['y']}) - {monitor['width']}x{monitor['height']}")
+    return monitors
+
+def get_default_monitor():
+    """Get the default monitor configuration from settings"""
+    logger.debug("🔍 Getting default monitor from settings manager...")
+    default_monitor = settings_manager.get_default_monitor()
+    if default_monitor:
+        logger.info(f"📺 Default monitor: ID={default_monitor['id']}, Name='{default_monitor['name']}'")
+        logger.debug(f"   Position: ({default_monitor['x']}, {default_monitor['y']})")
+        logger.debug(f"   Size: {default_monitor['width']}x{default_monitor['height']}")
+    else:
+        logger.warning("⚠️ No default monitor found")
+    return default_monitor
 
 # Authentication routes
 @app.route('/login', methods=['GET', 'POST'])
@@ -367,9 +285,11 @@ def recordings():
 @login_required
 def record():
     monitors = get_monitors()
+    default_monitor = get_default_monitor()
+    default_monitor_id = default_monitor['id'] if default_monitor else 0
     return render_template('record.html', 
                          monitors=monitors, 
-                         default_monitor=current_user.default_monitor)
+                         default_monitor=default_monitor_id)
 
 @app.route('/monitors')
 @login_required
@@ -381,36 +301,53 @@ def list_monitors():
 @app.route('/start', methods=['POST'])
 @login_required
 def start_recording():
+    logger.info(f"🎬 Recording start requested by user: {current_user.username}")
+    
     if recording_state['active']:
+        logger.warning(f"⚠️ Recording already active - rejecting request from {current_user.username}")
         return jsonify({'error': 'Already recording'}), 400
     
     # Get monitor selection and title from request
     data = request.get_json() or {}
     monitor_id = data.get('monitor_id')
-    
-    # Use user's default monitor if no monitor specified
-    if monitor_id is None and current_user.default_monitor:
-        try:
-            monitor_id = int(current_user.default_monitor)
-        except (ValueError, TypeError):
-            monitor_id = 0  # Fall back to primary monitor if conversion fails
-    elif monitor_id is None:
-        monitor_id = 0  # Fall back to primary monitor
-    
     recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     
+    logger.info(f"📝 Recording request details:")
+    logger.info(f"   Title: {recording_title}")
+    logger.info(f"   Requested Monitor ID: {monitor_id}")
+    logger.info(f"   Request data: {data}")
+    
+    # Use default monitor from settings if no monitor specified
+    if monitor_id is None:
+        logger.info("🔍 No monitor specified, getting default from settings...")
+        default_monitor = get_default_monitor()
+        monitor_id = default_monitor['id'] if default_monitor else 0
+        logger.info(f"📺 Using default monitor ID: {monitor_id}")
+    
     # Get monitor info
+    logger.info("🔍 Getting all available monitors...")
     monitors = get_monitors()
     selected_monitor = None
     for monitor in monitors:
         if monitor['id'] == monitor_id:
             selected_monitor = monitor
+            logger.info(f"✅ Found matching monitor: ID={monitor['id']}, Name='{monitor['name']}'")
             break
     
     if not selected_monitor:
+        logger.error(f"❌ Invalid monitor selection: ID={monitor_id}")
+        logger.error(f"   Available monitors: {[m['id'] for m in monitors]}")
         return jsonify({'error': 'Invalid monitor selection'}), 400
     
+    logger.info(f"📺 Selected monitor configuration:")
+    logger.info(f"   ID: {selected_monitor['id']}")
+    logger.info(f"   Name: {selected_monitor['name']}")
+    logger.info(f"   Position: ({selected_monitor['x']}, {selected_monitor['y']})")
+    logger.info(f"   Size: {selected_monitor['width']}x{selected_monitor['height']}")
+    logger.info(f"   Primary: {selected_monitor.get('primary', False)}")
+    
     # Create database record for this recording
+    logger.info("💾 Creating database record...")
     recording = Recording(
         title=recording_title,
         filename='',  # Will be set when recording completes
@@ -423,6 +360,7 @@ def start_recording():
     )
     db.session.add(recording)
     db.session.commit()
+    logger.info(f"✅ Database record created with ID: {recording.id}")
     
     # Store selected monitor and recording ID
     recording_state['selected_monitor'] = selected_monitor
@@ -438,12 +376,15 @@ def start_recording():
                     if success:
                         rec.uploaded = True
                         rec.upload_url = message if message.startswith('http') else None
+                        logger.info(f"📊 Database updated: Recording #{rec.id} marked as uploaded")
                         print(f"📊 Database updated: Recording #{rec.id} marked as uploaded")
                     else:
+                        logger.error(f"📊 Upload failed for recording #{rec.id}: {message}")
                         print(f"📊 Upload failed for recording #{rec.id}: {message}")
                     db.session.commit()
 
     # Create streamer instance with monitor config
+    logger.info("🚀 Creating DualModeStreamer instance...")
     recording_state['streamer'] = DualModeStreamer(
         monitor_config=selected_monitor
     )
@@ -451,16 +392,21 @@ def start_recording():
     recording_state['active'] = True
     recording_state['transcriptions'] = []
     
+    logger.info("✅ Recording state updated and streamer created")
+    
     # Start recording in background thread
     def record_thread():
+        logger.info("🎬 Starting recording thread...")
         success = recording_state['streamer'].dual_mode_record()
         recording_state['active'] = False
+        logger.info(f"🔄 Recording thread completed with success: {success}")
         
         # Update database record when recording completes
         if 'recording_id' in recording_state:
             with app.app_context():  # Ensure we have application context
                 rec = Recording.query.get(recording_state['recording_id'])
                 if rec:
+                    logger.info(f"💾 Updating database record {rec.id} after recording completion...")
                     rec.ended_at = datetime.utcnow()
                     rec.status = 'completed' if success else 'failed'
                     
@@ -473,10 +419,13 @@ def start_recording():
                             rec.filename = os.path.basename(file_path)
                             rec.file_size = os.path.getsize(file_path)
                             
+                            logger.info(f"📁 File info updated: {rec.filename} ({rec.file_size} bytes)")
+                            
                             # Calculate duration from start/end times
                             if rec.started_at and rec.ended_at:
                                 duration = (rec.ended_at - rec.started_at).total_seconds()
                                 rec.duration = int(duration)
+                                logger.info(f"⏱️ Duration calculated: {rec.duration} seconds")
                             
                             # Try to get actual video duration using ffprobe if available
                             try:
@@ -489,10 +438,13 @@ def start_recording():
                                 if result.returncode == 0 and result.stdout.strip():
                                     video_duration = float(result.stdout.strip())
                                     rec.duration = int(video_duration)
-                            except Exception:
+                                    logger.info(f"⏱️ Duration from ffprobe: {rec.duration} seconds")
+                            except Exception as e:
+                                logger.debug(f"ffprobe duration check failed: {e}")
                                 pass  # Fall back to calculated duration
                     
                     db.session.commit()
+                    logger.info(f"✅ Database record {rec.id} updated successfully")
                     
                     # Upload transcript file if it exists
                     if rec and rec.has_transcript:
@@ -500,12 +452,16 @@ def start_recording():
     
     recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
     recording_state['thread'].start()
+    logger.info("🎬 Recording thread started")
     
-    return jsonify({
+    response_data = {
         'status': 'started',
         'monitor': selected_monitor['name'],
         'recording_id': recording.id
-    })
+    }
+    logger.info(f"✅ Recording started successfully: {response_data}")
+    
+    return jsonify(response_data)
 
 @app.route('/stop', methods=['POST'])
 @login_required
@@ -994,44 +950,171 @@ def cleanup_old_recordings():
             'error': str(e)
         }
 
+@app.route('/detect-monitors', methods=['POST'])
+@login_required
+def detect_monitors():
+    """API endpoint to detect and save monitors"""
+    logger.info(f"🔍 Monitor detection requested by user: {current_user.username}")
+    
+    try:
+        result = settings_manager.detect_and_save_monitors()
+        
+        if result['success']:
+            logger.info(f"✅ Monitor detection successful: {result['message']}")
+            return jsonify({
+                'success': True,
+                'message': result['message'],
+                'monitors': result['monitors']
+            })
+        else:
+            logger.error(f"❌ Monitor detection failed: {result['message']}")
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"❌ Monitor detection error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Monitor detection failed: {str(e)}'
+        }), 500
+
+@app.route('/update-monitor-arrangement', methods=['POST'])
+@login_required  
+def update_monitor_arrangement():
+    """API endpoint to update monitor physical arrangement"""
+    logger.info(f"🔄 Monitor arrangement update requested by user: {current_user.username}")
+    
+    try:
+        data = request.get_json()
+        monitor_order = data.get('monitor_order', [])
+        primary_monitor_id = data.get('primary_monitor_id')
+        
+        logger.info(f"📺 New monitor order: {monitor_order}")
+        logger.info(f"🔝 Primary monitor ID: {primary_monitor_id}")
+        
+        result = settings_manager.update_monitor_arrangement(monitor_order, primary_monitor_id)
+        
+        if result['success']:
+            logger.info(f"✅ Monitor arrangement updated: {result['message']}")
+            return jsonify({
+                'success': True,
+                'message': result['message']
+            })
+        else:
+            logger.error(f"❌ Monitor arrangement update failed: {result['message']}")
+            return jsonify({
+                'success': False,
+                'message': result['message']
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"❌ Monitor arrangement update error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Failed to update monitor arrangement: {str(e)}'
+        }), 500
+
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
     """Settings page for user preferences"""
     if request.method == 'POST':
         try:
-            # Update user settings
+            logger.info(f"🔧 Settings update request from user: {current_user.username}")
+            logger.debug(f"📝 Form data: {dict(request.form)}")
+            
+            # Update monitor settings using settings manager
             default_monitor = request.form.get('default_monitor', '')
-            current_user.default_monitor = default_monitor if default_monitor else None
+            logger.info(f"📺 Monitor selection from form: '{default_monitor}'")
+            
+            if default_monitor:
+                monitor_id = int(default_monitor)
+                logger.info(f"📺 Converting to monitor ID: {monitor_id}")
+                
+                # Log current default before change
+                current_default = get_default_monitor()
+                if current_default:
+                    logger.info(f"📺 Current default monitor: ID={current_default['id']}, Name='{current_default['name']}'")
+                else:
+                    logger.warning("⚠️ No current default monitor found")
+                
+                if settings_manager.set_default_monitor(monitor_id):
+                    logger.info(f"✅ Default monitor updated to ID: {monitor_id}")
+                    
+                    # Log new default after change
+                    new_default = get_default_monitor()
+                    if new_default:
+                        logger.info(f"📺 New default monitor: ID={new_default['id']}, Name='{new_default['name']}'")
+                        logger.info(f"   Position: ({new_default['x']}, {new_default['y']})")
+                        logger.info(f"   Size: {new_default['width']}x{new_default['height']}")
+                else:
+                    logger.error(f"❌ Failed to set monitor ID: {monitor_id}")
+                    flash('Failed to update default monitor.', 'error')
+                    return redirect(url_for('settings'))
             
             # Handle auto delete days
             auto_delete_days = request.form.get('auto_delete_days', '30')
+            logger.info(f"📅 Auto delete days from form: '{auto_delete_days}'")
             try:
                 auto_delete_days = int(auto_delete_days)
                 if auto_delete_days < 0 or auto_delete_days > 365:
+                    logger.error(f"❌ Invalid auto delete days range: {auto_delete_days}")
                     flash('Auto-delete days must be between 0 and 365.', 'error')
                     return redirect(url_for('settings'))
+                
+                if not settings_manager.set_auto_delete_days(auto_delete_days):
+                    logger.error(f"❌ Failed to set auto delete days: {auto_delete_days}")
+                    flash('Failed to update auto-delete setting.', 'error')
+                    return redirect(url_for('settings'))
+                else:
+                    logger.info(f"✅ Auto delete days updated to: {auto_delete_days}")
+                    
             except ValueError:
+                logger.error(f"❌ Invalid auto delete days value: '{auto_delete_days}'")
                 flash('Invalid auto-delete days value.', 'error')
                 return redirect(url_for('settings'))
             
-            current_user.auto_delete_days = auto_delete_days
-            db.session.commit()
-            
+            logger.info("✅ Settings update completed successfully")
             flash('Settings updated successfully!', 'success')
             return redirect(url_for('settings'))
             
         except Exception as e:
-            db.session.rollback()
+            logger.error(f"❌ Settings update error: {e}")
             flash(f'Failed to update settings: {str(e)}', 'error')
             return redirect(url_for('settings'))
     
-    # Get available monitors for dropdown
-    monitors = get_monitors()
+    # GET request - load settings for display
+    logger.debug(f"🔍 Loading settings page for user: {current_user.username}")
+    
+    # Get current settings state
+    settings_data = settings_manager.load_settings()
+    monitors_detected = settings_data["user_preferences"].get("monitors_detected", False)
+    
+    # Get available monitors and current settings
+    monitors = get_monitors() if monitors_detected else []
+    default_monitor = get_default_monitor()
+    default_monitor_id = default_monitor['id'] if default_monitor else None
+    auto_delete_days = settings_manager.get_auto_delete_days()
+    
+    logger.debug(f"📺 Monitors detected: {monitors_detected}")
+    logger.debug(f"📺 Available monitors: {len(monitors)}")
+    logger.debug(f"📺 Default monitor ID: {default_monitor_id}")
+    logger.debug(f"📅 Auto delete days: {auto_delete_days}")
+    
+    # Create a user-like object for template compatibility
+    settings_user = {
+        'default_monitor': str(default_monitor_id) if default_monitor_id else '',
+        'auto_delete_days': auto_delete_days
+    }
+    
+    logger.debug("✅ Settings page data prepared")
     
     return render_template('settings.html', 
-                         user=current_user, 
-                         monitors=monitors)
+                         user=settings_user, 
+                         monitors=monitors,
+                         monitors_detected=monitors_detected)
 
 @app.route('/auto-cleanup', methods=['POST'])
 @login_required

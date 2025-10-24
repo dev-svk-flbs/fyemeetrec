@@ -20,11 +20,6 @@
         <div class="meeting-info">
             <input type="text" id="recordingTitle" class="title-input" 
                    placeholder="Meeting title..." maxlength="50">
-            <div class="monitor-selector">
-                <select id="monitorSelect" class="monitor-select">
-                    <option value="">📺 Loading...</option>
-                </select>
-            </div>
         </div>
 
         <!-- Status & Timer -->
@@ -156,13 +151,11 @@
     /* Meeting Info */
     .meeting-info {
         flex: 1;
-        display: flex;
-        gap: 0.64rem;
         min-width: 0;
     }
 
     .title-input {
-        flex: 2;
+        width: 100%;
         background: rgba(255, 255, 255, 0.15);
         border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 5.1px;
@@ -182,26 +175,7 @@
         border-color: rgba(255, 255, 255, 0.6);
     }
 
-    .monitor-selector {
-        flex: 1;
-        min-width: 85px;
-    }
 
-    .monitor-select {
-        width: 100%;
-        background: rgba(255, 255, 255, 0.15);
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        border-radius: 5.1px;
-        padding: 0.425rem;
-        color: white;
-        font-size: 0.74rem;
-        cursor: pointer;
-    }
-
-    .monitor-select option {
-        background: #4c1d95;
-        color: white;
-    }
 
     /* Status & Timer */
     .status-info {
@@ -493,7 +467,6 @@
 
     // Initialize page
     document.addEventListener('DOMContentLoaded', function() {
-        loadMonitors();
         checkStatus();
         setInterval(checkStatus, 3000);
         setDefaultTitle();
@@ -510,36 +483,9 @@
         document.getElementById('recordingTitle').value = `Meeting ${timestamp}`;
     }
 
-    function loadMonitors() {
-        const defaultMonitorId = {{ default_monitor|default('null') }};
-        
-        fetch('/monitors')
-        .then(response => response.json())
-        .then(data => {
-            const select = document.getElementById('monitorSelect');
-            select.innerHTML = '';
-            
-            data.monitors.forEach(monitor => {
-                const option = document.createElement('option');
-                option.value = monitor.id;
-                option.textContent = monitor.name;
-                
-                if ((defaultMonitorId !== null && monitor.id == defaultMonitorId) || 
-                    (defaultMonitorId === null && monitor.primary)) {
-                    option.selected = true;
-                }
-                select.appendChild(option);
-            });
-        })
-        .catch(error => {
-            console.error('Error loading monitors:', error);
-            const select = document.getElementById('monitorSelect');
-            select.innerHTML = '<option value="0">📺 Primary Monitor</option>';
-        });
-    }
+
 
     function startRecording() {
-        const monitorId = parseInt(document.getElementById('monitorSelect').value);
         const title = document.getElementById('recordingTitle').value.trim() || 
                      `Meeting ${new Date().toLocaleString()}`;
         
@@ -547,7 +493,6 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                monitor_id: monitorId,
                 title: title
             })
         })
@@ -607,7 +552,6 @@
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
         const titleInput = document.getElementById('recordingTitle');
-        const monitorSelect = document.getElementById('monitorSelect');
         const statusDot = document.getElementById('statusDot');
         const clearBtn = document.getElementById('clearBtn');
 
@@ -615,7 +559,6 @@
             startBtn.disabled = true;
             stopBtn.disabled = false;
             titleInput.disabled = true;
-            monitorSelect.disabled = true;
             statusDot.textContent = '🔴';
             statusDot.className = 'status-dot recording-pulse';
             statusDot.title = 'Recording in progress';
@@ -624,7 +567,6 @@
             startBtn.disabled = false;
             stopBtn.disabled = true;
             titleInput.disabled = false;
-            monitorSelect.disabled = false;
             statusDot.textContent = transcriptContent ? '✅' : '⚪';
             statusDot.className = 'status-dot';
             statusDot.title = transcriptContent ? 'Recording completed' : 'Ready to record';
