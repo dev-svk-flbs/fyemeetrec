@@ -97,7 +97,18 @@ def utility_processor():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))  # Fix SQLAlchemy deprecation
+
+def get_single_user():
+    """Get the single user for this system (don't auto-create)"""
+    try:
+        # Get the first (and only) user
+        user = User.query.first()
+        return user
+        
+    except Exception as e:
+        logger.error(f"❌ Error getting single user: {e}")
+        return None
 
 # Global state
 recording_state = {
@@ -214,35 +225,30 @@ def get_default_monitor():
 # Authentication routes
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+    # Check if any user exists
+    existing_user = User.query.first()
     
-    if request.method == 'POST':
-        data = request.get_json()
-        username = data.get('username')
-        password = data.get('password')
-        
-        user = User.query.filter_by(username=username).first()
-        
-        if user and user.check_password(password):
-            login_user(user, remember=True)
-            return jsonify({'success': True, 'redirect': url_for('dashboard')})
-        else:
-            return jsonify({'success': False, 'message': 'Invalid username or password'})
+    if not existing_user:
+        # No user exists, redirect to setup
+        return redirect(url_for('setup'))
     
-    return render_template('login.html')
+    # User exists, auto-login for single-user system
+    if not current_user.is_authenticated:
+        login_user(existing_user, remember=True)
+    
+    return redirect(url_for('dashboard'))
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    # Check if user already exists
+    if User.query.first():
+        return redirect(url_for('login'))
     
     if request.method == 'POST':
         data = request.get_json()
         username = data.get('username', '').strip()
         email = data.get('email', '').strip()
         password = data.get('password', '')
-        confirm_password = data.get('confirm_password', '')
         
         # Validation
         errors = []
@@ -252,34 +258,31 @@ def signup():
             errors.append('Please enter a valid email address')
         if not password or len(password) < 6:
             errors.append('Password must be at least 6 characters long')
-        if password != confirm_password:
-            errors.append('Passwords do not match')
-        
-        # Check if user already exists
-        if User.query.filter_by(username=username).first():
-            errors.append('Username already exists')
-        if User.query.filter_by(email=email).first():
-            errors.append('Email already registered')
         
         if errors:
             return jsonify({'success': False, 'errors': errors})
         
-        # Create new user
+        # Create the single user
         try:
-            new_user = User(username=username, email=email)
-            new_user.set_password(password)
-            db.session.add(new_user)
+            user = User(username=username, email=email)
+            user.set_password(password)
+            db.session.add(user)
             db.session.commit()
             
             # Auto-login the new user
-            login_user(new_user, remember=True)
+            login_user(user, remember=True)
             return jsonify({'success': True, 'redirect': url_for('dashboard')})
             
         except Exception as e:
             db.session.rollback()
-            return jsonify({'success': False, 'errors': ['Registration failed. Please try again.']})
+            return jsonify({'success': False, 'errors': ['Setup failed. Please try again.']})
     
-    return render_template('signup.html')
+    return render_template('setup.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    # For single-user system, redirect to login which auto-logs in the single user
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 @login_required
@@ -288,21 +291,19 @@ def logout():
     return redirect(url_for('login'))
 
 @app.route('/')
-@login_required
 def index():
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))  # This will auto-login and redirect to dashboard
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get recent recordings
-    recent_recordings = Recording.query.filter_by(user_id=current_user.id)\
+    # Get recent recordings - show all recordings for single-user system
+    recent_recordings = Recording.query\
         .order_by(Recording.created_at.desc()).limit(6).all()
     
-    # Get recording stats
-    total_recordings = Recording.query.filter_by(user_id=current_user.id).count()
-    total_duration = db.session.query(db.func.sum(Recording.duration))\
-        .filter_by(user_id=current_user.id).scalar() or 0
+    # Get recording stats - show all recordings for single-user system
+    total_recordings = Recording.query.count()
+    total_duration = db.session.query(db.func.sum(Recording.duration)).scalar() or 0
     
     return render_template('dashboard.html', 
                          recent_recordings=recent_recordings,
@@ -317,8 +318,8 @@ def recordings():
     status_filter = request.args.get('status', 'all')
     search_query = request.args.get('search', '').strip()
     
-    # Start with base query
-    query = Recording.query.filter_by(user_id=current_user.id)
+    # Start with base query - show all recordings for single-user system
+    query = Recording.query
     
     # Apply search filter
     if search_query:
@@ -366,12 +367,13 @@ def list_monitors():
     return jsonify({'monitors': monitors})
 
 @app.route('/start', methods=['POST'])
-@login_required
 def start_recording():
-    logger.info(f"🎬 Recording start requested by user: {current_user.username}")
+    # Handle both authenticated and hotkey requests
+    user_info = current_user.username if current_user.is_authenticated else "hotkey"
+    logger.info(f"🎬 Recording start requested by: {user_info}")
     
     if recording_state['active']:
-        logger.warning(f"⚠️ Recording already active - rejecting request from {current_user.username}")
+        logger.warning(f"⚠️ Recording already active - rejecting request from {user_info}")
         return jsonify({'error': 'Already recording'}), 400
     
     # Get monitor selection and title from request
@@ -415,6 +417,12 @@ def start_recording():
     
     # Create database record for this recording
     logger.info("💾 Creating database record...")
+    
+    # Always use the single user for this system
+    single_user = get_single_user()
+    if not single_user:
+        return jsonify({'error': 'System user not available'}), 500
+    
     recording = Recording(
         title=recording_title,
         filename='',  # Will be set when recording completes
@@ -422,7 +430,7 @@ def start_recording():
         started_at=datetime.utcnow(),
         monitor_name=selected_monitor['name'],
         resolution=f"{selected_monitor['width']}x{selected_monitor['height']}",
-        user_id=current_user.id,
+        user_id=single_user.id,
         status='recording'
     )
     db.session.add(recording)
@@ -523,7 +531,6 @@ def start_recording():
     return jsonify(response_data)
 
 @app.route('/stop', methods=['POST'])
-@login_required
 def stop_recording():
     if not recording_state['active']:
         return jsonify({'error': 'Not recording'}), 400
@@ -612,7 +619,7 @@ DualModeStreamer.send_text_to_server = patched_send
 @login_required
 def serve_video(recording_id):
     """Serve video file for playback"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Use resolved file path that works across different machines
     resolved_path = recording.resolved_file_path
@@ -631,7 +638,7 @@ def serve_video(recording_id):
 @login_required
 def serve_thumbnail(recording_id):
     """Serve thumbnail image for video preview"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Use resolved file path that works across different machines
     resolved_path = recording.resolved_file_path
@@ -664,7 +671,7 @@ def serve_thumbnail(recording_id):
 @login_required
 def download_recording(recording_id):
     """Download a recording file"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Use resolved file path that works across different machines
     resolved_path = recording.resolved_file_path
@@ -686,7 +693,7 @@ def download_recording(recording_id):
 @login_required
 def manual_upload_transcript(recording_id):
     """Manually upload transcript for a recording"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Since we're no longer sending to transcript servers, this function now just 
     # confirms the transcript exists locally
@@ -707,7 +714,7 @@ def manual_upload_transcript(recording_id):
 @login_required
 def download_transcript(recording_id):
     """Download transcript file for a recording"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Get transcript file path using the model property
     transcript_path = recording.transcript_path
@@ -729,7 +736,7 @@ def download_transcript(recording_id):
 @login_required
 def update_sync_status(recording_id):
     """Manually update sync status of a recording"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Check if recording is currently being uploaded
     if 'streamer' in recording_state and hasattr(recording_state['streamer'], 'upload_status'):
@@ -748,7 +755,7 @@ def delete_recording(recording_id):
     """Delete a recording from database and optionally from filesystem"""
     logger.info(f"🗑️ DELETE REQUEST: User {current_user.username} attempting to delete recording ID {recording_id}")
     
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     # Get delete options from request
     data = request.get_json() or {}
@@ -841,7 +848,7 @@ def delete_recording(recording_id):
 @login_required
 def cleanup_orphaned_recordings():
     """Delete all recordings that have no corresponding file"""
-    all_recordings = Recording.query.filter_by(user_id=current_user.id).all()
+    all_recordings = Recording.query.all()  # Show all recordings for single-user system
     
     deleted_count = 0
     deleted_titles = []
@@ -1146,7 +1153,7 @@ def trigger_auto_cleanup():
 @login_required
 def trigger_manual_upload(recording_id):
     """Manually trigger upload for a specific recording"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     try:
         from background_uploader import trigger_upload
@@ -1175,7 +1182,7 @@ def trigger_manual_upload(recording_id):
 @login_required
 def get_upload_status(recording_id):
     """Get upload status for a recording"""
-    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
     try:
         from background_uploader import get_uploader
@@ -1254,8 +1261,8 @@ def get_all_upload_status():
         uploader = get_uploader()
         all_active = uploader.get_all_active_uploads()
         
-        # Filter to only show uploads for current user's recordings
-        user_recordings = Recording.query.filter_by(user_id=current_user.id).all()
+        # Show all uploads for single-user system
+        user_recordings = Recording.query.all()  # Get all recordings instead of filtering by user
         user_recording_ids = {rec.id for rec in user_recordings}
         
         filtered_active = {
@@ -1277,13 +1284,13 @@ def get_all_upload_status():
         }), 500
 
 # =============================================
-# ADMIN ROUTES - Database Viewer
+# ADVANCED ROUTES - Database Viewer
 # =============================================
 
 @app.route('/admin')
 @login_required
 def admin_dashboard():
-    """Admin dashboard showing database overview"""
+    """Advanced dashboard showing database overview"""
     try:
         # Get summary statistics
         total_recordings = Recording.query.count()
@@ -1316,13 +1323,13 @@ def admin_dashboard():
         return render_template('admin/dashboard.html', stats=stats, recent_recordings=recent_recordings)
         
     except Exception as e:
-        logger.error(f"❌ Admin dashboard error: {e}")
+        logger.error(f"❌ Advanced dashboard error: {e}")
         return f"Database error: {e}", 500
 
 @app.route('/admin/recordings')
 @login_required
 def admin_recordings():
-    """Admin recordings list with advanced filtering"""
+    """Advanced recordings list with advanced filtering"""
     try:
         page = request.args.get('page', 1, type=int)
         per_page = 20
@@ -1392,7 +1399,7 @@ def admin_recordings():
                              sort_order=sort_order)
         
     except Exception as e:
-        logger.error(f"❌ Admin recordings error: {e}")
+        logger.error(f"❌ Advanced recordings error: {e}")
         return f"Database error: {e}", 500
 
 @app.route('/admin/recording/<int:recording_id>')

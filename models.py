@@ -235,28 +235,4 @@ def init_db(app):
         # Create all tables
         db.create_all()
         
-        # Create default admin user if none exists
-        try:
-            if not User.query.first():
-                admin = User(
-                    username='admin',
-                    email='admin@fyemeetings.com'
-                )
-                admin.set_password('admin123')  # Change this in production!
-                db.session.add(admin)
-                db.session.commit()
-                print("Default admin user created (admin/admin123)")
-        except Exception as e:
-            print(f"Database initialization: {e}")
-            # If there's an issue, recreate the database
-            db.drop_all()
-            db.create_all()
-            
-            admin = User(
-                username='admin',
-                email='admin@fyemeetings.com'
-            )
-            admin.set_password('admin123')  # Change this in production!
-            db.session.add(admin)
-            db.session.commit()
-            print("Database recreated and default admin user created (admin/admin123)")
+        # No automatic user creation - let the setup page handle first-time user creation
