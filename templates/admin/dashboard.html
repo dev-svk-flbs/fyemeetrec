@@ -4,76 +4,129 @@
 
 {% block extra_css %}
 <style>
-    .admin-header {
-        background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
-        color: white;
-        padding: 2rem 0;
-        margin-bottom: 2rem;
-        border-radius: 8px;
+    /* Corporate Admin Styling */
+    body {
+        background: #f8f9fa;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        color: #212529;
     }
 
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    .admin-header {
+        background: #fff;
+        color: #212529;
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
+    }
+
+
+
     .admin-header h1 {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
+        color: #212529;
     }
 
     .admin-header p {
-        opacity: 0.9;
-        font-size: 1.1rem;
+        color: #6c757d;
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 300;
+        position: relative;
+        z-index: 1;
     }
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
     }
 
     .stat-card {
         background: white;
         padding: 1.5rem;
         border-radius: 8px;
-        box-shadow: var(--shadow-md);
-        text-align: center;
-        transition: transform 0.2s, box-shadow 0.2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
+        position: relative;
+        transition: box-shadow 0.2s ease;
     }
 
     .stat-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
+    .stat-card:nth-child(6) { border-left-color: #43e97b; }
 
     .stat-number {
-        font-size: 2.5rem;
-        font-weight: bold;
+        font-size: 2rem;
+        font-weight: 600;
         margin-bottom: 0.5rem;
-        background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+        color: #212529;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, monospace;
+    }
+
+    .stat-label {
+        color: #6c757d;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+        margin-bottom: 0.75rem;
+    }
+
+    .stat-details {
+        font-size: 0.75rem;
+        color: #868e96;
+        line-height: 1.4;
+        text-align: left;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e9ecef;
+    }
+
+    .stat-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: #adb5bd;
+        margin-top: 0.5rem;
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+        background: linear-gradient(135deg, #667eea, #764ba2);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
 
-    .stat-label {
-        color: var(--gray-600);
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-
     .progress-bar {
         width: 100%;
-        height: 8px;
-        background-color: var(--gray-200);
-        border-radius: 4px;
+        height: 12px;
+        background: linear-gradient(90deg, #e9ecef, #f8f9fa);
+        border-radius: 8px;
         overflow: hidden;
-        margin-top: 0.5rem;
+        margin-top: 1rem;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
     }
 
     .progress-fill {
         height: 100%;
-        background: linear-gradient(90deg, var(--success-green), var(--secondary-blue));
+        background: #007bff;
         transition: width 0.3s ease;
     }
 
@@ -81,35 +134,245 @@
         background: white;
         border-radius: 8px;
         padding: 1.5rem;
-        box-shadow: var(--shadow-md);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        border: 1px solid #dee2e6;
+    }
+
+    .professional-table {
+        width: 100%;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+        margin-top: 0.5rem;
+    }
+
+    .professional-table th,
+    .professional-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .professional-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .professional-table tr:hover {
+        background: #f8f9fa;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .status-completed {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .status-uploading {
+        background: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+
+    .status-failed {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .status-pending {
+        background: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+
+
+
+    .recording-title {
+        color: #007bff;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .recording-title:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+
+    .user-avatar {
+        display: inline-block;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #6c757d;
+        color: white;
+        text-align: center;
+        line-height: 32px;
+        font-weight: bold;
+        margin-right: 0.5rem;
+    }
+
+    /* Compact Dashboard Layout */
+    .dashboard-layout {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 1.5rem;
+        margin-top: 1rem;
+    }
+
+    .main-content {
+        min-width: 0;
+    }
+
+    .sidebar-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .quick-stats-mini {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .mini-title {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: #374151;
+    }
+
+    .mini-stat {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .mini-stat:last-child {
+        border-bottom: none;
+    }
+
+    .mini-number {
+        font-size: 1.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .mini-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+    }
+
+    .upload-progress-mini {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        text-align: center;
+    }
+
+    .progress-ring {
+        width: 80px;
+        height: 80px;
+        margin: 1rem auto;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        background: #e9ecef;
+        border: 4px solid #007bff;
+    }
+
+    .progress-ring::before {
+        content: '';
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        background: white;
+        border-radius: 50%;
+    }
+
+    .progress-value {
+        position: relative;
+        z-index: 1;
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: #374151;
+    }
+
+    .progress-text {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin: 0;
+    }
+
+    @media (max-width: 768px) {
+        .dashboard-layout {
+            display: block;
+        }
+        .sidebar-content {
+            margin-bottom: 1rem;
+        }
     }
 
     .section-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid var(--gray-100);
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #e9ecef;
     }
 
     .section-title {
-        font-size: 1.3rem;
-        font-weight: 600;
+        font-size: 1.4rem;
+        font-weight: 700;
         color: var(--gray-800);
     }
 
     .view-all-btn {
-        color: var(--secondary-blue);
+        background: #007bff;
+        color: white;
         text-decoration: none;
-        font-weight: 600;
+        font-weight: 500;
+        font-size: 0.875rem;
         padding: 0.5rem 1rem;
         border-radius: 4px;
-        transition: background-color 0.2s;
+        border: 1px solid #007bff;
+        transition: all 0.2s ease;
+        display: inline-block;
     }
 
     .view-all-btn:hover {
-        background-color: var(--gray-100);
+        background: #0056b3;
+        border-color: #0056b3;
+        color: white;
         text-decoration: none;
     }
 
@@ -230,54 +493,76 @@
 
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-number" data-stat="total_recordings">{{ stats.total_recordings }}</div>
         <div class="stat-label">Total Recordings</div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-number" data-stat="uploaded">{{ stats.uploaded_count }}</div>
-        <div class="stat-label">Cloud Synced</div>
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: {{ stats.upload_percentage }}%"></div>
+        <div class="stat-number" data-stat="total_recordings">{{ stats.total_recordings }}</div>
+        <div class="stat-details">
+            Active recordings in system<br>
+            <span style="color: #28a745;">{{ stats.uploaded_count }} synced</span> • 
+            <span style="color: #ffc107;">{{ stats.local_only }} local</span>
+        </div>
+        <div class="stat-meta">
+            <span>Last 30 days</span>
+            <span>{{ stats.upload_percentage }}% synced</span>
         </div>
     </div>
     
     <div class="stat-card">
-        <div class="stat-number" data-stat="local_only">{{ stats.local_only }}</div>
-        <div class="stat-label">Local Only</div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-number">{{ stats.users_count }}</div>
-        <div class="stat-label">Active Users</div>
-    </div>
-    
-    <div class="stat-card">
+        <div class="stat-label">Storage Usage</div>
         <div class="stat-number">{{ stats.total_size }}</div>
-        <div class="stat-label">Total Storage</div>
+        <div class="stat-details">
+            Total data stored across system<br>
+            Cloud backup status: {{ stats.uploaded_count }}/{{ stats.total_recordings }} files
+        </div>
+        <div class="stat-meta">
+            <span>Local + Cloud</span>
+            <span>{{ stats.total_recordings }} files</span>
+        </div>
     </div>
     
     <div class="stat-card">
+        <div class="stat-label">Content Duration</div>
         <div class="stat-number">{{ stats.total_duration }}</div>
-        <div class="stat-label">Total Duration</div>
+        <div class="stat-details">
+            Total recorded content<br>
+            Meeting sessions and recordings
+        </div>
+        <div class="stat-meta">
+            <span>All recordings</span>
+            <span>{{ stats.total_recordings }} sessions</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-label">User Activity</div>
+        <div class="stat-number">{{ stats.users_count }}</div>
+        <div class="stat-details">
+            Registered system users<br>
+            Active recording sessions today
+        </div>
+        <div class="stat-meta">
+            <span>System users</span>
+            <span>{{ stats.today_recordings }} today</span>
+        </div>
     </div>
 </div>
 
-<div class="recent-section">
-    <div class="section-header">
-        <h2 class="section-title">📹 Recent Recordings</h2>
-        <a href="{{ url_for('admin_recordings') }}" class="view-all-btn">View All →</a>
-    </div>
+<div class="dashboard-layout">
+    <div class="main-content">
+        <div class="recent-section">
+            <div class="section-header">
+                <h2 class="section-title">📹 Recent Recordings</h2>
+                <a href="{{ url_for('admin_recordings') }}" class="view-all-btn">View All →</a>
+            </div>
     
     {% if recent_recordings %}
-    <table class="recordings-table">
+    <table class="recordings-table professional-table">
         <thead>
             <tr>
-                <th>Recording</th>
-                <th>User</th>
-                <th>Duration</th>
-                <th>Status</th>
-                <th>Created</th>
+                <th>📹 Recording</th>
+                <th>👤 User</th>
+                <th>⏱️ Duration</th>
+                <th>🔄 Status</th>
+                <th>📅 Created</th>
             </tr>
         </thead>
         <tbody>
@@ -317,6 +602,34 @@
         <p>📋 No recordings found</p>
     </div>
     {% endif %}
+        </div>
+    </div>
+    
+    <div class="sidebar-content">
+        <div class="quick-stats-mini">
+            <h3 class="mini-title">⚡ Quick Stats</h3>
+            <div class="mini-stat">
+                <span class="mini-number">{{ stats.total_users }}</span>
+                <span class="mini-label">Users</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-number">{{ stats.todays_recordings }}</span>
+                <span class="mini-label">Today</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-number">{{ stats.uploaded }}</span>
+                <span class="mini-label">Synced</span>
+            </div>
+        </div>
+        
+        <div class="upload-progress-mini">
+            <h3 class="mini-title">☁️ Cloud Sync</h3>
+            <div class="progress-ring">
+                <div class="progress-value">{{ stats.upload_percentage }}%</div>
+            </div>
+            <p class="progress-text">{{ stats.uploaded_count }}/{{ stats.total_recordings }} synced</p>
+        </div>
+    </div>
 </div>
 {% endblock %}
 

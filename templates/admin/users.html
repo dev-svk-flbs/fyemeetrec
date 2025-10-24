@@ -80,9 +80,9 @@
         </div>
         <div style="text-align: center; padding: 1rem; background: var(--gray-50); border-radius: 6px;">
             <div style="font-size: 1.5rem; font-weight: bold; color: var(--success-green);">
-                {{ users_data|selectattr('0.created_at')|selectattr('0.created_at', 'gt', (moment().subtract(30, 'days')))|list|length or 0 }}
+                {{ recent_users or 0 }}
             </div>
-            <div style="color: var(--gray-600); font-size: 0.9rem;">Active This Month</div>
+            <div style="color: var(--gray-600); font-size: 0.9rem;">Joined This Month</div>
         </div>
         <div style="text-align: center; padding: 1rem; background: var(--gray-50); border-radius: 6px;">
             <div style="font-size: 1.5rem; font-weight: bold; color: var(--warning-yellow);">

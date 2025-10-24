@@ -1370,17 +1370,32 @@ def admin_recording_detail(recording_id):
 def admin_users():
     """Admin users list with statistics"""
     try:
-        # Get users with recording statistics
-        users_data = db.session.query(
-            User,
-            db.func.count(Recording.id).label('recording_count'),
-            db.func.sum(Recording.file_size).label('total_size'),
-            db.func.sum(Recording.duration).label('total_duration'),
-            db.func.count(Recording.id.distinct()).filter(Recording.uploaded == True).label('uploaded_count')
-        ).outerjoin(Recording).group_by(User.id).all()
+        from datetime import datetime, timedelta
+        
+        # Get all users
+        users = User.query.all()
+        users_data = []
+        
+        for user in users:
+            # Get user's recordings
+            recordings = Recording.query.filter_by(user_id=user.id).all()
+            recording_count = len(recordings)
+            
+            # Calculate totals
+            total_size = sum(r.file_size or 0 for r in recordings)
+            total_duration = sum(r.duration or 0 for r in recordings)
+            uploaded_count = sum(1 for r in recordings if r.uploaded)
+            
+            users_data.append((user, recording_count, total_size, total_duration, uploaded_count))
+        
+        # Calculate additional stats
+        thirty_days_ago = datetime.now() - timedelta(days=30)
+        recent_users = sum(1 for user, _, _, _, _ in users_data 
+                          if user.created_at and user.created_at > thirty_days_ago)
         
         return render_template('admin/users.html', 
-                             users_data=users_data)
+                             users_data=users_data,
+                             recent_users=recent_users)
         
     except Exception as e:
         logger.error(f"❌ Admin users error: {e}")
