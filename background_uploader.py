@@ -341,66 +341,111 @@ class BackgroundUploader:
                     if thumbnail_path:
                         files['thumbnail'] = thumbnail_path
                 
-                # Upload files
+                # Upload files with better error handling
                 urls = {}
                 folder_prefix = f"{recording_id}/"
+                upload_errors = []
                 
+                # Upload video file
                 if files['video']:
-                    urls['video'] = self._upload_file_to_s3(
-                        files['video'], 
-                        f"{folder_prefix}video.mkv", 
-                        recording_id
-                    )
+                    try:
+                        urls['video'] = self._upload_file_to_s3(
+                            files['video'], 
+                            f"{folder_prefix}video.mkv", 
+                            recording_id
+                        )
+                        logger.info(f"✅ Video upload completed for recording {recording_id}")
+                    except Exception as e:
+                        error_msg = f"Video upload failed: {e}"
+                        upload_errors.append(error_msg)
+                        logger.error(f"❌ {error_msg}")
                 
+                # Upload transcript file
                 if files['transcript']:
-                    urls['transcript'] = self._upload_file_to_s3(
-                        files['transcript'], 
-                        f"{folder_prefix}transcript.txt", 
-                        recording_id
-                    )
+                    try:
+                        urls['transcript'] = self._upload_file_to_s3(
+                            files['transcript'], 
+                            f"{folder_prefix}transcript.txt", 
+                            recording_id
+                        )
+                        logger.info(f"✅ Transcript upload completed for recording {recording_id}")
+                    except Exception as e:
+                        error_msg = f"Transcript upload failed: {e}"
+                        upload_errors.append(error_msg)
+                        logger.error(f"❌ {error_msg}")
                 
+                # Upload thumbnail file
                 if files['thumbnail']:
-                    urls['thumbnail'] = self._upload_file_to_s3(
-                        files['thumbnail'], 
-                        f"{folder_prefix}thumbnail.jpg", 
-                        recording_id
-                    )
+                    try:
+                        urls['thumbnail'] = self._upload_file_to_s3(
+                            files['thumbnail'], 
+                            f"{folder_prefix}thumbnail.jpg", 
+                            recording_id
+                        )
+                        logger.info(f"✅ Thumbnail upload completed for recording {recording_id}")
+                    except Exception as e:
+                        error_msg = f"Thumbnail upload failed: {e}"
+                        upload_errors.append(error_msg)
+                        logger.error(f"❌ {error_msg}")
+                
+                # Check if we have any successful uploads
+                if not urls:
+                    raise Exception(f"All uploads failed: {'; '.join(upload_errors)}")
                 
                 # Create comprehensive metadata
                 metadata = self._create_upload_metadata(recording_info, files, urls)
                 
-                # Upload metadata.json
-                import tempfile
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                    json.dump(metadata, f, indent=2)
-                    metadata_path = f.name
-                
-                urls['metadata'] = self._upload_file_to_s3(
-                    metadata_path, 
-                    f"{folder_prefix}metadata.json", 
-                    recording_id
-                )
-                
-                # Clean up temp metadata file
+                # Upload metadata.json (optional - don't fail if this fails)
                 try:
-                    os.remove(metadata_path)
-                except:
-                    pass
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                        json.dump(metadata, f, indent=2)
+                        metadata_path = f.name
+                    
+                    urls['metadata'] = self._upload_file_to_s3(
+                        metadata_path, 
+                        f"{folder_prefix}metadata.json", 
+                        recording_id
+                    )
+                    
+                    # Clean up temp metadata file
+                    try:
+                        os.remove(metadata_path)
+                    except:
+                        pass
+                        
+                    logger.info(f"✅ Metadata upload completed for recording {recording_id}")
+                        
+                except Exception as e:
+                    logger.warning(f"⚠️ Metadata upload failed (non-critical): {e}")
+                    # Don't add to upload_errors since metadata is optional
                 
                 # Update database with URLs
                 self._update_database_with_urls(recording_id, urls, metadata)
                 
+                # Determine final status
+                if upload_errors:
+                    final_status = 'partially_completed'
+                    logger.warning(f"⚠️ Partial upload for recording {recording_id}: {len(urls)} succeeded, {len(upload_errors)} failed")
+                else:
+                    final_status = 'completed'
+                    logger.info(f"✅ Complete upload for recording {recording_id}: all files uploaded successfully")
+                
                 # Mark upload as completed
                 with self.upload_lock:
                     if recording_id in self.active_uploads:
-                        self.active_uploads[recording_id]['status'] = 'completed'
+                        self.active_uploads[recording_id]['status'] = final_status
                         self.active_uploads[recording_id]['completion_time'] = datetime.now().isoformat()
                         self.active_uploads[recording_id]['urls'] = urls
+                        self.active_uploads[recording_id]['errors'] = upload_errors
                 
-                logger.info(f"✅ Background upload completed successfully for recording {recording_id}")
-                logger.info(f"📊 Upload summary: {len(urls)} files uploaded")
+                logger.info(f"📊 Upload summary for recording {recording_id}: {len(urls)} files uploaded")
                 for file_type, url in urls.items():
                     logger.info(f"   {file_type}: {url}")
+                
+                if upload_errors:
+                    for error in upload_errors:
+                        logger.warning(f"   Error: {error}")
                 
             except Exception as e:
                 logger.error(f"❌ Background upload failed for recording {recording_id}: {e}")
@@ -421,6 +466,20 @@ class BackgroundUploader:
                     conn.close()
                 except Exception as db_error:
                     logger.error(f"❌ Failed to update database with failure status: {db_error}")
+            
+            finally:
+                # Clean up active uploads tracking after some time
+                def cleanup_tracking():
+                    time.sleep(300)  # Wait 5 minutes
+                    with self.upload_lock:
+                        if recording_id in self.active_uploads:
+                            status = self.active_uploads[recording_id].get('status')
+                            if status in ['completed', 'failed', 'partially_completed']:
+                                del self.active_uploads[recording_id]
+                                logger.debug(f"🧹 Cleaned up tracking for recording {recording_id}")
+                
+                cleanup_thread = threading.Thread(target=cleanup_tracking, daemon=True)
+                cleanup_thread.start()
         
         # Start upload in background thread
         upload_thread = threading.Thread(target=upload_worker, daemon=True)

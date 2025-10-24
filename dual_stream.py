@@ -158,19 +158,10 @@ class DualModeStreamer:
         logger.info(f"🔄 Transcription processing completed - {transcription_count} transcriptions processed")
     
     def send_text_to_server(self, text):
-        payload = {"text": text, "timestamp": time.time(), "source": "faster_whisper_local"}
-        try:
-            logger.debug(f"📤 Sending to server: {text[:50]}...")
-            response = requests.post(f"http://{self.server_ip}:{self.server_port}/transcription", json=payload, timeout=5)
-            if response.status_code == 200:
-                logger.debug("✅ Successfully sent to server")
-            else:
-                logger.warning(f"⚠️ Server responded with status {response.status_code}")
-        except requests.exceptions.Timeout:
-            logger.warning(f"⏰ Timeout sending to server: {self.server_ip}:{self.server_port}")
-        except Exception as e:
-            logger.error(f"❌ Error sending to server: {e}")
-        # Always continue even if server is unreachable
+        # Server communication disabled - only local processing now
+        logger.debug(f"� Processing transcript locally: {text[:50]}...")
+        # Note: The monkey patch in app.py will still capture this for local saving
+        logger.debug("✅ Transcript processed locally")
     
     def record_video_local(self, output_file):
         """Record screen + audio to local file (main thread) - NO DURATION LIMIT"""
@@ -289,7 +280,7 @@ class DualModeStreamer:
         self.last_output_file = output_file  # Store for database update
         
         logger.info(f"🚀 STARTING RECORDING SESSION")
-        logger.info(f"🧠 Transcription → {self.server_ip}:{self.server_port}")
+        logger.info(f"🧠 Transcription → Local processing only")
         logger.info(f"📺 Monitor → {self.monitor_config['name']} ({self.monitor_config['width']}x{self.monitor_config['height']} at {self.monitor_config['x']},{self.monitor_config['y']})")
         logger.info(f"🎥 Video → {output_file}")
         
@@ -330,8 +321,8 @@ class DualModeStreamer:
             print("\n" + "=" * 50)
             print("✅ SESSION COMPLETED")
             print(f"📁 Video saved locally: {output_file}")
-            print(f"📤 Video upload started to: {self.server_ip}:8000")
-            print(f"🧠 Live transcriptions sent to server: {self.server_ip}:{self.server_port}")
+            print(f"📤 Video upload started to: cloud storage")
+            print(f"🧠 Live transcriptions processed locally")
             print(f"💾 Local transcript file will be uploaded after video upload")
             print("🔄 Background uploads in progress...")
         else:
@@ -345,7 +336,7 @@ class DualModeStreamer:
             return False
             
         print(f"🧠 TRANSCRIPTION-ONLY MODE")
-        print(f"🎤 Audio → Faster-Whisper → {self.server_ip}:{self.server_port}")
+        print(f"🎤 Audio → Faster-Whisper → Local processing only")
         print(f"⏱️  Duration: {duration} seconds")
         print(f"💡 No video recording - transcription only")
         print("-" * 50)
@@ -381,7 +372,7 @@ class DualModeStreamer:
         if success:
             print("\n" + "=" * 50)
             print("✅ TRANSCRIPTION COMPLETED")
-            print(f"🧠 Text sent to: {self.server_ip}:{self.server_port}")
+            print(f"🧠 Text processed locally")
         
         return success
     

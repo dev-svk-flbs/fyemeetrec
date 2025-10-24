@@ -11,9 +11,12 @@ from dual_stream import DualModeStreamer
 from models import db, User, Recording, init_db
 from settings_config import settings_manager
 from logging_config import app_logger as logger
+from retry_manager import start_retry_manager, get_retry_manager
+from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 import threading
 import time
+import atexit
 import subprocess
 import json
 import re
@@ -56,6 +59,13 @@ login_manager.login_message_category = 'info'
 # Initialize database
 init_db(app)
 logger.info("🗄️ Database initialized")
+
+# Run database migration for retry columns
+try:
+    from migrate_retry_columns import migrate_add_retry_columns
+    migrate_add_retry_columns()
+except Exception as e:
+    logger.warning(f"⚠️ Database migration check failed: {e}")
 
 # Utility functions for both Python code and templates
 def format_file_size(size_bytes):
@@ -678,17 +688,20 @@ def manual_upload_transcript(recording_id):
     """Manually upload transcript for a recording"""
     recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
     
-    try:
-        upload_transcript_to_server(recording)
+    # Since we're no longer sending to transcript servers, this function now just 
+    # confirms the transcript exists locally
+    transcript_path = recording.transcript_path
+    
+    if transcript_path and os.path.exists(transcript_path):
         return jsonify({
             'success': True,
-            'message': f'Transcript upload started for "{recording.title}"'
+            'message': f'Transcript available locally for "{recording.title}"'
         })
-    except Exception as e:
+    else:
         return jsonify({
             'success': False,
-            'message': f'Upload failed: {str(e)}'
-        }), 500
+            'message': 'Transcript file not found locally'
+        }), 404
 
 @app.route('/download-transcript/<int:recording_id>')
 @login_required
@@ -1191,6 +1204,47 @@ def get_upload_status(recording_id):
             'message': f'Status check failed: {str(e)}'
         }), 500
 
+@app.route('/retry-failed-uploads', methods=['POST'])
+@login_required
+def retry_failed_uploads():
+    """Manually retry all failed uploads"""
+    try:
+        retry_manager = get_retry_manager()
+        success_count = retry_manager.manual_retry_all_failed()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Retry started for failed uploads',
+            'retried_count': success_count
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Manual retry trigger failed: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Retry failed: {str(e)}'
+        }), 500
+
+@app.route('/retry-stats')
+@login_required
+def get_retry_stats():
+    """Get retry statistics"""
+    try:
+        retry_manager = get_retry_manager()
+        stats = retry_manager.get_retry_stats()
+        
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Retry stats failed: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Stats failed: {str(e)}'
+        }), 500
+
 @app.route('/upload-status')
 @login_required
 def get_all_upload_status():
@@ -1422,7 +1476,37 @@ def admin_api_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Simple APScheduler for failed upload retry - defined but not started yet
+def check_and_retry_failed():
+    """Check for failed uploads and retry them"""
+    with app.app_context():  # Flask application context
+        try:
+            failed = Recording.query.filter_by(upload_status='failed').all()
+            if failed:
+                logger.info(f"🔄 Found {len(failed)} failed uploads, retrying...")
+                for recording in failed:
+                    from background_uploader import trigger_upload
+                    trigger_upload(recording.id)
+                    time.sleep(1)  # Small delay between retries
+            else:
+                logger.debug("✅ No failed uploads found")
+        except Exception as e:
+            logger.error(f"❌ Retry check failed: {e}")
+
+def start_scheduler():
+    """Start the retry scheduler - only called when app runs"""
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(check_and_retry_failed, 'interval', minutes=5, id='retry_failed')
+    scheduler.start()
+    atexit.register(lambda: scheduler.shutdown())
+    logger.info("🔄 Simple retry scheduler started (every 5 minutes)")
+    return scheduler
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Create database tables
+    
+    # Start the retry scheduler after Flask is ready
+    scheduler = start_scheduler()
+    
     app.run(debug=True, host='0.0.0.0', port=5000)
