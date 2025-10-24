@@ -1256,6 +1256,134 @@ def clear_local_data():
             'message': f'Failed to clear local data: {str(e)}'
         }), 500
 
+@app.route('/factory-reset', methods=['POST'])
+@login_required
+def factory_reset():
+    """Complete factory reset - wipe everything and start fresh"""
+    try:
+        import os
+        import shutil
+        
+        logger.warning(f"🏭 FACTORY RESET initiated by user: {current_user.username}")
+        
+        # Step 1: Clear all recordings files
+        recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
+        files_deleted = 0
+        space_freed = 0
+        
+        if os.path.exists(recordings_path):
+            # Calculate total size before deletion
+            for root, dirs, files in os.walk(recordings_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        space_freed += os.path.getsize(file_path)
+                        files_deleted += 1
+                    except OSError:
+                        continue
+            
+            # Remove entire recordings directory
+            try:
+                shutil.rmtree(recordings_path)
+                logger.warning(f"🗑️ Deleted recordings directory: {files_deleted} files")
+            except Exception as e:
+                logger.error(f"❌ Failed to remove recordings directory: {e}")
+            
+            # Recreate empty recordings directory
+            os.makedirs(recordings_path, exist_ok=True)
+            logger.info(f"📁 Recreated empty recordings directory")
+        
+        # Step 2: Clear logs directory
+        logs_path = os.path.join(os.path.dirname(__file__), 'logs')
+        logs_deleted = 0
+        
+        if os.path.exists(logs_path):
+            for root, dirs, files in os.walk(logs_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        os.remove(file_path)
+                        logs_deleted += 1
+                        logger.info(f"🗑️ Deleted log file: {file}")
+                    except OSError as e:
+                        logger.error(f"❌ Failed to delete log {file}: {e}")
+        
+        # Step 3: Reset settings to defaults
+        try:
+            settings_config_path = os.path.join(os.path.dirname(__file__), 'settings.config')
+            if os.path.exists(settings_config_path):
+                os.remove(settings_config_path)
+                logger.warning(f"🔧 Deleted settings configuration")
+        except Exception as e:
+            logger.error(f"❌ Failed to delete settings: {e}")
+        
+        # Step 4: Clear database completely
+        try:
+            # Drop all tables
+            db.drop_all()
+            logger.warning(f"🗄️ Dropped all database tables")
+            
+            # Recreate tables
+            db.create_all()
+            logger.info(f"🗄️ Recreated database schema")
+            
+            # Remove database file entirely for complete reset
+            db_path = os.path.join(os.path.dirname(__file__), 'recordings.db')
+            if os.path.exists(db_path):
+                # Close any existing connections
+                db.session.close()
+                db.engine.dispose()
+                
+                # Remove database file
+                try:
+                    os.remove(db_path)
+                    logger.warning(f"🗄️ Deleted database file completely")
+                except Exception as e:
+                    logger.error(f"❌ Failed to delete database file: {e}")
+            
+        except Exception as e:
+            logger.error(f"❌ Database reset error: {e}")
+        
+        # Step 5: Clear Flask session and cache
+        try:
+            session.clear()
+            logger.info(f"🔐 Cleared Flask session")
+        except Exception as e:
+            logger.error(f"❌ Session clear error: {e}")
+        
+        # Step 6: Clear Python cache
+        try:
+            pycache_path = os.path.join(os.path.dirname(__file__), '__pycache__')
+            if os.path.exists(pycache_path):
+                shutil.rmtree(pycache_path)
+                logger.info(f"🐍 Cleared Python cache")
+        except Exception as e:
+            logger.error(f"❌ Cache clear error: {e}")
+        
+        # Convert space to human readable format
+        if space_freed < 1024**3:  # Less than 1GB
+            space_str = f"{space_freed / (1024**2):.1f} MB"
+        else:
+            space_str = f"{space_freed / (1024**3):.1f} GB"
+        
+        logger.warning(f"🏭 FACTORY RESET COMPLETED: {files_deleted} files deleted, {logs_deleted} logs cleared, {space_str} freed")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Factory reset completed successfully! Deleted {files_deleted} recordings, {logs_deleted} logs, cleared database and settings. Freed {space_str} of space. Please restart the application.',
+            'files_deleted': files_deleted,
+            'logs_deleted': logs_deleted,
+            'space_freed': space_str,
+            'restart_required': True
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Factory reset error: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Factory reset failed: {str(e)}'
+        }), 500
+
 @app.route('/upload/<int:recording_id>', methods=['POST'])
 @login_required
 def trigger_manual_upload(recording_id):
