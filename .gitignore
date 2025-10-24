@@ -26,22 +26,8 @@ recording_*.mp4
 audio_*.wav
 stream_*.mkv
 
-# Recordings directory - ignore all video files but keep folder structure
-recordings/*.mkv
-recordings/*.mp4
-recordings/*.avi
-recordings/*.mov
-recordings/*.wmv
-recordings/*.webm
-recordings/*.m4v
-recordings/*.3gp
-recordings/*.flv
-recordings/*.ts
-recordings/*.mts
-recordings/*.m2ts
-
-# Keep recordings directory structure
-!recordings/
+# Recordings directory - ignore everything inside but keep the folder
+recordings/*
 !recordings/.gitkeep
 
 # Python cache and compiled files
@@ -77,6 +63,7 @@ env.bak/
 venv.bak/
 .venv/
 pyvenv.cfg
+nucenv/
 
 # PyInstaller
 *.manifest
