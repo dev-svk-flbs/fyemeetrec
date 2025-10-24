@@ -1487,7 +1487,7 @@ def check_and_retry_failed():
                 for recording in failed:
                     from background_uploader import trigger_upload
                     trigger_upload(recording.id)
-                    time.sleep(1)  # Small delay between retries
+                    # Removed time.sleep(1) - let background_uploader handle timing
             else:
                 logger.debug("✅ No failed uploads found")
         except Exception as e:
