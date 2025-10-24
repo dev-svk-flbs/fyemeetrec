@@ -275,9 +275,38 @@ def dashboard():
 @login_required
 def recordings():
     page = request.args.get('page', 1, type=int)
-    recordings = Recording.query.filter_by(user_id=current_user.id)\
-        .order_by(Recording.created_at.desc())\
-        .paginate(page=page, per_page=5, error_out=False)
+    sort_by = request.args.get('sort', 'date_desc')
+    status_filter = request.args.get('status', 'all')
+    search_query = request.args.get('search', '').strip()
+    
+    # Start with base query
+    query = Recording.query.filter_by(user_id=current_user.id)
+    
+    # Apply search filter
+    if search_query:
+        query = query.filter(Recording.title.contains(search_query))
+    
+    # Apply status filter
+    if status_filter != 'all':
+        if status_filter == 'completed':
+            query = query.filter(Recording.file_path.isnot(None))
+        elif status_filter == 'processing':
+            query = query.filter(Recording.file_path.is_(None))
+        elif status_filter == 'failed':
+            # Recordings that have been marked as failed or have issues
+            query = query.filter(Recording.file_path.is_(None))
+    
+    # Apply sorting
+    if sort_by == 'date_asc':
+        query = query.order_by(Recording.created_at.asc())
+    elif sort_by == 'title':
+        query = query.order_by(Recording.title.asc())
+    elif sort_by == 'duration':
+        query = query.order_by(Recording.duration.desc().nullslast())
+    else:  # default: date_desc
+        query = query.order_by(Recording.created_at.desc())
+    
+    recordings = query.paginate(page=page, per_page=10, error_out=False)
     
     return render_template('recordings.html', recordings=recordings)
 
@@ -779,33 +808,56 @@ def delete_recording(recording_id):
     errors = []
     
     try:
-        # Delete physical file if requested and exists
+        # Delete physical files if requested
         resolved_path = recording.resolved_file_path
-        print(f"🗑️ RESOLVED PATH: {resolved_path}")
+        transcript_path = recording.transcript_path
+        print(f"🗑️ RESOLVED PATHS: video={resolved_path}, transcript={transcript_path}")
         
-        if delete_file and resolved_path and os.path.exists(resolved_path):
-            print(f"🗑️ DELETING PHYSICAL FILE: {resolved_path}")
-            try:
-                os.remove(resolved_path)
-                deleted_items.append('video_file')
-                print(f"✅ VIDEO FILE DELETED: {resolved_path}")
-                
-                # Also delete thumbnail if it exists
+        if delete_file:
+            # Delete video file
+            if resolved_path and os.path.exists(resolved_path):
+                print(f"🗑️ DELETING VIDEO FILE: {resolved_path}")
+                try:
+                    os.remove(resolved_path)
+                    deleted_items.append('video_file')
+                    print(f"✅ VIDEO FILE DELETED: {resolved_path}")
+                except Exception as e:
+                    error_msg = f"Failed to delete video file: {str(e)}"
+                    errors.append(error_msg)
+                    print(f"❌ VIDEO FILE DELETE ERROR: {error_msg}")
+            elif resolved_path:
+                print(f"⚠️ VIDEO FILE NOT FOUND: {resolved_path}")
+            
+            # Delete thumbnail file
+            if resolved_path:
                 base_name = os.path.splitext(resolved_path)[0]
                 thumbnail_path = f"{base_name}_thumb.jpg"
                 if os.path.exists(thumbnail_path):
-                    os.remove(thumbnail_path)
-                    deleted_items.append('thumbnail')
-                    print(f"✅ THUMBNAIL DELETED: {thumbnail_path}")
-                    
-            except Exception as e:
-                error_msg = f"Failed to delete file: {str(e)}"
-                errors.append(error_msg)
-                print(f"❌ FILE DELETE ERROR: {error_msg}")
-        elif delete_file and resolved_path:
-            print(f"⚠️ FILE NOT FOUND: {resolved_path}")
+                    print(f"🗑️ DELETING THUMBNAIL: {thumbnail_path}")
+                    try:
+                        os.remove(thumbnail_path)
+                        deleted_items.append('thumbnail')
+                        print(f"✅ THUMBNAIL DELETED: {thumbnail_path}")
+                    except Exception as e:
+                        error_msg = f"Failed to delete thumbnail: {str(e)}"
+                        errors.append(error_msg)
+                        print(f"❌ THUMBNAIL DELETE ERROR: {error_msg}")
+            
+            # Delete transcript file
+            if transcript_path and os.path.exists(transcript_path):
+                print(f"🗑️ DELETING TRANSCRIPT: {transcript_path}")
+                try:
+                    os.remove(transcript_path)
+                    deleted_items.append('transcript_file')
+                    print(f"✅ TRANSCRIPT DELETED: {transcript_path}")
+                except Exception as e:
+                    error_msg = f"Failed to delete transcript: {str(e)}"
+                    errors.append(error_msg)
+                    print(f"❌ TRANSCRIPT DELETE ERROR: {error_msg}")
+            elif transcript_path:
+                print(f"⚠️ TRANSCRIPT NOT FOUND: {transcript_path}")
         else:
-            print(f"🗑️ SKIPPING FILE DELETE: delete_file={delete_file}, resolved_path={resolved_path}")
+            print(f"🗑️ SKIPPING FILE DELETION: delete_file={delete_file}")
         
         # Delete database record
         title = recording.title
