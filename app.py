@@ -456,6 +456,20 @@ def start_recording():
                     
                     db.session.commit()
                     logger.info(f"✅ Database record {rec.id} updated successfully")
+                    
+                    # Trigger background upload to IDrive E2
+                    if success:
+                        try:
+                            from background_uploader import trigger_upload
+                            logger.info(f"🚀 Triggering background upload for recording {rec.id}")
+                            upload_started = trigger_upload(rec.id)
+                            if upload_started:
+                                logger.info(f"✅ Background upload started for recording {rec.id}")
+                            else:
+                                logger.warning(f"⚠️ Failed to start background upload for recording {rec.id}")
+                        except Exception as upload_error:
+                            logger.error(f"❌ Background upload trigger failed: {upload_error}")
+                            # Don't fail the recording if upload fails - it can be retried later
     
     recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
     recording_state['thread'].start()
@@ -1085,6 +1099,99 @@ def trigger_auto_cleanup():
         return jsonify({
             'success': False,
             'message': f'Error during cleanup: {str(e)}'
+        }), 500
+
+@app.route('/upload/<int:recording_id>', methods=['POST'])
+@login_required
+def trigger_manual_upload(recording_id):
+    """Manually trigger upload for a specific recording"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    try:
+        from background_uploader import trigger_upload
+        logger.info(f"🚀 Manual upload triggered by user {current_user.username} for recording {recording_id}")
+        
+        upload_started = trigger_upload(recording_id)
+        if upload_started:
+            return jsonify({
+                'success': True,
+                'message': f'Upload started for "{recording.title}"'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Failed to start upload'
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"❌ Manual upload trigger failed: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Upload failed: {str(e)}'
+        }), 500
+
+@app.route('/upload-status/<int:recording_id>')
+@login_required
+def get_upload_status(recording_id):
+    """Get upload status for a recording"""
+    recording = Recording.query.filter_by(id=recording_id, user_id=current_user.id).first_or_404()
+    
+    try:
+        from background_uploader import get_uploader
+        uploader = get_uploader()
+        status = uploader.get_upload_status(recording_id)
+        
+        return jsonify({
+            'success': True,
+            'recording_id': recording_id,
+            'upload_status': recording.upload_status,
+            'uploaded': recording.uploaded,
+            'sync_status': recording.sync_status,
+            'has_cloud_backup': recording.has_cloud_backup,
+            'active_upload': status,
+            'cloud_urls': {
+                'video': recording.cloud_video_url,
+                'transcript': recording.cloud_transcript_url,
+                'thumbnail': recording.cloud_thumbnail_url
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Upload status check failed: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Status check failed: {str(e)}'
+        }), 500
+
+@app.route('/upload-status')
+@login_required
+def get_all_upload_status():
+    """Get status of all active uploads"""
+    try:
+        from background_uploader import get_uploader
+        uploader = get_uploader()
+        all_active = uploader.get_all_active_uploads()
+        
+        # Filter to only show uploads for current user's recordings
+        user_recordings = Recording.query.filter_by(user_id=current_user.id).all()
+        user_recording_ids = {rec.id for rec in user_recordings}
+        
+        filtered_active = {
+            rec_id: status for rec_id, status in all_active.items() 
+            if rec_id in user_recording_ids
+        }
+        
+        return jsonify({
+            'success': True,
+            'active_uploads': filtered_active,
+            'total_active': len(filtered_active)
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Upload status check failed: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Status check failed: {str(e)}'
         }), 500
 
 if __name__ == '__main__':

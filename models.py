@@ -58,7 +58,16 @@ class Recording(db.Model):
     
     # Upload status
     uploaded = db.Column(db.Boolean, default=False)
-    upload_url = db.Column(db.String(500))
+    upload_url = db.Column(db.String(500))  # Legacy field - kept for compatibility
+    
+    # IDrive E2 Upload URLs
+    video_url = db.Column(db.String(500))
+    transcript_url = db.Column(db.String(500))
+    thumbnail_url = db.Column(db.String(500))
+    
+    # Upload tracking
+    upload_status = db.Column(db.String(50), default='pending')  # pending, uploading, completed, failed
+    upload_metadata = db.Column(db.Text)  # JSON metadata from upload
     
     # User relationship
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -98,10 +107,14 @@ class Recording(db.Model):
     @property
     def sync_status(self):
         """Get sync status display text"""
-        if self.uploaded:
+        if self.upload_status == 'completed' and self.uploaded:
             return "Synced"
+        elif self.upload_status == 'uploading':
+            return "Uploading"
+        elif self.upload_status == 'failed':
+            return "Upload Failed"
         elif self.status == "failed":
-            return "Failed"
+            return "Recording Failed"
         elif self.status == "processing":
             return "Processing"
         else:
@@ -113,7 +126,9 @@ class Recording(db.Model):
         status = self.sync_status
         if status == "Synced":
             return "status-synced"
-        elif status == "Failed":
+        elif status == "Uploading":
+            return "status-uploading"
+        elif "Failed" in status:
             return "status-failed"
         elif status == "Processing":
             return "status-processing"
@@ -177,6 +192,37 @@ class Recording(db.Model):
         """Check if transcript file exists"""
         transcript_path = self.transcript_path
         return transcript_path and os.path.exists(transcript_path)
+    
+    @property
+    def has_cloud_backup(self):
+        """Check if recording has been uploaded to cloud"""
+        return self.uploaded and self.upload_status == 'completed' and self.video_url
+    
+    @property
+    def cloud_video_url(self):
+        """Get cloud video URL if available"""
+        return self.video_url if self.has_cloud_backup else None
+    
+    @property
+    def cloud_thumbnail_url(self):
+        """Get cloud thumbnail URL if available"""
+        return self.thumbnail_url if self.has_cloud_backup else None
+    
+    @property
+    def cloud_transcript_url(self):
+        """Get cloud transcript URL if available"""
+        return self.transcript_url if self.has_cloud_backup else None
+    
+    def get_upload_progress(self):
+        """Get upload progress from metadata if available"""
+        try:
+            if self.upload_metadata:
+                import json
+                metadata = json.loads(self.upload_metadata)
+                return metadata.get('upload_progress', {})
+        except:
+            pass
+        return {}
     
     def __repr__(self):
         return f'<Recording {self.title}>'
