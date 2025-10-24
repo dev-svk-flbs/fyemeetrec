@@ -11,6 +11,25 @@ import time
 import json
 from datetime import datetime
 import sys
+import os
+
+# Fix Windows console encoding issues
+if os.name == 'nt':  # Windows
+    import locale
+    # Try to set UTF-8 encoding for console output
+    try:
+        # For Python 3.7+
+        if hasattr(sys.stdout, 'reconfigure'):
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        else:
+            # Fallback for older Python versions
+            import codecs
+            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
+            sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
+    except:
+        # If UTF-8 fails, we'll use ASCII-safe messages
+        pass
 
 # Flask app configuration
 FLASK_URL = "http://localhost:5000"
@@ -23,10 +42,40 @@ HOTKEYS = {
 last_hotkey_time = {'start': 0, 'stop': 0}
 DEBOUNCE_SECONDS = 2
 
-def print_status(message, emoji="🎹"):
-    """Print status with timestamp"""
+def safe_print(message, emoji="[INFO]"):
+    """Print message with safe encoding handling"""
     timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"{timestamp} | {emoji} {message}")
+    try:
+        # Try to print with emoji
+        print(f"{timestamp} | {emoji} {message}")
+    except UnicodeEncodeError:
+        # Fallback to ASCII-safe version
+        emoji_map = {
+            "🎹": "[HOTKEY]",
+            "🎬": "[START]", 
+            "⏹️": "[STOP]",
+            "✅": "[OK]",
+            "❌": "[ERROR]",
+            "⚠️": "[WARN]",
+            "📤": "[SEND]",
+            "📥": "[RECV]",
+            "📝": "[DATA]",
+            "🔍": "[CHECK]",
+            "🔌": "[CONN]",
+            "⏰": "[TIME]",
+            "💥": "[CRASH]",
+            "🔐": "[AUTH]",
+            "💡": "[TIP]",
+            "🛑": "[STOP]",
+            "🧹": "[CLEAN]",
+            "🔥": "[READY]"
+        }
+        safe_emoji = emoji_map.get(emoji, "[INFO]")
+        print(f"{timestamp} | {safe_emoji} {message}")
+
+def print_status(message, emoji="🎹"):
+    """Print status with timestamp - safe encoding wrapper"""
+    safe_print(message, emoji)
 
 def check_flask_connection():
     """Check if Flask app is running"""
@@ -146,40 +195,40 @@ def trigger_stop_recording():
 
 def main():
     """Main hotkey listener"""
-    print("🎹 Global Recording Hotkeys")
-    print("=" * 50)
-    print(f"📹 Start Recording: {HOTKEYS['record'].title()}")
-    print(f"⏹️ Stop Recording:  {HOTKEYS['stop'].title()}")
-    print("=" * 50)
+    safe_print("Global Recording Hotkeys", "🎹")
+    safe_print("=" * 50)
+    safe_print(f"Start Recording: {HOTKEYS['record'].title()}", "📹")
+    safe_print(f"Stop Recording:  {HOTKEYS['stop'].title()}", "⏹️")
+    safe_print("=" * 50)
     
     # Check initial Flask connection
     if check_flask_connection():
-        print_status("✅ Flask app detected on localhost:5000")
+        print_status("Flask app detected on localhost:5000", "✅")
     else:
-        print_status("⚠️ Flask app not detected - start your Flask app first", "⚠️")
+        print_status("Flask app not detected - start your Flask app first", "⚠️")
     
-    print_status("🎧 Listening for hotkeys... (Press Ctrl+C to exit)")
+    print_status("Listening for hotkeys... (Press Ctrl+C to exit)", "🎧")
     
     try:
         # Register hotkeys - removed suppress=True to avoid interfering with other apps
         keyboard.add_hotkey(HOTKEYS['record'], trigger_start_recording, suppress=False)
         keyboard.add_hotkey(HOTKEYS['stop'], trigger_stop_recording, suppress=False)
         
-        print_status("🔥 Hotkeys registered successfully")
+        print_status("Hotkeys registered successfully", "🔥")
         
         # Keep the script running
         keyboard.wait()
         
     except KeyboardInterrupt:
-        print_status("👋 Hotkey listener stopped by user")
+        print_status("Hotkey listener stopped by user", "👋")
         # Clean up hotkeys
         keyboard.unhook_all_hotkeys()
-        print_status("🧹 Hotkeys cleaned up")
+        print_status("Hotkeys cleaned up", "🧹")
     except Exception as e:
-        print_status(f"❌ Fatal error: {e}", "💥")
+        print_status(f"Fatal error: {e}", "💥")
         # Clean up hotkeys on error
         keyboard.unhook_all_hotkeys()
-        print_status("🧹 Hotkeys cleaned up after error")
+        print_status("Hotkeys cleaned up after error", "🧹")
         sys.exit(1)
 
 if __name__ == "__main__":

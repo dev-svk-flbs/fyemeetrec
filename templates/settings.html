@@ -414,27 +414,6 @@
         color: #dc2626;
     }
 
-    .action-icon {
-        font-size: 1.25rem;
-        margin-top: 0.125rem;
-        flex-shrink: 0;
-    }
-
-    .action-text strong {
-        display: block;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--gray-900);
-        margin-bottom: 0.25rem;
-    }
-
-    .action-text p {
-        font-size: 0.8rem;
-        color: var(--gray-600);
-        margin: 0;
-        line-height: 1.4;
-    }
-
     /* Responsive Design */
     @media (max-width: 1024px) {
         .settings-layout {
@@ -923,6 +902,120 @@
         }
     }
 
+    // Hotkey Management Functions
+    function checkHotkeyStatus() {
+        fetch('/api/hotkeys/status')
+            .then(response => response.json())
+            .then(data => {
+                const indicator = document.getElementById('hotkeyIndicator');
+                const dot = indicator.querySelector('.status-dot');
+                const text = indicator.querySelector('.status-text');
+                const startBtn = document.getElementById('startHotkeysBtn');
+                const stopBtn = document.getElementById('stopHotkeysBtn');
+                
+                if (data.success && data.running) {
+                    dot.className = 'status-dot running';
+                    text.textContent = `Running (${data.status})`;
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-flex';
+                } else {
+                    dot.className = 'status-dot stopped';
+                    text.textContent = data.running ? 'Stopped' : (data.status || 'Not running');
+                    startBtn.style.display = 'inline-flex';
+                    stopBtn.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking hotkey status:', error);
+                const indicator = document.getElementById('hotkeyIndicator');
+                const dot = indicator.querySelector('.status-dot');
+                const text = indicator.querySelector('.status-text');
+                dot.className = 'status-dot stopped';
+                text.textContent = 'Error checking status';
+            });
+    }
+
+    function startHotkeys() {
+        const button = document.getElementById('startHotkeysBtn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '⏳ Starting...';
+        button.disabled = true;
+        
+        fetch('/api/hotkeys/start', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Global hotkeys started successfully!');
+                    checkHotkeyStatus();
+                } else {
+                    alert(`❌ Failed to start hotkeys: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error starting hotkeys:', error);
+                alert('❌ Failed to start hotkeys. Check console for details.');
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+    }
+
+    function stopHotkeys() {
+        const button = document.getElementById('stopHotkeysBtn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '⏳ Stopping...';
+        button.disabled = true;
+        
+        fetch('/api/hotkeys/stop', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Global hotkeys stopped successfully!');
+                    checkHotkeyStatus();
+                } else {
+                    alert(`❌ Failed to stop hotkeys: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error stopping hotkeys:', error);
+                alert('❌ Failed to stop hotkeys. Check console for details.');
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+            });
+    }
+
+    function restartHotkeys() {
+        const button = document.getElementById('restartHotkeysBtn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '⏳ Restarting...';
+        button.disabled = true;
+        
+        fetch('/api/hotkeys/restart', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Global hotkeys restarted successfully!');
+                    checkHotkeyStatus();
+                } else {
+                    alert(`❌ Failed to restart hotkeys: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error restarting hotkeys:', error);
+                alert('❌ Failed to restart hotkeys. Check console for details.');
+            })
+            .finally(() => {
+                button.innerHTML = originalText;
+                button.disabled = false;
+                
+                // Refresh status after a brief delay
+                setTimeout(checkHotkeyStatus, 1000);
+            });
+    }
+
     // Monitor Detection Functionality
     const detectMonitorsBtn = document.getElementById('detect-monitors-btn');
     const refreshMonitorsBtn = document.getElementById('refresh-monitors-btn');
@@ -1150,6 +1243,12 @@
         
         // Initial update
         updatePrimaryMonitorDisplay();
+        
+        // Check hotkey status on page load
+        checkHotkeyStatus();
+        
+        // Periodically check hotkey status
+        setInterval(checkHotkeyStatus, 10000); // Every 10 seconds
     });
 
     // Auto-save indicator

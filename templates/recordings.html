@@ -53,10 +53,10 @@
     
     <!-- View Toggles -->
     <div class="view-toggles">
-        <button class="view-toggle-btn active" onclick="setView('list')" title="List View">
+        <button class="view-toggle-btn" onclick="setView('list')" title="List View">
             <span>☰</span>
         </button>
-        <button class="view-toggle-btn" onclick="setView('grid')" title="Grid View">
+        <button class="view-toggle-btn active" onclick="setView('grid')" title="Grid View">
             <span>⚏</span>
         </button>
     </div>
@@ -64,7 +64,7 @@
 
 {% if recordings.items %}
     <!-- List View -->
-    <div class="recordings-list active">
+    <div class="recordings-list">
         {% for recording in recordings.items %}
         <div class="list-item" onclick="playRecording('{{ recording.id }}', event)">
             <div class="list-checkbox">
@@ -438,7 +438,7 @@
         border-radius: 8px;
         overflow: hidden;
         box-shadow: var(--shadow-sm);
-        display: block;
+        display: none;
     }
 
     .list-item {
@@ -523,7 +523,7 @@
 
     /* Grid View Styles */
     .recordings-grid {
-        display: none;
+        display: grid;
         grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
         gap: 0.75rem;
     }
@@ -888,7 +888,7 @@
         // Get view preference from localStorage or URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const urlView = urlParams.get('view');
-        const savedView = localStorage.getItem('recordingsView') || 'list';
+        const savedView = localStorage.getItem('recordingsView') || 'grid';
         const currentView = urlView || savedView;
         
         // Set up the view without triggering setView to avoid localStorage overwrite
@@ -908,7 +908,7 @@
         if (currentView === 'list') {
             if (listView) listView.style.display = 'block';
             if (gridView) gridView.style.display = 'none';
-        } else if (currentView === 'grid') {
+        } else { // Default to grid view
             if (listView) listView.style.display = 'none';
             if (gridView) gridView.style.display = 'grid';
         }
