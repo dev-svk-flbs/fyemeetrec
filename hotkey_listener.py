@@ -13,6 +13,14 @@ from datetime import datetime
 import sys
 import os
 
+# Windows Toast Notifications
+try:
+    from plyer import notification
+    NOTIFICATIONS_AVAILABLE = True
+except ImportError:
+    NOTIFICATIONS_AVAILABLE = False
+    print("Install 'plyer' for toast notifications: pip install plyer")
+
 # Fix Windows console encoding issues
 if os.name == 'nt':  # Windows
     import locale
@@ -73,6 +81,22 @@ def safe_print(message, emoji="[INFO]"):
         safe_emoji = emoji_map.get(emoji, "[INFO]")
         print(f"{timestamp} | {safe_emoji} {message}")
 
+def show_notification(title, message, timeout=3):
+    """Show discrete Windows toast notification"""
+    if NOTIFICATIONS_AVAILABLE:
+        try:
+            notification.notify(
+                title=title,
+                message=message,
+                timeout=timeout,
+                app_name="Recording System"
+            )
+        except Exception as e:
+            print(f"Notification failed: {e}")
+    else:
+        # Fallback to console if notifications unavailable
+        safe_print(f"{title}: {message}")
+
 def print_status(message, emoji="🎹"):
     """Print status with timestamp - safe encoding wrapper"""
     safe_print(message, emoji)
@@ -120,11 +144,23 @@ def trigger_start_recording():
         if response.status_code == 200:
             try:
                 data = response.json()
-                print_status(f"✅ Recording started: {data.get('monitor', 'Unknown monitor')}")
-                print_status(f"📁 Recording ID: {data.get('recording_id', 'Unknown')}")
+                monitor = data.get('monitor', 'Unknown monitor')
+                recording_id = data.get('recording_id', 'Unknown')
+                
+                # Discrete notification
+                show_notification(
+                    "Recording Started", 
+                    f"Monitor: {monitor}\nID: {recording_id}",
+                    timeout=4
+                )
+                
+                print_status(f"✅ Recording started: {monitor}")
+                print_status(f"📁 Recording ID: {recording_id}")
             except json.JSONDecodeError:
+                show_notification("Recording Started", "Successfully initiated")
                 print_status("✅ Recording started (no JSON response)")
         elif response.status_code == 401 or response.status_code == 302:
+            show_notification("Recording Failed", "Authentication required", timeout=5)
             print_status("❌ Authentication required - Flask endpoint needs login", "🔐")
             print_status("💡 Try accessing via web interface first to authenticate", "💡")
         else:
@@ -133,13 +169,18 @@ def trigger_start_recording():
                 error_msg = error_data.get('error', f'HTTP {response.status_code}')
             except json.JSONDecodeError:
                 error_msg = f'HTTP {response.status_code} (no JSON response)'
+            
+            show_notification("Recording Failed", error_msg, timeout=5)
             print_status(f"❌ Failed to start recording: {error_msg}", "⚠️")
             
     except requests.exceptions.Timeout:
+        show_notification("Recording Failed", "Request timeout", timeout=5)
         print_status("❌ Request timeout - Flask app may be busy", "⏰")
     except requests.exceptions.ConnectionError:
+        show_notification("Recording Failed", "Connection failed", timeout=5)
         print_status("❌ Connection failed - Is Flask app running?", "🔌")
     except Exception as e:
+        show_notification("Recording Failed", f"Error: {str(e)[:50]}", timeout=5)
         print_status(f"❌ Unexpected error: {e}", "💥")
 
 def trigger_stop_recording():
@@ -172,10 +213,21 @@ def trigger_stop_recording():
         if response.status_code == 200:
             try:
                 data = response.json()
-                print_status(f"✅ Recording stopped: {data.get('status', 'Unknown status')}")
+                status = data.get('status', 'Unknown status')
+                
+                # Discrete notification
+                show_notification(
+                    "Recording Stopped", 
+                    f"Status: {status}",
+                    timeout=4
+                )
+                
+                print_status(f"✅ Recording stopped: {status}")
             except json.JSONDecodeError:
+                show_notification("Recording Stopped", "Successfully stopped")
                 print_status("✅ Recording stopped (no JSON response)")
         elif response.status_code == 401 or response.status_code == 302:
+            show_notification("Stop Failed", "Authentication required", timeout=5)
             print_status("❌ Authentication required - Flask endpoint needs login", "🔐")
             print_status("💡 Try accessing via web interface first to authenticate", "💡")
         else:
@@ -184,13 +236,18 @@ def trigger_stop_recording():
                 error_msg = error_data.get('error', f'HTTP {response.status_code}')
             except json.JSONDecodeError:
                 error_msg = f'HTTP {response.status_code} (no JSON response)'
+            
+            show_notification("Stop Failed", error_msg, timeout=5)
             print_status(f"❌ Failed to stop recording: {error_msg}", "⚠️")
             
     except requests.exceptions.Timeout:
+        show_notification("Stop Failed", "Request timeout", timeout=5)
         print_status("❌ Request timeout - Flask app may be busy", "⏰")
     except requests.exceptions.ConnectionError:
+        show_notification("Stop Failed", "Connection failed", timeout=5)
         print_status("❌ Connection failed - Is Flask app running?", "🔌")
     except Exception as e:
+        show_notification("Stop Failed", f"Error: {str(e)[:50]}", timeout=5)
         print_status(f"❌ Unexpected error: {e}", "💥")
 
 def main():
