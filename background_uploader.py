@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
+import requests
 from logging_config import app_logger as logger
 
 class BackgroundUploader:
@@ -23,6 +24,9 @@ class BackgroundUploader:
         self.bucket_name = 'fyemeet'
         self.region = 'us-west-1'
         self.endpoint_url = f'https://s3.{self.region}.idrivee2.com'
+        
+        # Django Webhook Configuration
+        self.webhook_url = 'https://ops.fyelabs.com/recordings/webhook/'
         
         # Database path
         if db_path is None:
@@ -423,6 +427,18 @@ class BackgroundUploader:
                 # Update database with URLs
                 self._update_database_with_urls(recording_id, urls, metadata)
                 
+                # Send webhook to Django server (non-blocking, won't fail upload if webhook fails)
+                try:
+                    logger.info(f"🌐 Sending webhook to Django server for recording {recording_id}")
+                    webhook_sent = self._send_webhook_to_django(metadata)
+                    if webhook_sent:
+                        logger.info(f"✅ Webhook successfully sent to Django for recording {recording_id}")
+                    else:
+                        logger.warning(f"⚠️ Webhook failed but upload succeeded for recording {recording_id}")
+                except Exception as webhook_error:
+                    logger.error(f"❌ Webhook error (non-critical): {webhook_error}")
+                    # Don't fail the upload if webhook fails
+                
                 # Determine final status
                 if upload_errors:
                     final_status = 'partially_completed'
@@ -488,6 +504,38 @@ class BackgroundUploader:
         
         logger.info(f"🎬 Background upload thread started for recording {recording_id}")
         return True
+    
+    def _send_webhook_to_django(self, metadata):
+        """Send recording metadata to Django webhook"""
+        try:
+            logger.info(f"📤 Sending webhook to {self.webhook_url} for recording {metadata['recording_id']}")
+            
+            response = requests.post(
+                self.webhook_url,
+                json=metadata,
+                headers={'Content-Type': 'application/json'},
+                timeout=30  # 30 second timeout
+            )
+            
+            if response.status_code in [200, 201]:
+                response_data = response.json()
+                logger.info(f"✅ Webhook sent successfully: {response_data.get('message', 'Success')}")
+                logger.info(f"   Action: {response_data.get('action', 'unknown')}")
+                logger.info(f"   Django PK: {response_data.get('pk', 'unknown')}")
+                return True
+            else:
+                logger.error(f"❌ Webhook failed with status {response.status_code}: {response.text}")
+                return False
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"❌ Webhook timeout after 30 seconds")
+            return False
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"❌ Webhook connection failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Webhook send failed: {e}")
+            return False
     
     def _create_upload_metadata(self, recording_info, files, urls):
         """Create comprehensive metadata for the upload"""
