@@ -4,6 +4,31 @@
 
 The recording system now automatically sends metadata to your Django server at `ops.fyelabs.com` after successfully uploading recordings to IDrive E2 S3.
 
+**Security:** The webhook endpoint requires authentication via a secret token to prevent unauthorized access.
+
+## Authentication
+
+### Webhook Token
+
+All requests to the webhook endpoint must include an authentication token in the header:
+
+```
+X-Webhook-Token: fye_webhook_secure_token_2025_recordings
+```
+
+⚠️ **SECURITY NOTE:** Keep this token secure! Do not commit it to public repositories.
+
+### Configuration
+
+The webhook token is configured in `background_uploader.py`:
+
+```python
+class BackgroundUploader:
+    def __init__(self, db_path=None):
+        self.webhook_url = 'https://ops.fyelabs.com/recordings/webhook/'
+        self.webhook_token = 'fye_webhook_secure_token_2025_recordings'
+```
+
 ## How It Works
 
 1. **Recording Completes** → Local recording finishes and files are saved
@@ -21,6 +46,10 @@ The recording system now automatically sends metadata to your Django server at `
 ```
 POST https://ops.fyelabs.com/recordings/webhook/
 ```
+
+**Required Headers:**
+- `Content-Type: application/json`
+- `X-Webhook-Token: fye_webhook_secure_token_2025_recordings`
 
 ## Payload Structure
 
@@ -105,6 +134,19 @@ The webhook sends a JSON payload with the following structure:
 }
 ```
 
+### Error (401 Unauthorized)
+```json
+{
+  "status": "error",
+  "message": "Invalid or missing authentication token"
+}
+```
+
+This error occurs when:
+- `X-Webhook-Token` header is missing
+- Token value is incorrect
+- Token doesn't match Django configuration
+
 ### Error (404 Not Found)
 ```json
 {
@@ -139,6 +181,7 @@ This will:
 ```bash
 curl -X POST https://ops.fyelabs.com/recordings/webhook/ \
   -H "Content-Type: application/json" \
+  -H "X-Webhook-Token: fye_webhook_secure_token_2025_recordings" \
   -d '{
     "recording_id": 999,
     "title": "Test Recording",
@@ -155,11 +198,22 @@ curl -X POST https://ops.fyelabs.com/recordings/webhook/ \
   }'
 ```
 
+### Test Unauthorized Access
+
+Test that authentication is working by sending a request WITHOUT the token (should return 401):
+
+```bash
+curl -X POST https://ops.fyelabs.com/recordings/webhook/ \
+  -H "Content-Type: application/json" \
+  -d '{"recording_id": 999, "user_info": {"email": "test@test.com"}}'
+```
+
 ## Logging
 
 Webhook activity is logged with these indicators:
 - `📤 Sending webhook to...` - Webhook request starting
 - `✅ Webhook sent successfully` - Django accepted the webhook
+- `❌ Webhook authentication failed` - Invalid or missing token (401)
 - `❌ Webhook failed with status XXX` - HTTP error from Django
 - `❌ Webhook timeout` - Request took > 30 seconds
 - `❌ Webhook connection failed` - Network error
@@ -167,18 +221,48 @@ Webhook activity is logged with these indicators:
 
 Check logs at: `logs/app.log`
 
+## Security
+
+### Token Storage
+- Token is stored in `background_uploader.py`
+- **TODO:** Move to environment variables for production
+- Keep token secret - do not commit to public repositories
+- Rotate token periodically for security
+
+### Best Practices
+1. **Environment Variables:** Store token in `.env` file (not committed to Git)
+2. **Token Rotation:** Change token regularly
+3. **Access Logs:** Monitor Django logs for unauthorized access attempts
+4. **HTTPS Only:** All webhook traffic uses HTTPS encryption
+5. **IP Whitelisting:** Consider adding IP restrictions on Django side
+
 ## Configuration
 
-The webhook URL is configured in `background_uploader.py`:
+The webhook URL and token are configured in `background_uploader.py`:
 
 ```python
 class BackgroundUploader:
     def __init__(self, db_path=None):
         # Django Webhook Configuration
         self.webhook_url = 'https://ops.fyelabs.com/recordings/webhook/'
+        self.webhook_token = 'fye_webhook_secure_token_2025_recordings'
 ```
 
-To change the webhook URL, edit this line in the `__init__` method.
+**To change the webhook URL or token:**
+1. Edit the values in the `__init__` method
+2. Ensure Django server has matching token in `settings.py`
+3. Restart the recording application
+
+**Production Recommendation:**
+```python
+import os
+
+class BackgroundUploader:
+    def __init__(self, db_path=None):
+        # Load from environment variables
+        self.webhook_url = os.getenv('WEBHOOK_URL', 'https://ops.fyelabs.com/recordings/webhook/')
+        self.webhook_token = os.getenv('WEBHOOK_TOKEN', 'fallback_token')
+```
 
 ## Error Handling
 
@@ -227,6 +311,13 @@ To change the webhook URL, edit this line in the `__init__` method.
 2. Verify network connectivity to ops.fyelabs.com
 3. Ensure user email exists in Django
 4. Check S3 upload completed successfully
+5. **Verify authentication token is correct**
+
+### 401 Unauthorized Error
+- Check that `X-Webhook-Token` header is included
+- Verify token matches Django configuration
+- Ensure no extra spaces or characters in token
+- Check Django logs for authentication attempts
 
 ### User Not Found
 - Ensure user email in local DB matches Django
@@ -246,14 +337,19 @@ To change the webhook URL, edit this line in the `__init__` method.
 ## Security
 
 - HTTPS connection to ops.fyelabs.com
-- No authentication token required (Django endpoint is CSRF-exempt)
+- **Authentication via X-Webhook-Token header**
 - User email is validated server-side
 - S3 URLs are public but use long random paths
+- Failed authentication attempts are logged with IP addresses
+- Token should be rotated periodically
 
 ## Future Enhancements
 
-- [ ] Add webhook authentication token
+- [x] Add webhook authentication token
+- [ ] Move token to environment variables
 - [ ] Implement webhook retry queue
 - [ ] Add webhook status dashboard
 - [ ] Support multiple webhook endpoints
-- [ ] Add webhook payload signing
+- [ ] Add webhook payload signing (HMAC)
+- [ ] IP whitelisting for additional security
+- [ ] Rate limiting on webhook endpoint

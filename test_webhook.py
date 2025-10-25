@@ -11,6 +11,7 @@ def test_webhook():
     """Test sending webhook to Django server"""
     
     webhook_url = "https://ops.fyelabs.com/recordings/webhook/"
+    webhook_token = "fye_webhook_secure_token_2025_recordings"
     
     # Sample metadata matching your spec
     test_data = {
@@ -44,20 +45,24 @@ def test_webhook():
     }
     
     print("=" * 60)
-    print("TESTING WEBHOOK INTEGRATION")
+    print("TESTING WEBHOOK INTEGRATION WITH AUTHENTICATION")
     print("=" * 60)
     print(f"\nWebhook URL: {webhook_url}")
+    print(f"Auth Token: {webhook_token[:20]}...")
     print(f"\nPayload:")
     print(json.dumps(test_data, indent=2))
     print("\n" + "=" * 60)
-    print("Sending request...")
+    print("Sending authenticated request...")
     print("=" * 60)
     
     try:
         response = requests.post(
             webhook_url,
             json=test_data,
-            headers={'Content-Type': 'application/json'},
+            headers={
+                'Content-Type': 'application/json',
+                'X-Webhook-Token': webhook_token
+            },
             timeout=30
         )
         
@@ -94,5 +99,55 @@ def test_webhook():
         print(f"\n❌ Error: {e}")
         return False
 
+def test_webhook_unauthorized():
+    """Test webhook without authentication token (should fail)"""
+    
+    webhook_url = "https://ops.fyelabs.com/recordings/webhook/"
+    
+    test_data = {
+        "recording_id": 998,
+        "title": "Unauthorized Test",
+        "user_info": {"email": "souvik@fyelabs.com", "username": "souvik"}
+    }
+    
+    print("\n" + "=" * 60)
+    print("TESTING UNAUTHORIZED ACCESS (Should Fail)")
+    print("=" * 60)
+    print("Sending request WITHOUT authentication token...")
+    
+    try:
+        response = requests.post(
+            webhook_url,
+            json=test_data,
+            headers={'Content-Type': 'application/json'},
+            # No X-Webhook-Token header
+            timeout=30
+        )
+        
+        print(f"\nResponse Status: {response.status_code}")
+        print(f"Response: {response.text}")
+        
+        if response.status_code == 401:
+            print("\n✅ SECURITY TEST PASSED - Unauthorized request rejected")
+            return True
+        else:
+            print("\n❌ SECURITY WARNING - Unauthorized request was accepted!")
+            return False
+            
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        return False
+
 if __name__ == "__main__":
-    test_webhook()
+    # Test with authentication
+    auth_success = test_webhook()
+    
+    # Test without authentication
+    unauth_success = test_webhook_unauthorized()
+    
+    print("\n" + "=" * 60)
+    print("TEST SUMMARY")
+    print("=" * 60)
+    print(f"Authenticated request: {'✅ PASS' if auth_success else '❌ FAIL'}")
+    print(f"Unauthorized rejection: {'✅ PASS' if unauth_success else '❌ FAIL'}")
+    print("=" * 60)

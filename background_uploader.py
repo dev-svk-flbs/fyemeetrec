@@ -27,6 +27,7 @@ class BackgroundUploader:
         
         # Django Webhook Configuration
         self.webhook_url = 'https://ops.fyelabs.com/recordings/webhook/'
+        self.webhook_token = 'fye_webhook_secure_token_2025_recordings'
         
         # Database path
         if db_path is None:
@@ -513,7 +514,10 @@ class BackgroundUploader:
             response = requests.post(
                 self.webhook_url,
                 json=metadata,
-                headers={'Content-Type': 'application/json'},
+                headers={
+                    'Content-Type': 'application/json',
+                    'X-Webhook-Token': self.webhook_token
+                },
                 timeout=30  # 30 second timeout
             )
             
@@ -523,6 +527,9 @@ class BackgroundUploader:
                 logger.info(f"   Action: {response_data.get('action', 'unknown')}")
                 logger.info(f"   Django PK: {response_data.get('pk', 'unknown')}")
                 return True
+            elif response.status_code == 401:
+                logger.error(f"❌ Webhook authentication failed - invalid token")
+                return False
             else:
                 logger.error(f"❌ Webhook failed with status {response.status_code}: {response.text}")
                 return False
