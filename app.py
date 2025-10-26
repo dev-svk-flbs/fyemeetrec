@@ -1016,6 +1016,129 @@ def update_monitor_arrangement():
             'message': f'Failed to update monitor arrangement: {str(e)}'
         }), 500
 
+@app.route('/autorecorder')
+@login_required
+def autorecorder():
+    """AutoRecorder calendar view - stunning weekly calendar with events"""
+    import requests
+    from datetime import datetime, timedelta
+    
+    # Hardcoded calendar ID for souvik@fyelabs.com (will be dynamic later)
+    CALENDAR_ID = "AQMkADBjYWZhZWI5LTE2ZmItNDUyNy1iNDA4LTY0M2NmOTE0YmU3NwAARgAAA0x0AMwFqHZHtaHN6whvT4UHAGZu2hZpbwRNmdBVsXEd-pIAAAIBBgAAAGZu2hZpbwRNmdBVsXEd-pIAAAJdWQAAAA=="
+    WORKFLOW_URL = "https://default27828ac15d864f46abfd89560403e7.89.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/eaf1261797f54ecd875b16b92047518f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=u4zF0dj8ImUdRzDQayjczqITduEt2lDrCx1KzEJInFg"
+    
+    # Get 7 days of events starting from today
+    start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = start_date + timedelta(days=7)
+    
+    # Prepare request data
+    data = {
+        'cal_id': CALENDAR_ID,
+        'start_date': start_date.isoformat() + 'Z',
+        'end_date': end_date.isoformat() + 'Z',
+        'email': current_user.email  # Use the logged-in user's email
+    }
+    
+    events = []
+    error_message = None
+    
+    try:
+        logger.info(f"🗓️ AutoRecorder: Fetching calendar events for {current_user.email}")
+        
+        # Send request to Power Automate
+        response = requests.post(
+            WORKFLOW_URL,
+            headers={'Content-Type': 'application/json'},
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code in [200, 201, 202]:
+            events = response.json()
+            if isinstance(events, list):
+                logger.info(f"✅ AutoRecorder: Found {len(events)} events")
+                
+                # Process events for better display
+                for event in events:
+                    # Parse start/end times
+                    if event.get('start'):
+                        try:
+                            start_dt = datetime.fromisoformat(event['start'].replace('.0000000', ''))
+                            event['start_datetime'] = start_dt
+                            event['start_time'] = start_dt.strftime('%H:%M')
+                            event['start_date'] = start_dt.strftime('%Y-%m-%d')
+                            event['day_name'] = start_dt.strftime('%A')
+                        except:
+                            pass
+                    
+                    if event.get('end'):
+                        try:
+                            end_dt = datetime.fromisoformat(event['end'].replace('.0000000', ''))
+                            event['end_datetime'] = end_dt
+                            event['end_time'] = end_dt.strftime('%H:%M')
+                            
+                            # Calculate duration
+                            if event.get('start_datetime'):
+                                duration = end_dt - event['start_datetime']
+                                event['duration_minutes'] = int(duration.total_seconds() / 60)
+                        except:
+                            pass
+                    
+                    # Clean up attendees
+                    if event.get('requiredAttendees'):
+                        attendees = [email.strip() for email in event['requiredAttendees'].split(';') if email.strip()]
+                        event['attendee_count'] = len(attendees)
+                        event['attendee_list'] = attendees
+                    
+                    # Determine event type/category
+                    subject = event.get('subject', '').lower()
+                    if 'meeting' in subject or 'update' in subject:
+                        event['category'] = 'meeting'
+                        event['category_color'] = '#3b82f6'
+                    elif 'appointment' in subject or 'private' in subject:
+                        event['category'] = 'appointment'
+                        event['category_color'] = '#10b981'
+                    elif 'call' in subject or 'huddle' in subject:
+                        event['category'] = 'call'
+                        event['category_color'] = '#f59e0b'
+                    else:
+                        event['category'] = 'other'
+                        event['category_color'] = '#6b7280'
+            else:
+                logger.warning(f"⚠️ AutoRecorder: Unexpected response format")
+                error_message = "Unexpected response format from calendar service"
+        else:
+            logger.error(f"❌ AutoRecorder: API error {response.status_code}: {response.text}")
+            error_message = f"Calendar service error: {response.status_code}"
+            
+    except Exception as e:
+        logger.error(f"💥 AutoRecorder: Error fetching events: {str(e)}")
+        error_message = f"Failed to fetch calendar events: {str(e)}"
+    
+    # Generate day grid for the week
+    week_days = []
+    for i in range(7):
+        day = start_date + timedelta(days=i)
+        day_events = [e for e in events if e.get('start_date') == day.strftime('%Y-%m-%d')]
+        week_days.append({
+            'date': day,
+            'date_str': day.strftime('%Y-%m-%d'),
+            'day_name': day.strftime('%A'),
+            'day_short': day.strftime('%a'),
+            'day_num': day.strftime('%d'),
+            'month_name': day.strftime('%B'),
+            'is_today': day.date() == datetime.now().date(),
+            'events': sorted(day_events, key=lambda x: x.get('start_time', '00:00'))
+        })
+    
+    return render_template('autorecorder.html', 
+                         events=events,
+                         week_days=week_days,
+                         start_date=start_date,
+                         end_date=end_date,
+                         error_message=error_message,
+                         total_events=len(events))
+
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
