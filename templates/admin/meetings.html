@@ -1,0 +1,487 @@
+{% extends "base.html" %}
+
+{% block title %}Meetings Management - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f8f9fa;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .admin-header {
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+        color: white;
+        padding: 1.5rem 0;
+        margin: -1.5rem -1rem 2rem -1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .admin-header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    .admin-title {
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0;
+        color: #f7e68c;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .meetings-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .meetings-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f9fafb;
+    }
+
+    .meetings-stats {
+        display: flex;
+        gap: 2rem;
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .stat-number {
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .meetings-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .meetings-table th {
+        background: #f9fafb;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .meetings-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: top;
+    }
+
+    .meetings-table tr:hover {
+        background: #f9fafb;
+    }
+
+    .meeting-title {
+        font-weight: 600;
+        color: #1f2937;
+        text-decoration: none;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+
+    .meeting-title:hover {
+        color: #2563eb;
+        text-decoration: none;
+    }
+
+    .meeting-meta {
+        font-size: 0.875rem;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-block;
+    }
+
+    .status-recorded-synced {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-recorded-local {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-scheduled {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .status-none {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .status-excluded {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .attendees-list {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    .attendee-count {
+        background: #f3f4f6;
+        color: #374151;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .recording-link {
+        color: #2563eb;
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+
+    .recording-link:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+
+    .no-recording {
+        color: #9ca3af;
+        font-style: italic;
+        font-size: 0.875rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+
+    .btn-primary {
+        background: #2563eb;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1d4ed8;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        color: white;
+        text-decoration: none;
+    }
+
+    .filter-tabs {
+        display: flex;
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-tab {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: #6b7280;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .filter-tab.active {
+        background: white;
+        color: #2563eb;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .filter-tab:hover {
+        color: #374151;
+        text-decoration: none;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #6b7280;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        padding: 1rem;
+    }
+
+    .pagination a {
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #6b7280;
+        border: 1px solid #e5e7eb;
+    }
+
+    .pagination a:hover {
+        background: #f9fafb;
+        text-decoration: none;
+    }
+
+    .pagination .current {
+        background: #2563eb;
+        color: white;
+        border-color: #2563eb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <div class="admin-header-content">
+        <h1 class="admin-title">📅 Meetings Management</h1>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+    <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
+        <button type="submit" class="btn btn-primary">🔄 Sync Calendar</button>
+    </form>
+    <form method="POST" action="{{ url_for('admin_cleanup_duplicates') }}" style="display: inline;" onsubmit="return confirm('This will remove duplicate meetings from the database. Continue?')">
+        <button type="submit" class="btn btn-secondary">🧹 Clean Duplicates</button>
+    </form>
+</div>
+
+<div class="filter-tabs">
+    <a href="{{ url_for('admin_meetings') }}" class="filter-tab {{ 'active' if filter_status == 'all' else '' }}">
+        All Meetings ({{ stats.total_meetings }})
+    </a>
+    <a href="{{ url_for('admin_meetings', filter='recorded') }}" class="filter-tab {{ 'active' if filter_status == 'recorded' else '' }}">
+        Recorded ({{ stats.recorded_meetings }})
+    </a>
+    <a href="{{ url_for('admin_meetings', filter='scheduled') }}" class="filter-tab {{ 'active' if filter_status == 'scheduled' else '' }}">
+        Scheduled ({{ stats.scheduled_meetings }})
+    </a>
+    <a href="{{ url_for('admin_meetings', filter='upcoming') }}" class="filter-tab {{ 'active' if filter_status == 'upcoming' else '' }}">
+        Upcoming ({{ stats.upcoming_meetings }})
+    </a>
+    <a href="{{ url_for('admin_meetings', filter='orphaned') }}" class="filter-tab {{ 'active' if filter_status == 'orphaned' else '' }}">
+        No Recording ({{ stats.no_recording_meetings }})
+    </a>
+</div>
+
+<div class="meetings-container">
+    <div class="meetings-header">
+        <h2 style="margin: 0; font-size: 1.25rem; color: #1f2937;">
+            {% if filter_status == 'all' %}All Meetings
+            {% elif filter_status == 'recorded' %}Recorded Meetings
+            {% elif filter_status == 'scheduled' %}Scheduled Meetings
+            {% elif filter_status == 'upcoming' %}Upcoming Meetings
+            {% elif filter_status == 'orphaned' %}Meetings Without Recordings
+            {% endif %}
+        </h2>
+        <div class="meetings-stats">
+            <div class="stat-item">
+                <span class="stat-number">{{ meetings|length }}</span>
+                <span>meetings displayed</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">{{ stats.total_attendees }}</span>
+                <span>total attendees</span>
+            </div>
+        </div>
+    </div>
+
+    {% if meetings %}
+    <table class="meetings-table">
+        <thead>
+            <tr>
+                <th>Meeting Details</th>
+                <th>Schedule</th>
+                <th>Attendees</th>
+                <th>Status</th>
+                <th>Recording</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for meeting in meetings %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('admin_meeting_detail', meeting_id=meeting.id) }}" class="meeting-title">
+                        {{ meeting.subject }}
+                    </a>
+                    <div class="meeting-meta">
+                        {% if meeting.calendar_event_id %}
+                        ID: {{ meeting.calendar_event_id[:8] }}...
+                        {% endif %}
+                        {% if meeting.web_link %}
+                        • Teams Meeting
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    <div style="font-weight: 600; color: #1f2937;">
+                        {{ meeting.start_time.strftime('%Y-%m-%d') }}
+                    </div>
+                    <div class="meeting-meta">
+                        {{ meeting.start_time.strftime('%H:%M') }} - {{ meeting.end_time.strftime('%H:%M') }}
+                        <br>{{ meeting.duration_formatted }}
+                    </div>
+                </td>
+                <td>
+                    {% if meeting.attendee_count > 0 %}
+                        <span class="attendee-count">{{ meeting.attendee_count }} people</span>
+                        {% if meeting.all_attendees and meeting.all_attendees|length > 0 %}
+                        <div class="attendees-list">
+                            {% for attendee in meeting.all_attendees[:3] %}
+                            {{ attendee }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                            {% if meeting.all_attendees|length > 3 %}
+                            <br>+{{ meeting.all_attendees|length - 3 }} more
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <span class="no-recording">No attendees</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="status-badge {{ meeting.status_class }}">{{ meeting.status_display }}</span>
+                </td>
+                <td>
+                    {% if meeting.recording %}
+                        <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="recording-link">
+                            📹 {{ meeting.recording.title[:30] }}...
+                        </a>
+                        <div class="meeting-meta">
+                            {{ format_duration(meeting.recording.duration) }} • 
+                            {{ format_file_size(meeting.recording.file_size) }}
+                        </div>
+                    {% else %}
+                        <span class="no-recording">No recording linked</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('admin_meeting_detail', meeting_id=meeting.id) }}" class="btn btn-primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                        View Details
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📅</div>
+        <h3>No meetings found</h3>
+        <p>
+            {% if filter_status == 'all' %}
+            No meetings are currently tracked in the system.
+            {% elif filter_status == 'recorded' %}
+            No recorded meetings found.
+            {% elif filter_status == 'scheduled' %}
+            No scheduled meetings found.
+            {% elif filter_status == 'upcoming' %}
+            No upcoming meetings found.
+            {% elif filter_status == 'orphaned' %}
+            All meetings have associated recordings.
+            {% endif %}
+        </p>
+        {% if filter_status == 'all' %}
+        <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
+            <button type="submit" class="btn btn-primary">🔄 Sync Calendar Now</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{% if pagination %}
+<div class="pagination">
+    {% if pagination.has_prev %}
+        <a href="{{ url_for('admin_meetings', page=pagination.prev_num, filter=filter_status) }}">← Previous</a>
+    {% endif %}
+    
+    {% for page_num in pagination.iter_pages() %}
+        {% if page_num %}
+            {% if page_num != pagination.page %}
+                <a href="{{ url_for('admin_meetings', page=page_num, filter=filter_status) }}">{{ page_num }}</a>
+            {% else %}
+                <span class="current">{{ page_num }}</span>
+            {% endif %}
+        {% else %}
+            <span>…</span>
+        {% endif %}
+    {% endfor %}
+    
+    {% if pagination.has_next %}
+        <a href="{{ url_for('admin_meetings', page=pagination.next_num, filter=filter_status) }}">Next →</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh meetings every 60 seconds when on 'all' or 'upcoming' filter
+    {% if filter_status in ['all', 'upcoming'] %}
+    setTimeout(() => {
+        location.reload();
+    }, 60000);
+    {% endif %}
+</script>
+{% endblock %}

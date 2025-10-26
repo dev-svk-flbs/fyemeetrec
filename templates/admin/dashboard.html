@@ -486,19 +486,44 @@
 </div>
 
 <div class="admin-actions">
+    <a href="{{ url_for('admin_meetings') }}" class="action-btn">📅 View All Meetings</a>
     <a href="{{ url_for('admin_recordings') }}" class="action-btn">📹 View All Recordings</a>
     <a href="{{ url_for('admin_users') }}" class="action-btn">👥 Manage Users</a>
+    <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
+        <button type="submit" class="action-btn secondary">🔄 Sync Calendar (1 week)</button>
+    </form>
+    <form method="POST" action="{{ url_for('admin_test_auto_sync') }}" style="display: inline;" onsubmit="return confirm('This will sync calendar for all users. Continue?')">
+        <button type="submit" class="action-btn secondary">🧪 Test Auto-Sync</button>
+    </form>
+    <form method="POST" action="{{ url_for('admin_cleanup_duplicates') }}" style="display: inline;" onsubmit="return confirm('This will remove duplicate meetings from the database. Continue?')">
+        <button type="submit" class="action-btn secondary">🧹 Clean Duplicates</button>
+    </form>
     <a href="{{ url_for('recordings') }}" class="action-btn secondary">🔙 Back to App</a>
 </div>
 
 <div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Meetings</div>
+        <div class="stat-number" data-stat="total_meetings">{{ stats.total_meetings }}</div>
+        <div class="stat-details">
+            Calendar events tracked<br>
+            <span style="color: #28a745;">{{ stats.recorded_meetings }} recorded</span> • 
+            <span style="color: #007bff;">{{ stats.upcoming_meetings }} upcoming</span>
+        </div>
+        <div class="stat-meta">
+            <span>Synced from calendar</span>
+            <span>{{ stats.meeting_recording_percentage }}% recorded</span>
+        </div>
+    </div>
+    
     <div class="stat-card">
         <div class="stat-label">Total Recordings</div>
         <div class="stat-number" data-stat="total_recordings">{{ stats.total_recordings }}</div>
         <div class="stat-details">
             Active recordings in system<br>
             <span style="color: #28a745;">{{ stats.uploaded_count }} synced</span> • 
-            <span style="color: #ffc107;">{{ stats.local_only }} local</span>
+            <span style="color: #ffc107;">{{ stats.local_only }} local</span> •
+            <span style="color: #dc3545;">{{ stats.orphaned_recordings }} orphaned</span>
         </div>
         <div class="stat-meta">
             <span>Last 30 days</span>
@@ -548,6 +573,65 @@
 
 <div class="dashboard-layout">
     <div class="main-content">
+        <!-- Recent Meetings Section -->
+        <div class="recent-section" style="margin-bottom: 2rem;">
+            <div class="section-header">
+                <h2 class="section-title">📅 Recent Meetings</h2>
+                <a href="{{ url_for('admin_meetings') }}" class="view-all-btn">View All →</a>
+            </div>
+    
+            {% if recent_meetings %}
+            <table class="recordings-table professional-table">
+                <thead>
+                    <tr>
+                        <th>📅 Meeting</th>
+                        <th>⏰ Time</th>
+                        <th>👥 Attendees</th>
+                        <th>🔄 Status</th>
+                        <th>📹 Recording</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for meeting in recent_meetings %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('admin_meeting_detail', meeting_id=meeting.id) }}" class="recording-title">
+                                {{ meeting.subject }}
+                            </a>
+                            <div class="text-muted">{{ meeting.duration_formatted }}</div>
+                        </td>
+                        <td>
+                            {{ meeting.start_time.strftime('%Y-%m-%d %H:%M') }}<br>
+                            <span class="text-muted">{{ meeting.end_time.strftime('%H:%M') }}</span>
+                        </td>
+                        <td>{{ meeting.attendee_count if meeting.attendee_count > 0 else 'N/A' }}</td>
+                        <td>
+                    <span class="status-badge {{ meeting.status_class }}">{{ meeting.status_display }}</span>
+                        </td>
+                        <td>
+                            {% if meeting.recording %}
+                                <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="recording-title">
+                                    📹 View Recording
+                                </a>
+                            {% else %}
+                                <span class="text-muted">No recording</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="text-align: center; padding: 2rem; color: var(--gray-500);">
+                <p>📋 No meetings found. Try syncing your calendar to discover meetings.</p>
+                <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
+                    <button type="submit" class="action-btn">🔄 Sync Calendar Now</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Recordings Section -->
         <div class="recent-section">
             <div class="section-header">
                 <h2 class="section-title">📹 Recent Recordings</h2>
@@ -563,6 +647,7 @@
                 <th>⏱️ Duration</th>
                 <th>🔄 Status</th>
                 <th>📅 Created</th>
+                <th>📅 Meeting</th>
             </tr>
         </thead>
         <tbody>
@@ -593,6 +678,15 @@
                 <td class="text-muted">
                     {{ recording.created_at.strftime('%Y-%m-%d %H:%M') if recording.created_at else 'N/A' }}
                 </td>
+                <td>
+                    {% if recording.meeting %}
+                        <a href="{{ url_for('admin_meeting_detail', meeting_id=recording.meeting.id) }}" class="recording-title">
+                            📅 {{ recording.meeting.subject[:30] }}...
+                        </a>
+                    {% else %}
+                        <span class="text-muted">Orphaned</span>
+                    {% endif %}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -608,6 +702,14 @@
     <div class="sidebar-content">
         <div class="quick-stats-mini">
             <h3 class="mini-title">⚡ Quick Stats</h3>
+            <div class="mini-stat">
+                <span class="mini-number">{{ stats.total_meetings }}</span>
+                <span class="mini-label">Meetings</span>
+            </div>
+            <div class="mini-stat">
+                <span class="mini-number">{{ stats.upcoming_meetings }}</span>
+                <span class="mini-label">Upcoming</span>
+            </div>
             <div class="mini-stat">
                 <span class="mini-number">{{ stats.total_users }}</span>
                 <span class="mini-label">Users</span>

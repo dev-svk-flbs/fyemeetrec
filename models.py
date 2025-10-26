@@ -24,8 +24,9 @@ class User(UserMixin, db.Model):
     default_monitor = db.Column(db.String(200))  # Default monitor for recordings
     auto_delete_days = db.Column(db.Integer, default=30)  # Auto-delete recordings after N days
     
-    # Relationship to recordings
+    # Relationship to recordings and meetings
     recordings = db.relationship('Recording', backref='user', lazy=True)
+    meetings = db.relationship('Meeting', backref='user', lazy=True)
     
     def set_password(self, password):
         """Set password hash"""
@@ -37,6 +38,157 @@ class User(UserMixin, db.Model):
     
     def __repr__(self):
         return f'<User {self.username}>'
+
+class Meeting(db.Model):
+    """Meeting model to track calendar events and their recording status"""
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Calendar event details
+    calendar_event_id = db.Column(db.String(255))  # Original calendar event ID
+    subject = db.Column(db.String(500), nullable=False)
+    description = db.Column(db.Text)
+    location = db.Column(db.String(500))
+    web_link = db.Column(db.String(1000))  # Teams meeting link
+    
+    # Meeting times
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=False)
+    duration_minutes = db.Column(db.Integer)
+    is_all_day = db.Column(db.Boolean, default=False)
+    
+    # Attendees
+    organizer = db.Column(db.String(255))
+    required_attendees = db.Column(db.Text)  # JSON list of email addresses
+    optional_attendees = db.Column(db.Text)  # JSON list of email addresses
+    attendee_count = db.Column(db.Integer, default=0)
+    
+    # Meeting metadata
+    meeting_type = db.Column(db.String(50), default='teams')  # teams, phone, in-person, other
+    is_teams_meeting = db.Column(db.Boolean, default=False)
+    is_recurring = db.Column(db.Boolean, default=False)
+    
+    # Recording tracking
+    recording_status = db.Column(db.String(50), default='none')  # none, scheduled, recorded_local, recorded_synced, excluded
+    recording_id = db.Column(db.Integer, db.ForeignKey('recording.id'), nullable=True)  # One-to-one relationship
+    recording = db.relationship('Recording', backref='meeting', uselist=False)  # One meeting can have 0 or 1 recording
+    
+    # Auto-discovery and management
+    discovered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Status and flags
+    is_excluded = db.Column(db.Boolean, default=False)  # User manually excluded from recording
+    auto_record = db.Column(db.Boolean, default=True)  # Should this meeting be auto-recorded
+    
+    @property
+    def duration_formatted(self):
+        """Format duration as HH:MM:SS"""
+        if not self.duration_minutes:
+            return "00:00"
+        
+        hours = self.duration_minutes // 60
+        minutes = self.duration_minutes % 60
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}"
+        else:
+            return f"{minutes:02d}m"
+    
+    @property
+    def attendee_list(self):
+        """Parse required attendees from JSON"""
+        try:
+            import json
+            if self.required_attendees:
+                return json.loads(self.required_attendees)
+        except:
+            pass
+        return []
+    
+    @property
+    def optional_attendee_list(self):
+        """Parse optional attendees from JSON"""
+        try:
+            import json
+            if self.optional_attendees:
+                return json.loads(self.optional_attendees)
+        except:
+            pass
+        return []
+    
+    @property
+    def all_attendees(self):
+        """Get all attendees (required + optional)"""
+        return self.attendee_list + self.optional_attendee_list
+    
+    @property
+    def status_display(self):
+        """Get human-readable status"""
+        status_map = {
+            'none': 'No Recording',
+            'scheduled': 'Scheduled',
+            'recorded_local': 'Recorded (Local)',
+            'recorded_synced': 'Recorded & Synced',
+            'excluded': 'Excluded'
+        }
+        return status_map.get(self.recording_status, 'Unknown')
+    
+    @property
+    def status_class(self):
+        """Get CSS class for status display"""
+        class_map = {
+            'none': 'status-none',
+            'scheduled': 'status-scheduled',
+            'recorded_local': 'status-recorded-local',
+            'recorded_synced': 'status-recorded-synced',
+            'excluded': 'status-excluded'
+        }
+        return class_map.get(self.recording_status, 'status-none')
+    
+    @property
+    def is_past(self):
+        """Check if meeting is in the past"""
+        return self.end_time < datetime.utcnow()
+    
+    @property
+    def is_today(self):
+        """Check if meeting is today"""
+        today = datetime.utcnow().date()
+        return self.start_time.date() == today
+    
+    @property
+    def is_upcoming(self):
+        """Check if meeting is upcoming (in the future)"""
+        return self.start_time > datetime.utcnow()
+    
+    def set_attendees(self, required_list=None, optional_list=None):
+        """Set attendees from lists"""
+        import json
+        if required_list:
+            self.required_attendees = json.dumps(required_list)
+        if optional_list:
+            self.optional_attendees = json.dumps(optional_list)
+        
+        # Update count
+        total_count = len(required_list or []) + len(optional_list or [])
+        self.attendee_count = total_count
+    
+    def update_recording_status(self):
+        """Update recording status based on associated recording"""
+        if self.recording:
+            if self.recording.has_cloud_backup:
+                self.recording_status = 'recorded_synced'
+            else:
+                self.recording_status = 'recorded_local'
+        elif self.is_excluded:
+            self.recording_status = 'excluded'
+        elif self.auto_record and self.is_upcoming:
+            self.recording_status = 'scheduled'
+        else:
+            self.recording_status = 'none'
+    
+    def __repr__(self):
+        return f'<Meeting {self.subject} on {self.start_time.strftime("%Y-%m-%d %H:%M")}>'
 
 class Recording(db.Model):
     """Recording model to track meeting recordings"""

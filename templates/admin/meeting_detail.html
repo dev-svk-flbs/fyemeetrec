@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meeting.subject }} - Meeting Details{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #f8f9fa;
+        min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .meeting-header {
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
+        color: white;
+        padding: 2rem 0;
+        margin: -1.5rem -1rem 2rem -1rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    .meeting-header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    .meeting-title {
+        font-size: 2rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem 0;
+        color: #f7e68c;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .meeting-subtitle {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    .content-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .card-header {
+        background: #f9fafb;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+        color: #1f2937;
+        font-size: 1.1rem;
+    }
+
+    .card-content {
+        padding: 1.5rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f3f4f6;
+    }
+
+    .info-row:last-child {
+        border-bottom: none;
+    }
+
+    .info-label {
+        font-weight: 600;
+        color: #374151;
+        min-width: 120px;
+    }
+
+    .info-value {
+        color: #6b7280;
+        text-align: right;
+        flex: 1;
+    }
+
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        display: inline-block;
+    }
+
+    .status-recorded-synced {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-recorded-local {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-scheduled {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .status-none {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .status-excluded {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .attendees-grid {
+        display: grid;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .attendee-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: #f9fafb;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .attendee-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #2563eb;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .attendee-info {
+        flex: 1;
+    }
+
+    .attendee-name {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+    }
+
+    .attendee-email {
+        font-size: 0.875rem;
+        color: #6b7280;
+    }
+
+    .attendee-type {
+        padding: 0.125rem 0.5rem;
+        background: #e5e7eb;
+        color: #374151;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .attendee-type.organizer {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .attendee-type.required {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .attendee-type.optional {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .recording-details {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .recording-preview {
+        background: #f9fafb;
+        border-radius: 6px;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        text-align: center;
+    }
+
+    .recording-icon {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+        color: #6b7280;
+    }
+
+    .recording-title {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+
+    .recording-meta {
+        font-size: 0.875rem;
+        color: #6b7280;
+        line-height: 1.5;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 600;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: #2563eb;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #1d4ed8;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-success {
+        background: #059669;
+        color: white;
+    }
+
+    .btn-success:hover {
+        background: #047857;
+        color: white;
+        text-decoration: none;
+    }
+
+    .btn-warning {
+        background: #d97706;
+        color: white;
+    }
+
+    .btn-warning:hover {
+        background: #b45309;
+        color: white;
+        text-decoration: none;
+    }
+
+    .timeline-item {
+        padding: 1rem 0;
+        border-bottom: 1px solid #f3f4f6;
+        display: flex;
+        gap: 1rem;
+    }
+
+    .timeline-item:last-child {
+        border-bottom: none;
+    }
+
+    .timeline-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.875rem;
+        flex-shrink: 0;
+    }
+
+    .timeline-content {
+        flex: 1;
+    }
+
+    .timeline-title {
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 0.25rem;
+    }
+
+    .timeline-time {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .link-recording-form {
+        background: #f9fafb;
+        border-radius: 6px;
+        padding: 1rem;
+        border: 1px solid #e5e7eb;
+        margin-top: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        color: #1f2937;
+    }
+
+    .no-recording-message {
+        text-align: center;
+        padding: 2rem;
+        color: #6b7280;
+        background: #f9fafb;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .teams-link {
+        background: #5b21b6;
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+    }
+
+    .teams-link:hover {
+        background: #4c1d95;
+        color: white;
+        text-decoration: none;
+    }
+
+    @media (max-width: 768px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .btn {
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="meeting-header">
+    <div class="meeting-header-content">
+        <h1 class="meeting-title">{{ meeting.subject }}</h1>
+        <p class="meeting-subtitle">
+            📅 {{ meeting.start_time.strftime('%A, %B %d, %Y') }} • 
+            ⏰ {{ meeting.start_time.strftime('%H:%M') }} - {{ meeting.end_time.strftime('%H:%M') }} •
+            ⏱️ {{ meeting.duration_formatted }}
+        </p>
+    </div>
+</div>
+
+<div class="action-buttons">
+    <a href="{{ url_for('admin_meetings') }}" class="btn btn-secondary">
+        ← Back to Meetings
+    </a>
+    {% if meeting.web_link %}
+    <a href="{{ meeting.web_link }}" class="teams-link" target="_blank">
+        🎥 Join Teams Meeting
+    </a>
+    {% endif %}
+    {% if meeting.recording %}
+    <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="btn btn-primary">
+        📹 View Recording
+    </a>
+    {% endif %}
+    <a href="#" class="btn btn-warning" onclick="refreshMeetingData()">
+        🔄 Refresh Data
+    </a>
+</div>
+
+<div class="content-grid">
+    <div class="main-content">
+        <!-- Meeting Information -->
+        <div class="info-card">
+            <div class="card-header">📋 Meeting Information</div>
+            <div class="card-content">
+                <div class="info-row">
+                    <span class="info-label">Subject:</span>
+                    <span class="info-value">{{ meeting.subject }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Outlook ID:</span>
+                    <span class="info-value">{{ meeting.calendar_event_id or 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Start Time:</span>
+                    <span class="info-value">{{ meeting.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">End Time:</span>
+                    <span class="info-value">{{ meeting.end_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Duration:</span>
+                    <span class="info-value">{{ meeting.duration_formatted }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Status:</span>
+                    <span class="info-value">
+                        <span class="status-badge {{ meeting.status_class }}">{{ meeting.status_display }}</span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Teams Meeting:</span>
+                    <span class="info-value">{{ 'Yes' if meeting.web_link else 'No' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Created:</span>
+                    <span class="info-value">{{ meeting.created_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.created_at else 'N/A' }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Last Updated:</span>
+                    <span class="info-value">{{ meeting.updated_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.updated_at else 'N/A' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendees -->
+        <div class="info-card">
+            <div class="card-header">👥 Attendees ({{ meeting.attendee_count }})</div>
+            <div class="card-content">
+                {% if meeting.all_attendees and meeting.all_attendees|length > 0 %}
+                <div class="attendees-grid">
+                    {% for attendee in meeting.all_attendees %}
+                    <div class="attendee-item">
+                        <div class="attendee-avatar">
+                            {{ attendee[0].upper() if attendee else '?' }}
+                        </div>
+                        <div class="attendee-info">
+                            <div class="attendee-name">{{ attendee.split('@')[0] if '@' in attendee else attendee }}</div>
+                            <div class="attendee-email">{{ attendee }}</div>
+                        </div>
+                        <div class="attendee-type required">
+                            Required
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="no-recording-message">
+                    <p>No attendee information available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Activity Timeline -->
+        <div class="info-card">
+            <div class="card-header">📊 Activity Timeline</div>
+            <div class="card-content">
+                <div class="timeline-item">
+                    <div class="timeline-icon" style="background: #dbeafe; color: #1e40af;">📅</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Meeting Created</div>
+                        <div class="timeline-time">
+                            {{ meeting.created_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.created_at else 'Unknown' }}
+                        </div>
+                    </div>
+                </div>
+                {% if meeting.updated_at and meeting.updated_at != meeting.created_at %}
+                <div class="timeline-item">
+                    <div class="timeline-icon" style="background: #fef3c7; color: #92400e;">🔄</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Meeting Updated</div>
+                        <div class="timeline-time">
+                            {{ meeting.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% if meeting.recording %}
+                <div class="timeline-item">
+                    <div class="timeline-icon" style="background: #d1fae5; color: #065f46;">📹</div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">Recording Linked</div>
+                        <div class="timeline-time">
+                            {{ meeting.recording.created_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.recording.created_at else 'Unknown' }}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <!-- Recording Information -->
+        <div class="info-card">
+            <div class="card-header">📹 Recording</div>
+            <div class="card-content">
+                {% if meeting.recording %}
+                <div class="recording-details">
+                    <div class="recording-preview">
+                        <div class="recording-icon">🎬</div>
+                        <div class="recording-title">{{ meeting.recording.title }}</div>
+                        <div class="recording-meta">
+                            <strong>Duration:</strong> {{ format_duration(meeting.recording.duration) }}<br>
+                            <strong>Size:</strong> {{ format_file_size(meeting.recording.file_size) }}<br>
+                            <strong>Status:</strong> {{ meeting.recording.upload_status or 'Unknown' }}<br>
+                            <strong>Created:</strong> {{ meeting.recording.created_at.strftime('%Y-%m-%d %H:%M') if meeting.recording.created_at else 'N/A' }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                        📹 View Recording Details
+                    </a>
+                </div>
+                {% else %}
+                <div class="no-recording-message">
+                    <p>📭 No recording linked to this meeting</p>
+                </div>
+                
+                <!-- Link Recording Form -->
+                {% if available_recordings %}
+                <div class="link-recording-form">
+                    <h4 style="margin: 0 0 1rem 0; color: #1f2937;">Link Recording</h4>
+                    <form method="POST" action="{{ url_for('admin_link_recording', meeting_id=meeting.id) }}">
+                        <div class="form-group">
+                            <label class="form-label">Available Recordings:</label>
+                            <select name="recording_id" class="form-select" required>
+                                <option value="">Select a recording...</option>
+                                {% for recording in available_recordings %}
+                                <option value="{{ recording.id }}">
+                                    {{ recording.title }} ({{ format_duration(recording.duration) }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-success" style="width: 100%; justify-content: center;">
+                            🔗 Link Recording
+                        </button>
+                    </form>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="info-card">
+            <div class="card-header">⚡ Quick Actions</div>
+            <div class="card-content">
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    {% if meeting.recording %}
+                    <form method="POST" action="{{ url_for('admin_unlink_recording', meeting_id=meeting.id) }}" onsubmit="return confirm('Are you sure you want to unlink this recording?')">
+                        <button type="submit" class="btn btn-warning" style="width: 100%; justify-content: center;">
+                            🔗❌ Unlink Recording
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    <form method="POST" action="{{ url_for('admin_sync_single_meeting', meeting_id=meeting.id) }}">
+                        <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+                            🔄 Refresh Meeting Data
+                        </button>
+                    </form>
+                    
+                    <form method="POST" action="{{ url_for('admin_delete_meeting', meeting_id=meeting.id) }}" onsubmit="return confirm('Are you sure you want to delete this meeting? This action cannot be undone.')">
+                        <button type="submit" class="btn" style="background: #dc2626; color: white; width: 100%; justify-content: center;">
+                            🗑️ Delete Meeting
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function refreshMeetingData() {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("admin_sync_single_meeting", meeting_id=meeting.id) }}';
+        document.body.appendChild(form);
+        form.submit();
+    }
+</script>
+{% endblock %}

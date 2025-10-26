@@ -8,7 +8,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 from dual_stream import DualModeStreamer
-from models import db, User, Recording, init_db
+from models import db, User, Recording, Meeting, init_db
 from settings_config import settings_manager
 from logging_config import app_logger as logger
 from retry_manager import start_retry_manager, get_retry_manager
@@ -40,6 +40,10 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this!
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recordings.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Power Automate Configuration
+WORKFLOW_URL = "https://default27828ac15d864f46abfd89560403e7.89.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/eaf1261797f54ecd875b16b92047518f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=u4zF0dj8ImUdRzDQayjczqITduEt2lDrCx1KzEJInFg"
+CALENDAR_ID = "AQMkADBjYWZhZWI5LTE2ZmItNDUyNy1iNDA4LTY0M2NmOTE0YmU3NwAARgAAA0x0AMwFqHZHtaHN6whvT4UHAGZu2hZpbwRNmdBVsXEd-pIAAAIBBgAAAGZu2hZpbwRNmdBVsXEd-pIAAAJdWQAAAA=="
 
 # Disable Flask request logging spam
 import logging
@@ -1022,11 +1026,6 @@ def autorecorder():
     """AutoRecorder calendar view - stunning weekly calendar with events"""
     import requests
     from datetime import datetime, timedelta
-    
-    # Hardcoded calendar ID for souvik@fyelabs.com (will be dynamic later)
-    CALENDAR_ID = "AQMkADBjYWZhZWI5LTE2ZmItNDUyNy1iNDA4LTY0M2NmOTE0YmU3NwAARgAAA0x0AMwFqHZHtaHN6whvT4UHAGZu2hZpbwRNmdBVsXEd-pIAAAIBBgAAAGZu2hZpbwRNmdBVsXEd-pIAAAJdWQAAAA=="
-    WORKFLOW_URL = "https://default27828ac15d864f46abfd89560403e7.89.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/eaf1261797f54ecd875b16b92047518f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=u4zF0dj8ImUdRzDQayjczqITduEt2lDrCx1KzEJInFg"
-    
     # Get 7 days of events starting from today
     start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     end_date = start_date + timedelta(days=7)
@@ -1056,7 +1055,99 @@ def autorecorder():
         if response.status_code in [200, 201, 202]:
             events = response.json()
             if isinstance(events, list):
-                logger.info(f"✅ AutoRecorder: Found {len(events)} events")
+                logger.info(f"✅ AutoRecorder: Found {len(events)} raw events")
+                
+                # Filter out all-day events and non-Teams meetings
+                filtered_events = []
+                all_day_count = 0
+                non_teams_count = 0
+                
+                for event in events:
+                    # Check if event is all-day
+                    is_all_day = False
+                    
+                    # Method 1: Check if isAllDay field exists and is true
+                    if event.get('isAllDay') is True:
+                        is_all_day = True
+                    
+                    # Method 2: Check if start/end times indicate all-day (00:00:00 to 23:59:59 or similar)
+                    elif event.get('start') and event.get('end'):
+                        try:
+                            start_str = event['start']
+                            end_str = event['end']
+                            
+                            # Check for all-day patterns like "2025-10-26T00:00:00" to "2025-10-27T00:00:00"
+                            if 'T00:00:00' in start_str and ('T00:00:00' in end_str or 'T23:59:59' in end_str):
+                                start_dt = datetime.fromisoformat(start_str.replace('.0000000', ''))
+                                end_dt = datetime.fromisoformat(end_str.replace('.0000000', ''))
+                                
+                                # If it's exactly 24 hours or spans midnight to midnight, it's likely all-day
+                                duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                                if duration_hours >= 23.5:  # 23.5+ hours indicates all-day
+                                    is_all_day = True
+                        except:
+                            pass
+                    
+                    # Method 3: Check if subject contains all-day indicators
+                    subject = event.get('subject', '').lower()
+                    if any(keyword in subject for keyword in ['birthday', 'holiday', 'vacation', 'pto', 'out of office']):
+                        is_all_day = True
+                    
+                    if is_all_day:
+                        all_day_count += 1
+                        logger.debug(f"🚫 Filtering out all-day event: {event.get('subject', 'No title')}")
+                        continue
+                    
+                    # Check if event is a Teams meeting
+                    is_teams_meeting = False
+                    
+                    # Method 1: Check for Teams meeting link in various fields
+                    teams_indicators = [
+                        'teams.microsoft.com',
+                        'teams.live.com', 
+                        'meet.lync.com',
+                        'join microsoft teams meeting',
+                        'microsoft teams meeting',
+                        'teams meeting'
+                    ]
+                    
+                    # Check in webLink field
+                    web_link = event.get('webLink', '').lower()
+                    if any(indicator in web_link for indicator in teams_indicators):
+                        is_teams_meeting = True
+                    
+                    # Check in body content
+                    body = event.get('body', '').lower()
+                    if any(indicator in body for indicator in teams_indicators):
+                        is_teams_meeting = True
+                    
+                    # Check in location field
+                    location = event.get('location', '').lower()
+                    if any(indicator in location for indicator in teams_indicators):
+                        is_teams_meeting = True
+                    
+                    # Check in subject
+                    if any(indicator in subject for indicator in ['teams', 'meeting']):
+                        is_teams_meeting = True
+                    
+                    # Method 2: Check if event has onlineMeeting information
+                    if event.get('onlineMeeting') or event.get('isOnlineMeeting'):
+                        is_teams_meeting = True
+                    
+                    # Method 3: Check if it's a meeting with attendees (likely recordable)
+                    if event.get('requiredAttendees') or event.get('attendees'):
+                        # If it has attendees, consider it a meeting worth recording
+                        is_teams_meeting = True
+                    
+                    if not is_teams_meeting:
+                        non_teams_count += 1
+                        logger.debug(f"🚫 Filtering out non-Teams event: {event.get('subject', 'No title')}")
+                        continue
+                    
+                    filtered_events.append(event)
+                
+                events = filtered_events
+                logger.info(f"✅ AutoRecorder: After filtering - {len(events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams events removed)")
                 
                 # Process events for better display
                 for event in events:
@@ -1650,22 +1741,40 @@ def get_all_upload_status():
 def admin_dashboard():
     """Advanced dashboard showing database overview"""
     try:
-        # Get summary statistics
+        # Get recording statistics
         total_recordings = Recording.query.count()
         uploaded_count = Recording.query.filter_by(uploaded=True).count()
         total_size = db.session.query(db.func.sum(Recording.file_size)).scalar() or 0
         total_duration = db.session.query(db.func.sum(Recording.duration)).scalar() or 0
         users_count = User.query.count()
         
+        # Get meeting statistics
+        total_meetings = Meeting.query.count()
+        recorded_meetings = Meeting.query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local'])).count()
+        upcoming_meetings = Meeting.query.filter(Meeting.start_time > datetime.utcnow()).count()
+        orphaned_recordings = Recording.query.filter(~Recording.id.in_(
+            db.session.query(Meeting.recording_id).filter(Meeting.recording_id.isnot(None))
+        )).count()
+        
         # Get recent recordings with user info
         recent_recordings = db.session.query(Recording, User).join(User)\
             .order_by(Recording.created_at.desc()).limit(5).all()
+        
+        # Get recent meetings
+        recent_meetings = Meeting.query.order_by(Meeting.start_time.desc()).limit(5).all()
         
         # Get upload status counts
         upload_stats = db.session.query(Recording.upload_status, db.func.count(Recording.id))\
             .group_by(Recording.upload_status).all()
         
         upload_counts = {status: count for status, count in upload_stats}
+        
+        # Today's recordings count
+        today = datetime.utcnow().date()
+        todays_recordings = Recording.query.filter(
+            Recording.created_at >= today,
+            Recording.created_at < today + timedelta(days=1)
+        ).count()
         
         stats = {
             'total_recordings': total_recordings,
@@ -1675,10 +1784,21 @@ def admin_dashboard():
             'total_duration': format_duration(total_duration),
             'users_count': users_count,
             'upload_percentage': int((uploaded_count / total_recordings * 100)) if total_recordings > 0 else 0,
-            'upload_counts': upload_counts
+            'upload_counts': upload_counts,
+            'total_meetings': total_meetings,
+            'recorded_meetings': recorded_meetings,
+            'upcoming_meetings': upcoming_meetings,
+            'orphaned_recordings': orphaned_recordings,
+            'meeting_recording_percentage': int((recorded_meetings / total_meetings * 100)) if total_meetings > 0 else 0,
+            'todays_recordings': todays_recordings,
+            'uploaded': uploaded_count,
+            'total_users': users_count
         }
         
-        return render_template('admin/dashboard.html', stats=stats, recent_recordings=recent_recordings)
+        return render_template('admin/dashboard.html', 
+                             stats=stats, 
+                             recent_recordings=recent_recordings,
+                             recent_meetings=recent_meetings)
         
     except Exception as e:
         logger.error(f"❌ Advanced dashboard error: {e}")
@@ -1858,13 +1978,645 @@ def check_and_retry_failed():
         except Exception as e:
             logger.error(f"❌ Retry check failed: {e}")
 
+@app.route('/admin')
+@login_required
+def admin():
+    """Admin dashboard to view meetings and recordings"""
+    try:
+        # Get meetings and recordings for the current user
+        meetings = Meeting.query.filter_by(user_id=current_user.id).order_by(Meeting.start_time.desc()).all()
+        recordings = Recording.query.filter_by(user_id=current_user.id).order_by(Recording.created_at.desc()).all()
+        
+        # Get some statistics
+        total_meetings = len(meetings)
+        recorded_meetings = len([m for m in meetings if m.recording])
+        upcoming_meetings = len([m for m in meetings if m.is_upcoming])
+        orphaned_recordings = len([r for r in recordings if not r.meeting])
+        
+        stats = {
+            'total_meetings': total_meetings,
+            'recorded_meetings': recorded_meetings,
+            'upcoming_meetings': upcoming_meetings,
+            'orphaned_recordings': orphaned_recordings,
+            'total_recordings': len(recordings)
+        }
+        
+        return render_template('admin/dashboard.html', 
+                             meetings=meetings[:20],  # Show last 20 meetings
+                             recordings=recordings[:10],  # Show last 10 recordings
+                             stats=stats)
+    except Exception as e:
+        logger.error(f"❌ Admin dashboard error: {str(e)}")
+        flash(f"Error loading admin dashboard: {str(e)}", "error")
+        return redirect(url_for('dashboard'))
+
+@app.route('/admin/meetings')
+@login_required
+def admin_meetings():
+    """Admin page to view all meetings"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = 50
+        
+        # Get filter parameters
+        filter_status = request.args.get('filter', 'all')
+        
+        # Calculate statistics for all meetings
+        total_meetings = Meeting.query.count()
+        recorded_meetings = Meeting.query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local'])).count()
+        scheduled_meetings = Meeting.query.filter_by(recording_status='scheduled').count()
+        upcoming_meetings = Meeting.query.filter(Meeting.start_time > datetime.utcnow()).count()
+        no_recording_meetings = Meeting.query.filter(Meeting.recording_id.is_(None)).count()
+        
+        # Calculate total attendees (sum of attendee_count for all meetings)
+        total_attendees = db.session.query(db.func.sum(Meeting.attendee_count)).scalar() or 0
+        
+        # Build query based on filter
+        query = Meeting.query
+        
+        # Apply filters
+        if filter_status == 'recorded':
+            query = query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local']))
+        elif filter_status == 'scheduled':
+            query = query.filter_by(recording_status='scheduled')
+        elif filter_status == 'upcoming':
+            query = query.filter(Meeting.start_time > datetime.utcnow())
+        elif filter_status == 'orphaned':
+            query = query.filter(Meeting.recording_id.is_(None))
+        
+        # Get meetings for display
+        meetings_paginated = query.order_by(Meeting.start_time.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        # Prepare stats dictionary
+        stats = {
+            'total_meetings': total_meetings,
+            'recorded_meetings': recorded_meetings,
+            'scheduled_meetings': scheduled_meetings,
+            'upcoming_meetings': upcoming_meetings,
+            'no_recording_meetings': no_recording_meetings,
+            'total_attendees': total_attendees
+        }
+        
+        return render_template('admin/meetings.html', 
+                             meetings=meetings_paginated.items,
+                             pagination=meetings_paginated,
+                             stats=stats,
+                             filter_status=filter_status)
+    except Exception as e:
+        logger.error(f"❌ Admin meetings error: {str(e)}")
+        flash(f"Error loading meetings: {str(e)}", "error")
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/meetings/<int:meeting_id>')
+@login_required
+def admin_meeting_detail(meeting_id):
+    """Admin page to view detailed meeting information"""
+    try:
+        meeting = Meeting.query.get_or_404(meeting_id)
+        
+        # Get available recordings that can be linked to this meeting (not already linked to any meeting)
+        available_recordings = Recording.query.filter(~Recording.id.in_(
+            db.session.query(Meeting.recording_id).filter(Meeting.recording_id.isnot(None))
+        )).all()
+        
+        return render_template('admin/meeting_detail.html', 
+                             meeting=meeting,
+                             available_recordings=available_recordings)
+    except Exception as e:
+        logger.error(f"❌ Admin meeting detail error: {str(e)}")
+        flash(f"Error loading meeting details: {str(e)}", "error")
+        return redirect(url_for('admin_meetings'))
+
+@app.route('/admin/meetings/<int:meeting_id>/link_recording', methods=['POST'])
+@login_required
+def admin_link_recording(meeting_id):
+    """Link a recording to a meeting"""
+    try:
+        meeting = Meeting.query.get_or_404(meeting_id)
+        recording_id = request.form.get('recording_id')
+        
+        if recording_id:
+            recording = Recording.query.get(recording_id)
+            # Check if recording is not already linked to another meeting
+            existing_meeting = Meeting.query.filter_by(recording_id=recording_id).first()
+            if recording and not existing_meeting:
+                meeting.recording_id = recording_id
+                meeting.recording_status = 'recorded_local' if not recording.uploaded else 'recorded_synced'
+                db.session.commit()
+                flash(f"Recording '{recording.title}' linked to meeting successfully!", "success")
+            else:
+                flash("Recording not found or already linked to another meeting.", "error")
+        
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+    except Exception as e:
+        logger.error(f"❌ Admin link recording error: {str(e)}")
+        flash(f"Error linking recording: {str(e)}", "error")
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+
+@app.route('/admin/meetings/<int:meeting_id>/unlink_recording', methods=['POST'])
+@login_required
+def admin_unlink_recording(meeting_id):
+    """Unlink a recording from a meeting"""
+    try:
+        meeting = Meeting.query.get_or_404(meeting_id)
+        
+        if meeting.recording:
+            meeting.recording_id = None
+            meeting.recording_status = 'scheduled'
+            db.session.commit()
+            flash("Recording unlinked from meeting successfully!", "success")
+        else:
+            flash("No recording linked to this meeting.", "warning")
+        
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+    except Exception as e:
+        logger.error(f"❌ Admin unlink recording error: {str(e)}")
+        flash(f"Error unlinking recording: {str(e)}", "error")
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+
+@app.route('/admin/meetings/<int:meeting_id>/sync', methods=['POST'])
+@login_required
+def admin_sync_single_meeting(meeting_id):
+    """Refresh data for a single meeting"""
+    try:
+        meeting = Meeting.query.get_or_404(meeting_id)
+        
+        # Here you would call your calendar sync logic for this specific meeting
+        # For now, just update the timestamp
+        meeting.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        flash("Meeting data refreshed successfully!", "success")
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+    except Exception as e:
+        logger.error(f"❌ Admin sync single meeting error: {str(e)}")
+        flash(f"Error syncing meeting: {str(e)}", "error")
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+
+@app.route('/admin/meetings/<int:meeting_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_meeting(meeting_id):
+    """Delete a meeting"""
+    try:
+        meeting = Meeting.query.get_or_404(meeting_id)
+        
+        # Unlink any associated recording first
+        if meeting.recording:
+            meeting.recording_id = None
+        
+        db.session.delete(meeting)
+        db.session.commit()
+        
+        flash("Meeting deleted successfully!", "success")
+        return redirect(url_for('admin_meetings'))
+    except Exception as e:
+        logger.error(f"❌ Admin delete meeting error: {str(e)}")
+        flash(f"Error deleting meeting: {str(e)}", "error")
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+
+def fetch_and_sync_calendar_events(user):
+    """Fetch calendar events and create/update Meeting records"""
+    try:
+        logger.info(f"🗓️ Syncing calendar events for {user.email}")
+        
+        # Power Automate data (same format as AutoRecorder)
+        # Sync only 1 week: today + 6 days forward for daily sync operations
+        start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=7)  # 7 days total (today + 6 more)
+        
+        data = {
+            'cal_id': CALENDAR_ID,
+            'start_date': start_date.isoformat() + 'Z',
+            'end_date': end_date.isoformat() + 'Z',
+            'email': user.email
+        }
+        
+        # Send request to Power Automate
+        response = requests.post(
+            WORKFLOW_URL,
+            headers={'Content-Type': 'application/json'},
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code not in [200, 201, 202]:
+            raise Exception(f"Calendar service error: {response.status_code}")
+            
+        events = response.json()
+        if not isinstance(events, list):
+            raise Exception("Unexpected response format from calendar service")
+            
+        logger.info(f"✅ Found {len(events)} raw events")
+        
+        # Filter out all-day events and non-Teams meetings
+        filtered_events = []
+        all_day_count = 0
+        non_teams_count = 0
+        
+        for event in events:
+            # Check if event is all-day
+            is_all_day = False
+            
+            if event.get('isAllDay') is True:
+                is_all_day = True
+            elif event.get('start') and event.get('end'):
+                try:
+                    start_str = event['start']
+                    end_str = event['end']
+                    
+                    if 'T00:00:00' in start_str and ('T00:00:00' in end_str or 'T23:59:59' in end_str):
+                        start_dt = datetime.fromisoformat(start_str.replace('.0000000', ''))
+                        end_dt = datetime.fromisoformat(end_str.replace('.0000000', ''))
+                        duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                        if duration_hours >= 23.5:
+                            is_all_day = True
+                except:
+                    pass
+            
+            subject = event.get('subject', '').lower()
+            if any(keyword in subject for keyword in ['birthday', 'holiday', 'vacation', 'pto', 'out of office']):
+                is_all_day = True
+            
+            if is_all_day:
+                all_day_count += 1
+                continue
+            
+            # Check if event is a Teams meeting
+            is_teams_meeting = False
+            teams_indicators = [
+                'teams.microsoft.com', 'teams.live.com', 'meet.lync.com',
+                'join microsoft teams meeting', 'microsoft teams meeting', 'teams meeting'
+            ]
+            
+            web_link = event.get('webLink', '').lower()
+            body = event.get('body', '').lower()
+            location = event.get('location', '').lower()
+            
+            if (any(indicator in web_link for indicator in teams_indicators) or
+                any(indicator in body for indicator in teams_indicators) or
+                any(indicator in location for indicator in teams_indicators) or
+                any(indicator in subject for indicator in ['teams', 'meeting']) or
+                event.get('onlineMeeting') or event.get('isOnlineMeeting') or
+                event.get('requiredAttendees') or event.get('attendees')):
+                is_teams_meeting = True
+            
+            if not is_teams_meeting:
+                non_teams_count += 1
+                continue
+                
+            filtered_events.append(event)
+        
+        logger.info(f"✅ After filtering - {len(filtered_events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams events removed)")
+        
+        # Create/update Meeting records
+        meetings_created = 0
+        meetings_updated = 0
+        meetings_skipped = 0
+        
+        # Track processed meetings to detect duplicates within the current batch
+        processed_events = set()
+        
+        for event in filtered_events:
+            try:
+                # Parse event data
+                event_id = event.get('id') or event.get('iCalUId')
+                subject = event.get('subject', 'No Title')
+                
+                # Parse start/end times
+                start_time = None
+                end_time = None
+                
+                if event.get('start'):
+                    start_time = datetime.fromisoformat(event['start'].replace('.0000000', ''))
+                if event.get('end'):
+                    end_time = datetime.fromisoformat(event['end'].replace('.0000000', ''))
+                
+                if not start_time or not end_time:
+                    continue
+                
+                # Create a unique key for duplicate detection
+                # Use multiple criteria: time + subject + organizer for robust duplicate detection
+                organizer = event.get('organizer', {}).get('emailAddress', {}).get('address', '') if isinstance(event.get('organizer'), dict) else ''
+                duplicate_key = f"{start_time.isoformat()}|{end_time.isoformat()}|{subject.lower().strip()}|{organizer.lower()}"
+                
+                # Skip if we've already processed this exact meeting in this batch
+                if duplicate_key in processed_events:
+                    logger.debug(f"🔄 Skipping duplicate in batch: {subject} at {start_time}")
+                    meetings_skipped += 1
+                    continue
+                    
+                processed_events.add(duplicate_key)
+                
+                # Process attendees
+                attendees_json = None
+                attendee_count = 0
+                if event.get('requiredAttendees'):
+                    attendees = [email.strip() for email in event['requiredAttendees'].split(';') if email.strip()]
+                    if attendees:
+                        import json
+                        attendees_json = json.dumps(attendees)
+                        attendee_count = len(attendees)
+                
+                # Calculate duration
+                duration_minutes = None
+                if start_time and end_time:
+                    duration_minutes = int((end_time - start_time).total_seconds() / 60)
+                
+                # Check for existing meetings using multiple criteria
+                existing_meeting = None
+                
+                # Method 1: Try to find by calendar_event_id (exact match)
+                if event_id:
+                    existing_meeting = Meeting.query.filter_by(
+                        calendar_event_id=event_id,
+                        user_id=user.id
+                    ).first()
+                
+                # Method 2: If no event_id match, check for duplicates by time + subject
+                if not existing_meeting:
+                    # Look for meetings with same start time, subject, and user within a 5-minute window
+                    time_tolerance = timedelta(minutes=5)
+                    existing_meeting = Meeting.query.filter(
+                        Meeting.user_id == user.id,
+                        Meeting.subject == subject,
+                        Meeting.start_time.between(
+                            start_time - time_tolerance,
+                            start_time + time_tolerance
+                        )
+                    ).first()
+                
+                # Method 3: If still no match, check for same subject + date (different times = different meeting)
+                if not existing_meeting and duration_minutes and duration_minutes > 0:
+                    # Only check same-day meetings with similar duration (within 15 minutes)
+                    same_day_start = start_time.replace(hour=0, minute=0, second=0, microsecond=0)
+                    same_day_end = same_day_start + timedelta(days=1)
+                    
+                    similar_meetings = Meeting.query.filter(
+                        Meeting.user_id == user.id,
+                        Meeting.subject == subject,
+                        Meeting.start_time.between(same_day_start, same_day_end),
+                        Meeting.duration_minutes.between(
+                            max(1, duration_minutes - 15),
+                            duration_minutes + 15
+                        )
+                    ).all()
+                    
+                    # Check if any of these are really close in time (probable duplicates)
+                    for similar in similar_meetings:
+                        time_diff = abs((similar.start_time - start_time).total_seconds())
+                        if time_diff < 300:  # Within 5 minutes
+                            existing_meeting = similar
+                            logger.debug(f"🔍 Found potential duplicate by subject+time: {subject}")
+                            break
+                
+                if existing_meeting:
+                    # Update existing meeting with latest information
+                    existing_meeting.subject = subject
+                    existing_meeting.start_time = start_time
+                    existing_meeting.end_time = end_time
+                    existing_meeting.duration_minutes = duration_minutes
+                    existing_meeting.required_attendees = attendees_json
+                    existing_meeting.attendee_count = attendee_count
+                    existing_meeting.location = event.get('location', '')
+                    existing_meeting.web_link = event.get('webLink', '')
+                    existing_meeting.organizer = organizer
+                    existing_meeting.is_teams_meeting = True
+                    existing_meeting.last_updated = datetime.utcnow()
+                    
+                    # Update calendar_event_id if it was missing
+                    if event_id and not existing_meeting.calendar_event_id:
+                        existing_meeting.calendar_event_id = event_id
+                    
+                    meetings_updated += 1
+                else:
+                    # Create new meeting
+                    new_meeting = Meeting(
+                        calendar_event_id=event_id,
+                        subject=subject,
+                        start_time=start_time,
+                        end_time=end_time,
+                        duration_minutes=duration_minutes,
+                        required_attendees=attendees_json,
+                        attendee_count=attendee_count,
+                        location=event.get('location', ''),
+                        web_link=event.get('webLink', ''),
+                        organizer=organizer,
+                        is_teams_meeting=True,
+                        user_id=user.id,
+                        auto_record=False  # Default to not auto-record
+                    )
+                    db.session.add(new_meeting)
+                    meetings_created += 1
+                    
+            except Exception as e:
+                logger.error(f"❌ Error processing event {event.get('subject', 'Unknown')}: {str(e)}")
+                continue
+        
+        db.session.commit()
+        logger.info(f"✅ Calendar sync complete: {meetings_created} created, {meetings_updated} updated, {meetings_skipped} duplicates skipped")
+        return meetings_created, meetings_updated, len(filtered_events)
+        
+    except Exception as e:
+        logger.error(f"❌ Calendar sync error: {str(e)}")
+        db.session.rollback()
+        raise e
+
+def auto_sync_calendar_for_all_users():
+    """Automatically sync calendar for all users - called by scheduler"""
+    try:
+        logger.info("🕐 Auto calendar sync: Starting daily sync for all users")
+        
+        users = User.query.all()
+        total_created = 0
+        total_updated = 0
+        users_synced = 0
+        
+        for user in users:
+            try:
+                created, updated, total_events = fetch_and_sync_calendar_events(user)
+                total_created += created
+                total_updated += updated
+                users_synced += 1
+                logger.info(f"✅ Auto sync for {user.email}: {created} created, {updated} updated")
+            except Exception as e:
+                logger.error(f"❌ Auto sync failed for {user.email}: {str(e)}")
+                continue
+        
+        logger.info(f"🕐 Auto calendar sync complete: {users_synced} users, {total_created} total created, {total_updated} total updated")
+        
+    except Exception as e:
+        logger.error(f"❌ Auto calendar sync error: {str(e)}")
+
+@app.route('/admin/sync_calendar', methods=['POST'])
+@login_required  
+def admin_sync_calendar():
+    """Sync calendar and create/update meetings"""
+    try:
+        logger.info("🗓️ Admin: Manual calendar sync triggered")
+        
+        created, updated, total = fetch_and_sync_calendar_events(current_user)
+        
+        flash(f"Calendar sync completed! {created} meetings created, {updated} updated from {total} calendar events.", "success")
+        return redirect(request.referrer or url_for('admin_dashboard'))
+    except Exception as e:
+        logger.error(f"❌ Admin calendar sync error: {str(e)}")
+        flash(f"Error syncing calendar: {str(e)}", "error")
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/cleanup-duplicates', methods=['POST'])
+@login_required
+def admin_cleanup_duplicates():
+    """Remove duplicate meetings from the database"""
+    try:
+        logger.info("🧹 Admin: Manual duplicate cleanup triggered")
+        
+        # Find duplicates based on subject + start_time + user_id
+        from sqlalchemy import func
+        
+        # Get meetings that have duplicates (same subject, start time within 5 minutes, same user)
+        duplicates_query = db.session.query(
+            Meeting.subject,
+            Meeting.user_id,
+            func.date(Meeting.start_time).label('meeting_date')
+        ).filter(
+            Meeting.user_id == current_user.id
+        ).group_by(
+            Meeting.subject,
+            Meeting.user_id, 
+            func.date(Meeting.start_time)
+        ).having(func.count(Meeting.id) > 1)
+        
+        duplicates_removed = 0
+        
+        for duplicate_group in duplicates_query.all():
+            subject, user_id, meeting_date = duplicate_group
+            
+            # Get all meetings for this subject on this date
+            same_meetings = Meeting.query.filter(
+                Meeting.subject == subject,
+                Meeting.user_id == user_id,
+                func.date(Meeting.start_time) == meeting_date
+            ).order_by(Meeting.start_time, Meeting.last_updated.desc()).all()
+            
+            if len(same_meetings) <= 1:
+                continue
+                
+            # Group by start time (within 5 minutes tolerance)
+            time_groups = {}
+            for meeting in same_meetings:
+                # Round to nearest 5-minute interval for grouping
+                rounded_time = meeting.start_time.replace(
+                    minute=(meeting.start_time.minute // 5) * 5,
+                    second=0,
+                    microsecond=0
+                )
+                
+                if rounded_time not in time_groups:
+                    time_groups[rounded_time] = []
+                time_groups[rounded_time].append(meeting)
+            
+            # For each time group, keep the most complete/recent one
+            for time_group in time_groups.values():
+                if len(time_group) <= 1:
+                    continue
+                    
+                # Sort by completeness (has calendar_event_id, has recording, most recent)
+                time_group.sort(key=lambda m: (
+                    bool(m.calendar_event_id),
+                    bool(m.recording_id),
+                    m.last_updated or m.discovered_at
+                ), reverse=True)
+                
+                # Keep the first (best) one, delete the rest
+                best_meeting = time_group[0]
+                duplicates_to_remove = time_group[1:]
+                
+                for duplicate in duplicates_to_remove:
+                    logger.info(f"🗑️ Removing duplicate: {duplicate.subject} at {duplicate.start_time}")
+                    db.session.delete(duplicate)
+                    duplicates_removed += 1
+        
+        db.session.commit()
+        
+        if duplicates_removed > 0:
+            logger.info(f"✅ Cleanup complete: {duplicates_removed} duplicate meetings removed")
+            flash(f"Cleanup completed! {duplicates_removed} duplicate meetings removed.", "success")
+        else:
+            logger.info("✅ No duplicates found to remove")
+            flash("No duplicate meetings found to remove.", "info")
+            
+        return redirect(request.referrer or url_for('admin_dashboard'))
+        
+    except Exception as e:
+        logger.error(f"❌ Duplicate cleanup error: {str(e)}")
+        db.session.rollback()
+        flash(f"Error during cleanup: {str(e)}", "error")
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/auto-sync-test', methods=['POST'])
+@login_required
+def admin_test_auto_sync():
+    """Manually trigger auto-sync for testing"""
+    try:
+        logger.info("🧪 Admin: Manual auto-sync test triggered")
+        
+        auto_sync_calendar_for_all_users()
+        
+        flash("Auto-sync test completed! Check logs for details.", "success")
+        return redirect(request.referrer or url_for('admin_dashboard'))
+        
+    except Exception as e:
+        logger.error(f"❌ Auto-sync test error: {str(e)}")
+        flash(f"Auto-sync test failed: {str(e)}", "error")
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/meetings/<int:meeting_id>/toggle-recording', methods=['POST'])
+@login_required
+def admin_toggle_meeting_recording(meeting_id):
+    """Toggle auto-recording for a meeting"""
+    try:
+        meeting = Meeting.query.filter_by(id=meeting_id, user_id=current_user.id).first_or_404()
+        
+        # Toggle auto-record flag
+        meeting.auto_record = not meeting.auto_record
+        
+        # Update recording status
+        if meeting.auto_record:
+            meeting.is_excluded = False
+            if meeting.is_upcoming:
+                meeting.recording_status = 'scheduled'
+        else:
+            meeting.is_excluded = True
+            meeting.recording_status = 'excluded'
+        
+        db.session.commit()
+        
+        action = "enabled" if meeting.auto_record else "disabled"
+        flash(f"Auto-recording {action} for '{meeting.subject}'", "success")
+        
+        return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
+    except Exception as e:
+        logger.error(f"❌ Toggle recording error: {str(e)}")
+        flash(f"Error updating meeting: {str(e)}", "error")
+        return redirect(url_for('admin_meetings'))
+
 def start_scheduler():
-    """Start the retry scheduler - only called when app runs"""
+    """Start the background scheduler for retry and calendar sync"""
     scheduler = BackgroundScheduler()
+    
+    # Add retry job (every 5 minutes)
     scheduler.add_job(check_and_retry_failed, 'interval', minutes=5, id='retry_failed')
+    
+    # Add daily calendar sync job (every day at 6 AM)
+    scheduler.add_job(auto_sync_calendar_for_all_users, 'cron', hour=6, minute=0, id='daily_calendar_sync')
+    
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
-    logger.info("🔄 Simple retry scheduler started (every 5 minutes)")
+    logger.info("🔄 Background scheduler started:")
+    logger.info("   - Retry failed uploads: every 5 minutes")
+    logger.info("   - Calendar sync: daily at 6:00 AM")
     return scheduler
 
 if __name__ == '__main__':
