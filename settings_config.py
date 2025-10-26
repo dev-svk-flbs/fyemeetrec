@@ -101,6 +101,61 @@ class SettingsManager:
         
         return []
 
+    def get_native_resolution(self):
+        """Get native resolution from GPU driver (bypasses scaling)"""
+        try:
+            native_res_command = '''
+            Get-CimInstance -ClassName Win32_VideoController | 
+            Where-Object {$_.CurrentHorizontalResolution -gt 0} | 
+            Select-Object CurrentHorizontalResolution, CurrentVerticalResolution | 
+            ConvertTo-Json
+            '''
+            
+            result = subprocess.run(['powershell', '-Command', native_res_command], 
+                                  capture_output=True, text=True, shell=False)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                data = json.loads(result.stdout.strip())
+                # Handle single monitor case
+                if isinstance(data, dict):
+                    return data.get('CurrentHorizontalResolution', 1920), \
+                           data.get('CurrentVerticalResolution', 1080)
+                elif isinstance(data, list) and len(data) > 0:
+                    return data[0].get('CurrentHorizontalResolution', 1920), \
+                           data[0].get('CurrentVerticalResolution', 1080)
+            
+            logger.warning("Failed to get native resolution, using default 1920x1080")
+            return 1920, 1080
+        except Exception as e:
+            logger.error(f"Error getting native resolution: {e}")
+            return 1920, 1080
+
+    def correct_monitor_scaling(self, monitors_data, native_width, native_height):
+        """Apply scaling correction to monitor data"""
+        if not monitors_data:
+            return []
+        
+        # Calculate scaling factor from primary monitor
+        primary_monitor = next((m for m in monitors_data if m.get('Primary')), monitors_data[0])
+        scaling_factor = native_width / primary_monitor['Width'] if primary_monitor['Width'] > 0 else 1.0
+        
+        logger.info(f"🔍 Scaling detection: Native={native_width}x{native_height}, Reported={primary_monitor['Width']}x{primary_monitor['Height']}, Factor={scaling_factor:.2f}x")
+        
+        # Apply correction to all monitors
+        corrected_monitors = []
+        for monitor in monitors_data:
+            corrected_monitors.append({
+                'WindowsNumber': monitor['WindowsNumber'],
+                'DeviceName': monitor['DeviceName'],
+                'Primary': monitor['Primary'],
+                'X': int(monitor['X'] * scaling_factor),
+                'Y': int(monitor['Y'] * scaling_factor),
+                'Width': int(monitor['Width'] * scaling_factor),
+                'Height': int(monitor['Height'] * scaling_factor)
+            })
+        
+        return corrected_monitors
+
     def detect_monitors(self):
         """Detect available monitors using PowerShell with Windows' actual numbering"""
         logger.info("🔍 Detecting monitors with Windows numbering...")
@@ -161,6 +216,30 @@ class SettingsManager:
                     monitors_data = [monitors_data]
                 
                 logger.info(f"Raw monitor data: {monitors_data}")
+                
+                # Get native resolution and apply scaling correction
+                native_width, native_height = self.get_native_resolution()
+                logger.info(f"🔍 Native resolution from GPU: {native_width}x{native_height}")
+                
+                # Apply scaling correction if needed
+                if monitors_data:
+                    primary_monitor = next((m for m in monitors_data if m.get('Primary')), monitors_data[0])
+                    reported_width = primary_monitor['Width']
+                    
+                    if reported_width != native_width and reported_width > 0:
+                        scaling_factor = native_width / reported_width
+                        logger.info(f"🔧 Scaling detected! Factor: {scaling_factor:.2f}x (Reported: {reported_width}x{primary_monitor['Height']} → Native: {native_width}x{native_height})")
+                        
+                        # Apply scaling correction to all monitors
+                        for monitor in monitors_data:
+                            monitor['X'] = int(monitor['X'] * scaling_factor)
+                            monitor['Y'] = int(monitor['Y'] * scaling_factor)
+                            monitor['Width'] = int(monitor['Width'] * scaling_factor)
+                            monitor['Height'] = int(monitor['Height'] * scaling_factor)
+                        
+                        logger.info(f"✅ Applied scaling correction: {monitors_data}")
+                    else:
+                        logger.info(f"✅ No scaling correction needed (Native={native_width}, Reported={reported_width})")
                 
                 # Format monitor info with manufacturer names using Windows numbers
                 monitors = []

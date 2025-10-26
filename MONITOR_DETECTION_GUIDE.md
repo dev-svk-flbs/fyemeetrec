@@ -159,6 +159,7 @@ def get_native_resolution():
     Select-Object CurrentHorizontalResolution, CurrentVerticalResolution | 
     ConvertTo-Json
     '''
+    that was my office setup. now I am running at my home setup. check  the settings log towards teh end
     
     result = subprocess.run(['powershell', '-Command', native_res_command], 
                           capture_output=True, text=True, shell=False)
