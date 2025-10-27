@@ -2,11 +2,64 @@
 
 {% block title %}Dashboard - FYE Meeting Recorder{% endblock %}
 
+{% block extra_css %}
+<style>
+    .recording-alert {
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+        color: white;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+        animation: pulse-dashboard 2s infinite;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    @keyframes pulse-dashboard {
+        0% {
+            box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+            transform: scale(1);
+        }
+        50% {
+            box-shadow: 0 8px 12px rgba(220, 38, 38, 0.5);
+            transform: scale(1.02);
+        }
+        100% {
+            box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+            transform: scale(1);
+        }
+    }
+
+    .recording-alert .recording-dot {
+        font-size: 1.5rem;
+        animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0.3; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">Dashboard</h1>
     <p class="page-subtitle">Overview of your meeting recordings and system status</p>
 </div>
+
+{% if active_recording %}
+<div class="recording-alert">
+    <span class="recording-dot">⬤</span>
+    <span>🎬 RECORDING IN PROGRESS: {{ active_recording.subject if active_recording.subject else active_recording.title }}</span>
+    <span class="recording-dot">⬤</span>
+</div>
+{% endif %}
 
 <div class="stats-grid">
     <div class="stat-card">

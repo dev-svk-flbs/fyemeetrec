@@ -137,6 +137,35 @@
             gap: 0.75rem;
         }
 
+        .recording-indicator-navbar {
+            background: #dc2626;
+            color: white;
+            padding: 0.375rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: pulse-nav 1.5s infinite;
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+        }
+
+        @keyframes pulse-nav {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 4px 8px rgba(220, 38, 38, 0.5);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+            }
+        }
+
         .user-info {
             font-size: 0.875rem;
             color: var(--gray-600);
@@ -337,6 +366,12 @@
                 <a href="{{ url_for('settings') }}" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">Settings</a>
             </nav>
             <div class="user-menu">
+                {% if active_recording %}
+                <div class="recording-indicator-navbar">
+                    <span>⬤</span>
+                    <span>Recording</span>
+                </div>
+                {% endif %}
                 <span class="user-info">Hi {{ current_user.username }}!</span>
             </div>
         </div>

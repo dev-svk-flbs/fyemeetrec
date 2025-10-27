@@ -97,7 +97,24 @@ def format_duration(seconds):
 @app.context_processor
 def utility_processor():
     """Add utility functions to all templates"""
-    return dict(format_file_size=format_file_size, format_duration=format_duration)
+    # Check for active recordings
+    active_recording = None
+    if current_user.is_authenticated:
+        # Check for any recording that's currently active (not completed)
+        # This includes both meeting-linked and hotkey recordings
+        from dual_stream import DualModeStreamer
+        global recording_state
+        if recording_state.get('active', False):
+            # Get the most recent recording that might be active
+            recent_recording = Recording.query.filter_by(user_id=current_user.id).order_by(Recording.created_at.desc()).first()
+            if recent_recording and recent_recording.status != 'completed':
+                active_recording = recent_recording
+    
+    return dict(
+        format_file_size=format_file_size, 
+        format_duration=format_duration,
+        active_recording=active_recording
+    )
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -588,9 +605,8 @@ def stop_recording():
                 recording_state['streamer'].video_process.terminate()
         except Exception:
             pass
-        # Wait briefly for thread to exit
-        if recording_state.get('thread'):
-            recording_state['thread'].join(timeout=5)
+        # Don't wait for thread - let it clean up in background
+        # This prevents Flask from blocking and timing out
     
     recording_state['active'] = False
     return jsonify({'status': 'stopped'})
