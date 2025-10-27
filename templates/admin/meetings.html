@@ -647,6 +647,74 @@
             box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
         }
     }
+
+    /* Custom Checkbox Styles */
+    .checkbox-container {
+        display: inline-block;
+        position: relative;
+        padding-left: 25px;
+        margin: 0;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .checkbox-container input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+    }
+
+    .checkmark {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        transform: translateY(-50%);
+        height: 18px;
+        width: 18px;
+        background-color: #fff;
+        border: 2px solid #d1d5db;
+        border-radius: 3px;
+        transition: all 0.2s;
+    }
+
+    .checkbox-container:hover input ~ .checkmark {
+        border-color: #9ca3af;
+    }
+
+    .checkbox-container input:checked ~ .checkmark {
+        background-color: #2563eb;
+        border-color: #2563eb;
+    }
+
+    .checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+    }
+
+    .checkbox-container input:checked ~ .checkmark:after {
+        display: block;
+    }
+
+    .checkbox-container .checkmark:after {
+        left: 5px;
+        top: 2px;
+        width: 4px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+    /* Recurring Badge */
+    .recurring-badge {
+        display: inline-block;
+        margin-left: 0.3rem;
+        font-size: 0.75rem;
+        opacity: 0.7;
+    }
 </style>
 {% endblock %}
 
@@ -716,6 +784,8 @@
                 <th>#</th>
                 <th>Meeting</th>
                 <th>Schedule</th>
+                <th>Exclude</th>
+                <th>Exclude Series</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -728,6 +798,9 @@
                 <td>
                     <a href="{{ url_for('admin_meeting_detail', meeting_id=meeting.id) }}" class="meeting-title">
                         {{ meeting.subject }}
+                        {% if meeting.is_recurring %}
+                        <span class="recurring-badge" title="Recurring Meeting">🔁</span>
+                        {% endif %}
                     </a>
                 </td>
                 <td>
@@ -736,20 +809,45 @@
                     </div>
                 </td>
                 <td>
+                    <label class="checkbox-container" title="Exclude this specific meeting from recording">
+               <input type="checkbox" 
+                   class="exclude-checkbox" 
+                   data-meeting-id="{{ meeting.id }}"
+                   {{ 'checked' if meeting.user_excluded else '' }}
+                   onchange="toggleMeetingExclusion(this, {{ meeting.id }}, this.checked)">
+                        <span class="checkmark"></span>
+                    </label>
+                </td>
+                <td>
+                    {% if meeting.is_recurring %}
+                    <label class="checkbox-container" title="Exclude all meetings in this recurring series">
+               <input type="checkbox" 
+                   class="exclude-series-checkbox" 
+                   data-meeting-id="{{ meeting.id }}"
+                   data-series-id="{{ meeting.series_id or meeting.calendar_event_id }}"
+                   {{ 'checked' if meeting.exclude_all_series else '' }}
+                   onchange="toggleSeriesExclusion(this, {{ meeting.id }}, this.checked, '{{ meeting.series_id or meeting.calendar_event_id }}')">
+                        <span class="checkmark"></span>
+                    </label>
+                    {% else %}
+                    <span style="color: #9ca3af;">N/A</span>
+                    {% endif %}
+                </td>
+                <td>
                     <div class="action-buttons-group">
                         {% if meeting.recording_status == 'recording' %}
                         <span class="recording-indicator pulsating" title="Currently Recording">
                             ⬤
                         </span>
-                        <button onclick="stopRecording({{ meeting.id }}, '{{ meeting.subject }}')" 
-                                class="btn btn-stop-icon" 
-                                title="Stop Recording">
+            <button onclick="stopRecording(this, {{ meeting.id }}, '{{ meeting.subject }}')" 
+                class="btn btn-stop-icon" 
+                title="Stop Recording">
                             ⏹
                         </button>
                         {% elif not meeting.recording %}
-                        <button onclick="startRecording({{ meeting.id }}, '{{ meeting.subject }}')" 
-                                class="btn btn-record-icon" 
-                                title="Start Recording">
+            <button onclick="startRecording(this, {{ meeting.id }}, '{{ meeting.subject }}')" 
+                class="btn btn-record-icon" 
+                title="Start Recording">
                             ⬤
                         </button>
                         {% endif %}
@@ -952,12 +1050,12 @@
             hour12: true
         });
         
-        eventItem.innerHTML = `
+                eventItem.innerHTML = `
             <div class="event-time">${startTime}</div>
             <div class="event-title" title="${meeting.subject}">${meeting.subject}</div>
             <div class="event-actions">
-                ${meeting.recording_status === 'recording' ? `<span class="recording-indicator pulsating">⬤</span><button onclick="event.stopPropagation(); stopRecording(${meeting.id}, '${meeting.subject}')" class="event-action-btn event-stop-btn">⏹</button>` : ''}
-                ${!meeting.recording && meeting.recording_status !== 'recording' ? `<button onclick="event.stopPropagation(); startRecording(${meeting.id}, '${meeting.subject}')" class="event-action-btn event-record-btn">⬤</button>` : ''}
+                ${meeting.recording_status === 'recording' ? `<span class="recording-indicator pulsating">⬤</span><button onclick="event.stopPropagation(); stopRecording(this, ${meeting.id}, '${meeting.subject}')" class="event-action-btn event-stop-btn">⏹</button>` : ''}
+                ${!meeting.recording && meeting.recording_status !== 'recording' ? `<button onclick="event.stopPropagation(); startRecording(this, ${meeting.id}, '${meeting.subject}')" class="event-action-btn event-record-btn">⬤</button>` : ''}
             </div>
         `;
         
@@ -965,8 +1063,8 @@
     }
 
     // Function to start recording for a meeting
-    async function startRecording(meetingId, meetingTitle) {
-        const button = event.target;
+    async function startRecording(element, meetingId, meetingTitle) {
+        const button = element;
         const originalText = button.innerHTML;
         
         // Disable button and show loading state
@@ -1019,9 +1117,82 @@
         }
     }
 
+    // Function to toggle exclusion for a single meeting
+    async function toggleMeetingExclusion(element, meetingId, isChecked) {
+        try {
+            const response = await fetch(`/admin/meetings/${meetingId}/exclude`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    excluded: isChecked
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to update exclusion status');
+            }
+            
+            const result = await response.json();
+            
+            // Visual feedback
+            const checkbox = element;
+            const row = checkbox.closest('tr');
+            if (isChecked) {
+                row.style.backgroundColor = '#fef2f2';
+            } else {
+                row.style.backgroundColor = '';
+            }
+            
+            // Show brief success message
+            console.log(`Meeting ${meetingId} exclusion updated: ${isChecked}`);
+            
+        } catch (error) {
+            console.error('Error updating meeting exclusion:', error);
+            alert('Failed to update exclusion status. Please try again.');
+            // Revert checkbox state
+            element.checked = !isChecked;
+        }
+    }
+
+    // Function to toggle exclusion for an entire recurring series
+    async function toggleSeriesExclusion(element, meetingId, isChecked, seriesId) {
+        try {
+            const response = await fetch('/admin/meetings/exclude-series', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    series_id: seriesId,
+                    excluded: isChecked
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to update series exclusion status');
+            }
+            
+            const result = await response.json();
+            
+            // Show success message with count
+            alert(`${result.updated_count} meeting(s) in series updated`);
+            
+            // Reload page to show updated checkboxes
+            window.location.reload();
+            
+        } catch (error) {
+            console.error('Error updating series exclusion:', error);
+            alert('Failed to update series exclusion. Please try again.');
+            // Revert checkbox state
+            element.checked = !isChecked;
+        }
+    }
+
     // Function to stop recording for a meeting
-    async function stopRecording(meetingId, meetingTitle) {
-        const button = event.target;
+    async function stopRecording(element, meetingId, meetingTitle) {
+        const button = element;
         const originalText = button.innerHTML;
         
         // Confirm stop action

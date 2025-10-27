@@ -489,6 +489,13 @@ def start_recording():
                     logger.warning(f"⚠️ Meeting {meeting_id} already has a recording linked")
                     recording_state['active'] = False  # Reset flag on error
                     return jsonify({'error': 'This meeting already has a recording'}), 400
+                
+                # Check if meeting is excluded
+                if meeting and (meeting.user_excluded or meeting.exclude_all_series):
+                    logger.warning(f"⚠️ Meeting {meeting_id} is excluded from recording")
+                    recording_state['active'] = False  # Reset flag on error
+                    return jsonify({'error': 'This meeting is excluded from recording'}), 403
+                    
             except Exception as e:
                 logger.error(f"❌ Error checking meeting: {str(e)}")
                 # Continue with recording anyway
@@ -2271,6 +2278,80 @@ def admin_meetings():
         flash(f"Error loading meetings: {str(e)}", "error")
         return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/meetings/<int:meeting_id>/exclude', methods=['POST'])
+@login_required
+def toggle_meeting_exclusion(meeting_id):
+    """Toggle exclusion status for a single meeting"""
+    try:
+        data = request.get_json()
+        excluded = data.get('excluded', False)
+        
+        meeting = Meeting.query.get_or_404(meeting_id)
+        meeting.user_excluded = excluded
+        
+        db.session.commit()
+        
+        logger.info(f"Meeting {meeting_id} exclusion updated to: {excluded}")
+        
+        return jsonify({
+            'success': True,
+            'meeting_id': meeting_id,
+            'excluded': excluded
+        })
+    except Exception as e:
+        logger.error(f"❌ Error updating meeting exclusion: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/admin/meetings/exclude-series', methods=['POST'])
+@login_required
+def toggle_series_exclusion():
+    """Toggle exclusion status for an entire recurring series"""
+    try:
+        data = request.get_json()
+        series_id = data.get('series_id')
+        excluded = data.get('excluded', False)
+        
+        if not series_id:
+            return jsonify({
+                'success': False,
+                'error': 'Missing series_id'
+            }), 400
+        
+        # Update all meetings with this series_id
+        meetings = Meeting.query.filter_by(series_id=series_id).all()
+        
+        if not meetings:
+            # If no series_id match, try calendar_event_id
+            meetings = Meeting.query.filter_by(calendar_event_id=series_id).all()
+        
+        updated_count = 0
+        for meeting in meetings:
+            meeting.exclude_all_series = excluded
+            meeting.user_excluded = excluded  # Also set individual exclusion
+            updated_count += 1
+        
+        db.session.commit()
+        
+        logger.info(f"Updated {updated_count} meetings in series {series_id} to excluded={excluded}")
+        
+        return jsonify({
+            'success': True,
+            'series_id': series_id,
+            'excluded': excluded,
+            'updated_count': updated_count
+        })
+    except Exception as e:
+        logger.error(f"❌ Error updating series exclusion: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/admin/meetings/<int:meeting_id>')
 @login_required
 def admin_meeting_detail(meeting_id):
@@ -2416,6 +2497,7 @@ def fetch_and_sync_calendar_events(user):
         filtered_events = []
         all_day_count = 0
         non_teams_count = 0
+        internal_only_count = 0
         
         for event in events:
             # Check if event is all-day
@@ -2467,10 +2549,43 @@ def fetch_and_sync_calendar_events(user):
             if not is_teams_meeting:
                 non_teams_count += 1
                 continue
+            
+            # Check if meeting is internal-only (all participants @fyelabs.com)
+            # Extract all email addresses from the meeting
+            all_emails = []
+            
+            # Get organizer email
+            if event.get('organizer'):
+                organizer_data = event['organizer']
+                if isinstance(organizer_data, dict):
+                    organizer_email = organizer_data.get('emailAddress', {}).get('address', '')
+                    if organizer_email:
+                        all_emails.append(organizer_email.lower())
+            
+            # Get attendees emails
+            if event.get('requiredAttendees'):
+                attendees = [email.strip().lower() for email in event['requiredAttendees'].split(';') if email.strip()]
+                all_emails.extend(attendees)
+            
+            if event.get('optionalAttendees'):
+                optional = [email.strip().lower() for email in event['optionalAttendees'].split(';') if email.strip()]
+                all_emails.extend(optional)
+            
+            # Remove duplicates
+            all_emails = list(set(all_emails))
+            
+            # Check if ALL participants are @fyelabs.com
+            if all_emails:  # Only check if we have participant data
+                is_internal_only = all(email.endswith('@fyelabs.com') for email in all_emails)
+                
+                if is_internal_only:
+                    internal_only_count += 1
+                    logger.debug(f"🔒 Skipping internal-only meeting: {event.get('subject', 'No Title')} - All {len(all_emails)} participants are @fyelabs.com")
+                    continue
                 
             filtered_events.append(event)
         
-        logger.info(f"✅ After filtering - {len(filtered_events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams events removed)")
+        logger.info(f"✅ After filtering - {len(filtered_events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams, {internal_only_count} internal-only removed)")
         
         # Create/update Meeting records
         meetings_created = 0

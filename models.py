@@ -80,6 +80,9 @@ class Meeting(db.Model):
     # Status and flags
     is_excluded = db.Column(db.Boolean, default=False)  # User manually excluded from recording
     auto_record = db.Column(db.Boolean, default=True)  # Should this meeting be auto-recorded
+    user_excluded = db.Column(db.Boolean, default=False)  # User manually excluded this specific meeting
+    exclude_all_series = db.Column(db.Boolean, default=False)  # Exclude all meetings in this recurring series
+    series_id = db.Column(db.String(255))  # Recurring series identifier for grouping related meetings
     
     @property
     def duration_formatted(self):
