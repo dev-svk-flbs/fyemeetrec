@@ -732,7 +732,7 @@
                 </td>
                 <td>
                     <div style="color: #1f2937;">
-                        {{ meeting.start_time.strftime('%a, %b %d, %I%p').upper().replace(' 0', ' ') }}
+                        {{ meeting.start_time | format_eastern_local }}
                     </div>
                 </td>
                 <td>

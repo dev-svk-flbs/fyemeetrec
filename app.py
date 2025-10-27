@@ -7,6 +7,7 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, f
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
+import pytz
 from dual_stream import DualModeStreamer
 from models import db, User, Recording, Meeting, init_db
 from settings_config import settings_manager
@@ -41,6 +42,50 @@ app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recordings.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Timezone Configuration
+UTC = pytz.UTC
+EASTERN = pytz.timezone('US/Eastern')
+
+def convert_utc_to_eastern(utc_dt):
+    """Convert UTC datetime to Eastern time"""
+    if utc_dt is None:
+        return None
+    
+    # If datetime is naive, assume it's UTC
+    if utc_dt.tzinfo is None:
+        utc_dt = UTC.localize(utc_dt)
+    
+    # Convert to Eastern time
+    eastern_dt = utc_dt.astimezone(EASTERN)
+    return eastern_dt
+
+def parse_calendar_datetime(datetime_str):
+    """Parse datetime string from calendar and convert to Eastern time"""
+    if not datetime_str:
+        return None
+    
+    try:
+        # Parse the datetime string (remove microseconds if present)
+        clean_str = datetime_str.replace('.0000000', '')
+        if clean_str.endswith('Z'):
+            # UTC time
+            utc_dt = datetime.fromisoformat(clean_str[:-1])
+            utc_dt = UTC.localize(utc_dt)
+        else:
+            # Assume UTC if no timezone info
+            utc_dt = datetime.fromisoformat(clean_str)
+            if utc_dt.tzinfo is None:
+                utc_dt = UTC.localize(utc_dt)
+        
+        # Convert to Eastern time
+        eastern_dt = utc_dt.astimezone(EASTERN)
+        # Return naive datetime in Eastern time for database storage
+        return eastern_dt.replace(tzinfo=None)
+    
+    except Exception as e:
+        logger.error(f"Failed to parse datetime {datetime_str}: {e}")
+        return None
+
 # Power Automate Configuration
 WORKFLOW_URL = "https://default27828ac15d864f46abfd89560403e7.89.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/eaf1261797f54ecd875b16b92047518f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=u4zF0dj8ImUdRzDQayjczqITduEt2lDrCx1KzEJInFg"
 CALENDAR_ID = "AQMkADBjYWZhZWI5LTE2ZmItNDUyNy1iNDA4LTY0M2NmOTE0YmU3NwAARgAAA0x0AMwFqHZHtaHN6whvT4UHAGZu2hZpbwRNmdBVsXEd-pIAAAIBBgAAAGZu2hZpbwRNmdBVsXEd-pIAAAJdWQAAAA=="
@@ -63,6 +108,31 @@ login_manager.login_message_category = 'info'
 # Initialize database
 init_db(app)
 logger.info("🗄️ Database initialized")
+
+# Jinja2 template filters for timezone handling
+@app.template_filter('to_eastern')
+def to_eastern_filter(utc_dt):
+    """Convert UTC datetime to Eastern time for display"""
+    return convert_utc_to_eastern(utc_dt)
+
+@app.template_filter('format_eastern_datetime')
+def format_eastern_datetime_filter(utc_dt, format_str='%a, %b %d, %H:%M EST'):
+    """Format datetime in Eastern time as 'MON, OCT 27, hh:mm EST'"""
+    eastern_dt = convert_utc_to_eastern(utc_dt)
+    if eastern_dt:
+        # Format as "MON, OCT 27, hh:mm EST"
+        formatted = eastern_dt.strftime(format_str).upper()
+        return formatted
+    return 'N/A'
+
+@app.template_filter('format_eastern_local')
+def format_eastern_local_filter(local_dt, format_str='%a, %b %d, %H:%M EST'):
+    """Format datetime that's already in Eastern time as 'MON, OCT 27, hh:mm EST'"""
+    if local_dt:
+        # This datetime is already in Eastern time, just format it
+        formatted = local_dt.strftime(format_str).upper()
+        return formatted
+    return 'N/A'
 
 # Run database migration for retry columns
 try:
@@ -1161,13 +1231,14 @@ def update_monitor_arrangement():
                             
                             # Check for all-day patterns like "2025-10-26T00:00:00" to "2025-10-27T00:00:00"
                             if 'T00:00:00' in start_str and ('T00:00:00' in end_str or 'T23:59:59' in end_str):
-                                start_dt = datetime.fromisoformat(start_str.replace('.0000000', ''))
-                                end_dt = datetime.fromisoformat(end_str.replace('.0000000', ''))
+                                start_dt = parse_calendar_datetime(start_str)
+                                end_dt = parse_calendar_datetime(end_str)
                                 
-                                # If it's exactly 24 hours or spans midnight to midnight, it's likely all-day
-                                duration_hours = (end_dt - start_dt).total_seconds() / 3600
-                                if duration_hours >= 23.5:  # 23.5+ hours indicates all-day
-                                    is_all_day = True
+                                if start_dt and end_dt:
+                                    # If it's exactly 24 hours or spans midnight to midnight, it's likely all-day
+                                    duration_hours = (end_dt - start_dt).total_seconds() / 3600
+                                    if duration_hours >= 23.5:  # 23.5+ hours indicates all-day
+                                        is_all_day = True
                         except:
                             pass
                     
@@ -1234,22 +1305,24 @@ def update_monitor_arrangement():
                 
                 # Process events for better display
                 for event in events:
-                    # Parse start/end times
+                    # Parse start/end times and convert to Eastern time
                     if event.get('start'):
                         try:
-                            start_dt = datetime.fromisoformat(event['start'].replace('.0000000', ''))
-                            event['start_datetime'] = start_dt
-                            event['start_time'] = start_dt.strftime('%H:%M')
-                            event['start_date'] = start_dt.strftime('%Y-%m-%d')
-                            event['day_name'] = start_dt.strftime('%A')
+                            start_dt = parse_calendar_datetime(event['start'])
+                            if start_dt:
+                                event['start_datetime'] = start_dt
+                                event['start_time'] = start_dt.strftime('%H:%M')
+                                event['start_date'] = start_dt.strftime('%Y-%m-%d')
+                                event['day_name'] = start_dt.strftime('%A')
                         except:
                             pass
                     
                     if event.get('end'):
                         try:
-                            end_dt = datetime.fromisoformat(event['end'].replace('.0000000', ''))
-                            event['end_datetime'] = end_dt
-                            event['end_time'] = end_dt.strftime('%H:%M')
+                            end_dt = parse_calendar_datetime(event['end'])
+                            if end_dt:
+                                event['end_datetime'] = end_dt
+                                event['end_time'] = end_dt.strftime('%H:%M')
                             
                             # Calculate duration
                             if event.get('start_datetime'):
@@ -2413,14 +2486,14 @@ def fetch_and_sync_calendar_events(user):
                 event_id = event.get('id') or event.get('iCalUId')
                 subject = event.get('subject', 'No Title')
                 
-                # Parse start/end times
+                # Parse start/end times and convert to Eastern time
                 start_time = None
                 end_time = None
                 
                 if event.get('start'):
-                    start_time = datetime.fromisoformat(event['start'].replace('.0000000', ''))
+                    start_time = parse_calendar_datetime(event['start'])
                 if event.get('end'):
-                    end_time = datetime.fromisoformat(event['end'].replace('.0000000', ''))
+                    end_time = parse_calendar_datetime(event['end'])
                 
                 if not start_time or not end_time:
                     continue

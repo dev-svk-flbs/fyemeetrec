@@ -149,19 +149,42 @@ class Meeting(db.Model):
     
     @property
     def is_past(self):
-        """Check if meeting is in the past"""
-        return self.end_time < datetime.utcnow()
+        """Check if meeting is in the past (comparing in Eastern time)"""
+        import pytz
+        utc = pytz.UTC
+        eastern = pytz.timezone('US/Eastern')
+        
+        # Get current time in Eastern
+        now_utc = datetime.utcnow().replace(tzinfo=utc)
+        now_eastern = now_utc.astimezone(eastern).replace(tzinfo=None)
+        
+        return self.end_time < now_eastern
     
     @property
     def is_today(self):
-        """Check if meeting is today"""
-        today = datetime.utcnow().date()
-        return self.start_time.date() == today
+        """Check if meeting is today (in Eastern time)"""
+        import pytz
+        utc = pytz.UTC
+        eastern = pytz.timezone('US/Eastern')
+        
+        # Get today's date in Eastern
+        now_utc = datetime.utcnow().replace(tzinfo=utc)
+        today_eastern = now_utc.astimezone(eastern).date()
+        
+        return self.start_time.date() == today_eastern
     
     @property
     def is_upcoming(self):
-        """Check if meeting is upcoming (in the future)"""
-        return self.start_time > datetime.utcnow()
+        """Check if meeting is upcoming (in Eastern time)"""
+        import pytz
+        utc = pytz.UTC
+        eastern = pytz.timezone('US/Eastern')
+        
+        # Get current time in Eastern
+        now_utc = datetime.utcnow().replace(tzinfo=utc)
+        now_eastern = now_utc.astimezone(eastern).replace(tzinfo=None)
+        
+        return self.start_time > now_eastern
     
     def set_attendees(self, required_list=None, optional_list=None):
         """Set attendees from lists"""
@@ -190,7 +213,8 @@ class Meeting(db.Model):
             self.recording_status = 'none'
     
     def __repr__(self):
-        return f'<Meeting {self.subject} on {self.start_time.strftime("%Y-%m-%d %H:%M")}>'
+        # Display time is stored as Eastern time in database
+        return f'<Meeting {self.subject} on {self.start_time.strftime("%Y-%m-%d %H:%M")} ET>'
 
 class Recording(db.Model):
     """Recording model to track meeting recordings"""
