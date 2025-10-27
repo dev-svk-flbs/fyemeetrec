@@ -129,13 +129,13 @@ def trigger_start_recording():
         # Generate recording title with timestamp
         title = f"Hotkey Recording {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         
-        # Send start request
+        # Send start request with longer timeout for slow startup
         print_status(f"📤 Sending POST request to {FLASK_URL}/start")
         response = requests.post(
             f"{FLASK_URL}/start",
             json={'title': title},
             headers={'Content-Type': 'application/json'},
-            timeout=5
+            timeout=10  # Increased from 5 to 10 seconds
         )
         
         print_status(f"📥 Response: Status {response.status_code}, Headers: {dict(response.headers)}")
@@ -199,12 +199,12 @@ def trigger_stop_recording():
             print_status("❌ Flask app not accessible", "⚠️")
             return
         
-        # Send stop request
+        # Send stop request with longer timeout
         print_status(f"📤 Sending POST request to {FLASK_URL}/stop")
         response = requests.post(
             f"{FLASK_URL}/stop",
             headers={'Content-Type': 'application/json'},
-            timeout=5
+            timeout=10  # Increased from 5 to 10 seconds
         )
         
         print_status(f"📥 Response: Status {response.status_code}, Headers: {dict(response.headers)}")
