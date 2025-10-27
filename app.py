@@ -3,7 +3,7 @@
 Flask Web Interface for Dual Stream Recording with Authentication
 """
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session, send_file, abort
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session, send_file, abort, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
@@ -375,11 +375,24 @@ def start_recording():
     data = request.get_json() or {}
     monitor_id = data.get('monitor_id')
     recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    meeting_id = data.get('meeting_id')  # New: get meeting ID for association
     
     logger.info(f"📝 Recording request details:")
     logger.info(f"   Title: {recording_title}")
     logger.info(f"   Requested Monitor ID: {monitor_id}")
+    logger.info(f"   Meeting ID: {meeting_id}")
     logger.info(f"   Request data: {data}")
+    
+    # If meeting_id provided, check if meeting already has a recording
+    if meeting_id:
+        try:
+            meeting = Meeting.query.filter_by(id=meeting_id, user_id=current_user.id if current_user.is_authenticated else None).first()
+            if meeting and meeting.recording_id:
+                logger.warning(f"⚠️ Meeting {meeting_id} already has a recording linked")
+                return jsonify({'error': 'This meeting already has a recording'}), 400
+        except Exception as e:
+            logger.error(f"❌ Error checking meeting: {str(e)}")
+            # Continue with recording anyway
     
     # Use default monitor from settings if no monitor specified
     if monitor_id is None:
@@ -432,9 +445,26 @@ def start_recording():
     db.session.commit()
     logger.info(f"✅ Database record created with ID: {recording.id}")
     
+    # If meeting_id provided, link the recording to the meeting
+    if meeting_id:
+        try:
+            meeting = Meeting.query.filter_by(id=meeting_id, user_id=single_user.id).first()
+            if meeting:
+                meeting.recording_id = recording.id
+                meeting.recording_status = 'recording'
+                meeting.last_updated = datetime.utcnow()
+                db.session.commit()
+                logger.info(f"🔗 Linked recording {recording.id} to meeting {meeting_id}")
+            else:
+                logger.warning(f"⚠️ Meeting {meeting_id} not found or doesn't belong to user")
+        except Exception as e:
+            logger.error(f"❌ Error linking recording to meeting: {str(e)}")
+            # Continue with recording anyway
+    
     # Store selected monitor and recording ID
     recording_state['selected_monitor'] = selected_monitor
     recording_state['recording_id'] = recording.id
+    recording_state['meeting_id'] = meeting_id  # Store for later use
     
     # Create streamer instance with monitor config
     logger.info("🚀 Creating DualModeStreamer instance...")
@@ -497,6 +527,18 @@ def start_recording():
                     
                     db.session.commit()
                     logger.info(f"✅ Database record {rec.id} updated successfully")
+                    
+                    # Update associated meeting status if exists
+                    if 'meeting_id' in recording_state and recording_state['meeting_id']:
+                        try:
+                            meeting = Meeting.query.get(recording_state['meeting_id'])
+                            if meeting:
+                                meeting.recording_status = 'recorded_local' if success else 'failed'
+                                meeting.last_updated = datetime.utcnow()
+                                db.session.commit()
+                                logger.info(f"✅ Updated meeting {meeting.id} status to {meeting.recording_status}")
+                        except Exception as e:
+                            logger.error(f"❌ Error updating meeting status: {str(e)}")
                     
                     # Trigger background upload to IDrive E2
                     if success:
@@ -1904,6 +1946,52 @@ def admin_recording_detail(recording_id):
         logger.error(f"❌ Admin recording detail error: {e}")
         return f"Database error: {e}", 500
 
+@app.route('/admin/recordings/<int:recording_id>/serve')
+@login_required
+def serve_recording(recording_id):
+    """Serve recording video file"""
+    try:
+        recording = Recording.query.get_or_404(recording_id)
+        
+        # Check if file exists locally
+        if recording.file_exists:
+            file_path = recording.resolved_file_path
+            return send_file(file_path, as_attachment=False, mimetype='video/mp4')
+        else:
+            # Redirect to cloud URL if available
+            if recording.cloud_video_url:
+                return redirect(recording.cloud_video_url)
+            else:
+                return "Recording file not found", 404
+                
+    except Exception as e:
+        logger.error(f"❌ Error serving recording {recording_id}: {e}")
+        return "Error serving recording", 500
+
+@app.route('/admin/recordings/<int:recording_id>/transcript')
+@login_required
+def serve_transcript(recording_id):
+    """Serve recording transcript"""
+    try:
+        recording = Recording.query.get_or_404(recording_id)
+        
+        # Check if transcript exists locally
+        if recording.has_transcript:
+            transcript_path = recording.transcript_path
+            with open(transcript_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return Response(content, mimetype='text/plain')
+        else:
+            # Try cloud transcript URL
+            if recording.cloud_transcript_url:
+                return redirect(recording.cloud_transcript_url)
+            else:
+                return "Transcript not found", 404
+                
+    except Exception as e:
+        logger.error(f"❌ Error serving transcript {recording_id}: {e}")
+        return "Error serving transcript", 500
+
 @app.route('/admin/users')
 @login_required
 def admin_users():
@@ -2045,7 +2133,7 @@ def admin_meetings():
             query = query.filter(Meeting.recording_id.is_(None))
         
         # Get meetings for display
-        meetings_paginated = query.order_by(Meeting.start_time.desc()).paginate(
+        meetings_paginated = query.order_by(Meeting.start_time.asc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
         

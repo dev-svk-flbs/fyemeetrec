@@ -300,6 +300,24 @@ class BackgroundUploader:
             ))
             
             conn.commit()
+            
+            # Update associated meeting status if it exists
+            # Use current UTC timestamp in a format compatible with SQLAlchemy
+            current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+            cursor.execute("""
+                UPDATE meeting 
+                SET recording_status = 'recorded_synced', last_updated = ?
+                WHERE recording_id = ?
+            """, (current_time, recording_id))
+            
+            # Check if any meeting was updated
+            updated_rows = cursor.rowcount
+            if updated_rows > 0:
+                logger.info(f"✅ Updated meeting status to 'recorded_synced' for recording {recording_id}")
+            else:
+                logger.info(f"ℹ️ No meeting found linked to recording {recording_id}")
+            
+            conn.commit()
             conn.close()
             
             logger.info(f"✅ Database updated with upload URLs for recording {recording_id}")
@@ -479,6 +497,20 @@ class BackgroundUploader:
                     conn = self._get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute("UPDATE recording SET upload_status = 'failed' WHERE id = ?", (recording_id,))
+                    
+                    # Also update associated meeting status if it exists
+                    current_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+                    cursor.execute("""
+                        UPDATE meeting 
+                        SET recording_status = 'upload_failed', last_updated = ?
+                        WHERE recording_id = ?
+                    """, (current_time, recording_id))
+                    
+                    # Check if any meeting was updated
+                    updated_rows = cursor.rowcount
+                    if updated_rows > 0:
+                        logger.info(f"✅ Updated meeting status to 'upload_failed' for recording {recording_id}")
+                    
                     conn.commit()
                     conn.close()
                 except Exception as db_error:

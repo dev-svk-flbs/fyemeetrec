@@ -70,7 +70,7 @@ class Meeting(db.Model):
     # Recording tracking
     recording_status = db.Column(db.String(50), default='none')  # none, scheduled, recorded_local, recorded_synced, excluded
     recording_id = db.Column(db.Integer, db.ForeignKey('recording.id'), nullable=True)  # One-to-one relationship
-    recording = db.relationship('Recording', backref='meeting', uselist=False)  # One meeting can have 0 or 1 recording
+    recording = db.relationship('Recording', backref=db.backref('meeting', uselist=False), uselist=False)  # One meeting can have 0 or 1 recording
     
     # Auto-discovery and management
     discovered_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -129,6 +129,7 @@ class Meeting(db.Model):
             'scheduled': 'Scheduled',
             'recorded_local': 'Recorded (Local)',
             'recorded_synced': 'Recorded & Synced',
+            'upload_failed': 'Upload Failed',
             'excluded': 'Excluded'
         }
         return status_map.get(self.recording_status, 'Unknown')
@@ -141,6 +142,7 @@ class Meeting(db.Model):
             'scheduled': 'status-scheduled',
             'recorded_local': 'status-recorded-local',
             'recorded_synced': 'status-recorded-synced',
+            'upload_failed': 'status-failed',
             'excluded': 'status-excluded'
         }
         return class_map.get(self.recording_status, 'status-none')

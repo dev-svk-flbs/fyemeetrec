@@ -41,8 +41,57 @@
     .content-grid {
         display: grid;
         grid-template-columns: 2fr 1fr;
-        gap: 2rem;
-        margin-bottom: 2rem;
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Compact styling for info cards */
+    .compact-card {
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .compact-header {
+        background: #f9fafb;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-weight: 600;
+        color: #1f2937;
+        font-size: 0.95rem;
+    }
+
+    .compact-content {
+        padding: 1rem;
+    }
+
+    .compact-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid #f9fafb;
+        font-size: 0.85rem;
+    }
+
+    .compact-row:last-child {
+        border-bottom: none;
+    }
+
+    .compact-label {
+        font-weight: 500;
+        color: #6b7280;
+        min-width: 80px;
+        font-size: 0.8rem;
+    }
+
+    .compact-value {
+        color: #374151;
+        text-align: right;
+        flex: 1;
+        font-size: 0.85rem;
     }
 
     .info-card {
@@ -278,6 +327,12 @@
         text-decoration: none;
     }
 
+    .btn-success:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
     .btn-warning {
         background: #d97706;
         color: white;
@@ -384,6 +439,208 @@
         text-decoration: none;
     }
 
+    /* Video Player Styles */
+    .video-player-container {
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        max-width: 100%;
+    }
+
+    .recording-video-player {
+        width: 100%;
+        height: auto;
+        max-height: 300px;
+        min-height: 200px;
+        display: block;
+        outline: none;
+    }
+
+    .video-controls {
+        background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0.9));
+        padding: 1rem;
+        color: white;
+    }
+
+    .video-meta {
+        font-size: 0.875rem;
+        line-height: 1.4;
+    }
+
+    .video-meta strong {
+        color: #f7e68c;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Transcript Viewer Styles */
+    .transcript-viewer-container {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #f9fafb;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .transcript-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        background: white;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .transcript-header h4 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .transcript-controls {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-small {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+        background: white;
+        color: #374151;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .btn-small:hover {
+        background: #f3f4f6;
+        border-color: #9ca3af;
+        text-decoration: none;
+        color: #1f2937;
+        transform: translateY(-1px);
+    }
+
+    .btn-small.cloud-btn {
+        background: #3b82f6;
+        color: white;
+        border-color: #2563eb;
+    }
+
+    .btn-small.cloud-btn:hover {
+        background: #2563eb;
+        color: white;
+        border-color: #1d4ed8;
+    }
+
+    .transcript-content {
+        max-height: 250px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: white;
+        border-radius: 0 0 8px 8px;
+        display: none;
+        line-height: 1.4;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.8rem;
+    }
+
+    .transcript-content.show {
+        display: block;
+    }
+
+    .transcript-loading {
+        text-align: center;
+        color: #9ca3af;
+        font-style: italic;
+        padding: 1.5rem;
+        font-size: 0.85rem;
+    }
+
+    .transcript-text {
+        line-height: 1.5;
+        color: #6b7280;
+        white-space: pre-wrap;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        margin-bottom: 0.5rem;
+        padding: 0.2rem 0;
+        font-size: 0.8rem;
+        text-transform: none !important; /* Force no text transformation */
+    }
+
+    .transcript-timestamp {
+        color: #2563eb;
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin: 0.75rem 0 0.3rem 0;
+        border-top: 1px solid #f3f4f6;
+        padding-top: 0.3rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .transcript-timestamp:first-child {
+        margin-top: 0;
+        border-top: none;
+        padding-top: 0;
+    }
+
+    /* Download buttons */
+    .download-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .btn-download {
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: linear-gradient(145deg, #ffffffff, #ddddddff);
+        color: #374151;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin: 0 6px 8px 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .btn-download:hover {
+        background: linear-gradient(145deg, #f8fafc, #f1f5f9);
+        border-color: #9ca3af;
+        text-decoration: none;
+        color: #1f2937;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+    }
+
+    .download-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        margin: 16px 0;
+        justify-content: flex-start;
+    }
+
     @media (max-width: 768px) {
         .content-grid {
             grid-template-columns: 1fr;
@@ -396,6 +653,21 @@
         
         .btn {
             text-align: center;
+        }
+
+        .recording-video-player {
+            max-height: 250px;
+        }
+
+        .transcript-header {
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: flex-start;
+        }
+
+        .transcript-controls {
+            width: 100%;
+            justify-content: flex-end;
         }
     }
 </style>
@@ -417,143 +689,53 @@
     <a href="{{ url_for('admin_meetings') }}" class="btn btn-secondary">
         ← Back to Meetings
     </a>
-    {% if meeting.web_link %}
-    <a href="{{ meeting.web_link }}" class="teams-link" target="_blank">
-        🎥 Join Teams Meeting
-    </a>
-    {% endif %}
     {% if meeting.recording %}
     <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="btn btn-primary">
         📹 View Recording
     </a>
+    {% else %}
+    <button id="recordButton" class="btn btn-success" onclick="startMeetingRecording()">
+        Record Meeting
+    </button>
     {% endif %}
-    <a href="#" class="btn btn-warning" onclick="refreshMeetingData()">
-        🔄 Refresh Data
-    </a>
 </div>
 
 <div class="content-grid">
-    <div class="main-content">
-        <!-- Meeting Information -->
-        <div class="info-card">
-            <div class="card-header">📋 Meeting Information</div>
-            <div class="card-content">
-                <div class="info-row">
-                    <span class="info-label">Subject:</span>
-                    <span class="info-value">{{ meeting.subject }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Outlook ID:</span>
-                    <span class="info-value">{{ meeting.calendar_event_id or 'N/A' }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Start Time:</span>
-                    <span class="info-value">{{ meeting.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">End Time:</span>
-                    <span class="info-value">{{ meeting.end_time.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Duration:</span>
-                    <span class="info-value">{{ meeting.duration_formatted }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Status:</span>
-                    <span class="info-value">
-                        <span class="status-badge {{ meeting.status_class }}">{{ meeting.status_display }}</span>
-                    </span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Teams Meeting:</span>
-                    <span class="info-value">{{ 'Yes' if meeting.web_link else 'No' }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Created:</span>
-                    <span class="info-value">{{ meeting.created_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.created_at else 'N/A' }}</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-label">Last Updated:</span>
-                    <span class="info-value">{{ meeting.updated_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.updated_at else 'N/A' }}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Attendees -->
-        <div class="info-card">
-            <div class="card-header">👥 Attendees ({{ meeting.attendee_count }})</div>
-            <div class="card-content">
-                {% if meeting.all_attendees and meeting.all_attendees|length > 0 %}
-                <div class="attendees-grid">
-                    {% for attendee in meeting.all_attendees %}
-                    <div class="attendee-item">
-                        <div class="attendee-avatar">
-                            {{ attendee[0].upper() if attendee else '?' }}
-                        </div>
-                        <div class="attendee-info">
-                            <div class="attendee-name">{{ attendee.split('@')[0] if '@' in attendee else attendee }}</div>
-                            <div class="attendee-email">{{ attendee }}</div>
-                        </div>
-                        <div class="attendee-type required">
-                            Required
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="no-recording-message">
-                    <p>No attendee information available</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Activity Timeline -->
-        <div class="info-card">
-            <div class="card-header">📊 Activity Timeline</div>
-            <div class="card-content">
-                <div class="timeline-item">
-                    <div class="timeline-icon" style="background: #dbeafe; color: #1e40af;">📅</div>
-                    <div class="timeline-content">
-                        <div class="timeline-title">Meeting Created</div>
-                        <div class="timeline-time">
-                            {{ meeting.created_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.created_at else 'Unknown' }}
-                        </div>
-                    </div>
-                </div>
-                {% if meeting.updated_at and meeting.updated_at != meeting.created_at %}
-                <div class="timeline-item">
-                    <div class="timeline-icon" style="background: #fef3c7; color: #92400e;">🔄</div>
-                    <div class="timeline-content">
-                        <div class="timeline-title">Meeting Updated</div>
-                        <div class="timeline-time">
-                            {{ meeting.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-                {% if meeting.recording %}
-                <div class="timeline-item">
-                    <div class="timeline-icon" style="background: #d1fae5; color: #065f46;">📹</div>
-                    <div class="timeline-content">
-                        <div class="timeline-title">Recording Linked</div>
-                        <div class="timeline-time">
-                            {{ meeting.recording.created_at.strftime('%Y-%m-%d %H:%M:%S') if meeting.recording.created_at else 'Unknown' }}
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="sidebar">
+    <!-- Recording Column (First and Wider) -->
+    <div class="recording-column">
         <!-- Recording Information -->
         <div class="info-card">
             <div class="card-header">📹 Recording</div>
             <div class="card-content">
                 {% if meeting.recording %}
                 <div class="recording-details">
+                    <!-- Local Video Player Section (Priority) -->
+                    {% if meeting.recording.file_exists %}
+                    <div class="video-player-container">
+                        <video controls class="recording-video-player" preload="metadata">
+                            <source src="{{ url_for('serve_recording', recording_id=meeting.recording.id) }}" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="video-controls">
+                            <div class="video-meta">
+                                <strong>{{ meeting.recording.title }}</strong><br>
+                                Duration: {{ format_duration(meeting.recording.duration) }} • 
+                                Size: {{ format_file_size(meeting.recording.file_size) }} • 
+                                <span style="color: #10b981;">Local File</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% elif meeting.recording.cloud_video_url %}
+                    <div class="recording-preview">
+                        <div class="recording-icon">🎬</div>
+                        <div class="recording-title">{{ meeting.recording.title }}</div>
+                        <div class="recording-meta">
+                            <strong>Duration:</strong> {{ format_duration(meeting.recording.duration) }}<br>
+                            <strong>Size:</strong> {{ format_file_size(meeting.recording.file_size) }}<br>
+                            <strong>Status:</strong> Local file not available, cloud backup only
+                        </div>
+                    </div>
+                    {% else %}
                     <div class="recording-preview">
                         <div class="recording-icon">🎬</div>
                         <div class="recording-title">{{ meeting.recording.title }}</div>
@@ -564,62 +746,132 @@
                             <strong>Created:</strong> {{ meeting.recording.created_at.strftime('%Y-%m-%d %H:%M') if meeting.recording.created_at else 'N/A' }}
                         </div>
                     </div>
-                    <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    {% endif %}
+                    
+                    <!-- Local Transcript Viewer Section (Priority) -->
+                    {% if meeting.recording.has_transcript %}
+                    <div class="transcript-viewer-container">
+                        <div class="transcript-header">
+                            <h4>📝 Meeting Transcript</h4>
+                            <div class="transcript-controls">
+                                <button id="toggleTranscript" class="btn-small">Show</button>
+                            </div>
+                        </div>
+                        <div id="transcriptContent" class="transcript-content">
+                            <div class="transcript-loading">Loading local transcript...</div>
+                        </div>
+                    </div>
+                    {% elif meeting.recording.cloud_transcript_url %}
+                    <div class="transcript-viewer-container">
+                        <div class="transcript-header">
+                            <h4>📝 Meeting Transcript (Cloud Backup)</h4>
+                            <div class="transcript-controls">
+                                <button id="toggleTranscript" class="btn-small">Show</button>
+                            </div>
+                        </div>
+                        <div id="transcriptContent" class="transcript-content">
+                            <div class="transcript-loading">Loading transcript from cloud...</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Download Buttons -->
+                    <div class="download-buttons">
+                        {% if meeting.recording.file_exists or meeting.recording.cloud_video_url %}
+                        <a href="{{ url_for('serve_recording', recording_id=meeting.recording.id) if meeting.recording.file_exists else meeting.recording.cloud_video_url }}" target="_blank" class="btn-download">
+                            Video ⬇️
+                        </a>
+                        {% endif %}
+                        {% if meeting.recording.has_transcript or meeting.recording.cloud_transcript_url %}
+                        <a href="{{ url_for('serve_transcript', recording_id=meeting.recording.id) if meeting.recording.has_transcript else meeting.recording.cloud_transcript_url }}" target="_blank" class="btn-download">
+                            Transcript ⬇️
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
                         📹 View Recording Details
                     </a>
                 </div>
                 {% else %}
                 <div class="no-recording-message">
-                    <p>📭 No recording linked to this meeting</p>
-                </div>
-                
-                <!-- Link Recording Form -->
-                {% if available_recordings %}
-                <div class="link-recording-form">
-                    <h4 style="margin: 0 0 1rem 0; color: #1f2937;">Link Recording</h4>
-                    <form method="POST" action="{{ url_for('admin_link_recording', meeting_id=meeting.id) }}">
-                        <div class="form-group">
-                            <label class="form-label">Available Recordings:</label>
-                            <select name="recording_id" class="form-select" required>
-                                <option value="">Select a recording...</option>
-                                {% for recording in available_recordings %}
-                                <option value="{{ recording.id }}">
-                                    {{ recording.title }} ({{ format_duration(recording.duration) }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-success" style="width: 100%; justify-content: center;">
-                            🔗 Link Recording
-                        </button>
-                    </form>
+                    <p>📭 No recording for this meeting</p>
+                    <p style="font-size: 0.8rem; color: #9ca3af; margin-top: 0.5rem;">
+                        Use the "                            Transcript ⬇️" button above to start recording
+                    </p>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Column (Second, Compact) -->
+    <div class="info-column">
+        <!-- Compact Meeting & Attendees Information -->
+        <div class="compact-card">
+            <div class="compact-header">📋 Meeting & Attendees</div>
+            <div class="compact-content">
+                <div class="compact-row">
+                    <span class="compact-label">Subject:</span>
+                    <span class="compact-value">{{ meeting.subject }}</span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">Start:</span>
+                    <span class="compact-value">{{ meeting.start_time.strftime('%m/%d %H:%M') }}</span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">End:</span>
+                    <span class="compact-value">{{ meeting.end_time.strftime('%m/%d %H:%M') }}</span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">Duration:</span>
+                    <span class="compact-value">{{ meeting.duration_formatted }}</span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">Status:</span>
+                    <span class="compact-value">
+                        <span class="status-badge {{ meeting.status_class }}">{{ meeting.status_display }}</span>
+                    </span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">Teams:</span>
+                    <span class="compact-value">{{ 'Yes' if meeting.web_link else 'No' }}</span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">Location:</span>
+                    <span class="compact-value">{{ meeting.location or 'N/A' }}</span>
+                </div>
+                <div class="compact-row">
+                    <span class="compact-label">Attendees:</span>
+                    <span class="compact-value">{{ meeting.attendee_count }}</span>
+                </div>
+                {% if meeting.all_attendees and meeting.all_attendees|length > 0 %}
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f3f4f6;">
+                    {% for attendee in meeting.all_attendees %}
+                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">
+                        {{ attendee.split('@')[0] if '@' in attendee else attendee }}
+                    </div>
+                    {% endfor %}
+                </div>
                 {% endif %}
             </div>
         </div>
 
         <!-- Quick Actions -->
-        <div class="info-card">
-            <div class="card-header">⚡ Quick Actions</div>
-            <div class="card-content">
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="compact-card">
+            <div class="compact-header">⚡ Quick Actions</div>
+            <div class="compact-content">
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
                     {% if meeting.recording %}
                     <form method="POST" action="{{ url_for('admin_unlink_recording', meeting_id=meeting.id) }}" onsubmit="return confirm('Are you sure you want to unlink this recording?')">
-                        <button type="submit" class="btn btn-warning" style="width: 100%; justify-content: center;">
+                        <button type="submit" class="btn btn-warning" style="width: 100%; justify-content: center; padding: 0.5rem; font-size: 0.8rem;">
                             🔗❌ Unlink Recording
                         </button>
                     </form>
                     {% endif %}
                     
-                    <form method="POST" action="{{ url_for('admin_sync_single_meeting', meeting_id=meeting.id) }}">
-                        <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">
-                            🔄 Refresh Meeting Data
-                        </button>
-                    </form>
-                    
                     <form method="POST" action="{{ url_for('admin_delete_meeting', meeting_id=meeting.id) }}" onsubmit="return confirm('Are you sure you want to delete this meeting? This action cannot be undone.')">
-                        <button type="submit" class="btn" style="background: #dc2626; color: white; width: 100%; justify-content: center;">
+                        <button type="submit" class="btn" style="background: #dc2626; color: white; width: 100%; justify-content: center; padding: 0.5rem; font-size: 0.8rem;">
                             🗑️ Delete Meeting
                         </button>
                     </form>
@@ -633,12 +885,123 @@
 
 {% block extra_js %}
 <script>
-    function refreshMeetingData() {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ url_for("admin_sync_single_meeting", meeting_id=meeting.id) }}';
-        document.body.appendChild(form);
-        form.submit();
+    function startMeetingRecording() {
+        const button = document.getElementById('recordButton');
+        const originalText = button.innerHTML;
+        
+        // Disable button and show loading state
+        button.disabled = true;
+        button.innerHTML = '⏳ Starting Recording...';
+        
+        // Prepare recording data
+        const recordingData = {
+            title: '{{ meeting.subject | replace("'", "\\'") }} - {{ meeting.start_time.strftime("%Y-%m-%d %H:%M") }}',
+            meeting_id: {{ meeting.id }}
+        };
+        
+        // Start recording
+        fetch('/start', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(recordingData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success || data.recording_id) {
+                // Success - redirect to recordings page or refresh
+                alert('✅ Recording started successfully!');
+                window.location.reload();
+            } else {
+                // Error
+                alert('❌ Failed to start recording: ' + (data.error || 'Unknown error'));
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        })
+        .catch(error => {
+            console.error('Error starting recording:', error);
+            alert('❌ Failed to start recording: ' + error.message);
+            button.disabled = false;
+            button.innerHTML = originalText;
+        });
+    }
+
+    // Transcript viewer functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleButton = document.getElementById('toggleTranscript');
+        const transcriptContent = document.getElementById('transcriptContent');
+        
+        if (toggleButton && transcriptContent) {
+            // Load transcript content
+            loadTranscript();
+            
+            // Toggle transcript visibility
+            toggleButton.addEventListener('click', function() {
+                transcriptContent.classList.toggle('show');
+                
+                if (transcriptContent.classList.contains('show')) {
+                    toggleButton.textContent = 'Hide';
+                } else {
+                    toggleButton.textContent = 'Show';
+                }
+            });
+        }
+    });
+
+    function loadTranscript() {
+        const transcriptContent = document.getElementById('transcriptContent');
+        if (!transcriptContent) return;
+
+        {% if meeting.recording %}
+        {% if meeting.recording.has_transcript %}
+        // Load from LOCAL transcript file first (priority)
+        fetch('/admin/recordings/{{ meeting.recording.id }}/transcript')
+            .then(response => response.text())
+            .then(data => {
+                displayTranscript(data);
+            })
+            .catch(error => {
+                console.error('Error loading local transcript:', error);
+                {% if meeting.recording.cloud_transcript_url %}
+                // Fallback to cloud if local fails
+                fetch('{{ meeting.recording.cloud_transcript_url }}')
+                    .then(response => response.text())
+                    .then(data => {
+                        displayTranscript(data);
+                    })
+                    .catch(cloudError => {
+                        console.error('Error loading cloud transcript:', cloudError);
+                        transcriptContent.innerHTML = '<div class="transcript-loading">Failed to load transcript from both local and cloud sources.</div>';
+                    });
+                {% else %}
+                transcriptContent.innerHTML = '<div class="transcript-loading">Failed to load local transcript.</div>';
+                {% endif %}
+            });
+        {% elif meeting.recording.cloud_transcript_url %}
+        // Load from cloud URL (fallback only)
+        fetch('{{ meeting.recording.cloud_transcript_url }}')
+            .then(response => response.text())
+            .then(data => {
+                displayTranscript(data);
+            })
+            .catch(error => {
+                console.error('Error loading cloud transcript:', error);
+                transcriptContent.innerHTML = '<div class="transcript-loading">Failed to load transcript from cloud.</div>';
+            });
+        {% else %}
+        transcriptContent.innerHTML = '<div class="transcript-loading">No transcript available.</div>';
+        {% endif %}
+        {% endif %}
+    }
+
+    function displayTranscript(transcriptText) {
+        const transcriptContent = document.getElementById('transcriptContent');
+        if (!transcriptContent || !transcriptText) return;
+
+        // SIMPLE: Just show the raw transcript text as-is
+        transcriptContent.innerHTML = `<pre style="font-family: Consolas, monospace; font-size: 14px; line-height: 1.5; color: #333; white-space: pre-wrap; margin: 0; padding: 10px; background: #f9f9f9; border-radius: 4px;">${transcriptText}</pre>`;
     }
 </script>
 {% endblock %}
