@@ -7,36 +7,36 @@
     .recording-alert {
         background: linear-gradient(135deg, #dc2626, #ef4444);
         color: white;
-        padding: 1rem 1.5rem;
-        margin-bottom: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
         animation: pulse-dashboard 2s infinite;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
+        gap: 0.5rem;
         font-weight: 600;
-        font-size: 1.1rem;
+        font-size: 0.8rem;
     }
 
     @keyframes pulse-dashboard {
         0% {
-            box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
             transform: scale(1);
         }
         50% {
-            box-shadow: 0 8px 12px rgba(220, 38, 38, 0.5);
+            box-shadow: 0 4px 8px rgba(220, 38, 38, 0.5);
             transform: scale(1.02);
         }
         100% {
-            box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+            box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
             transform: scale(1);
         }
     }
 
     .recording-alert .recording-dot {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         animation: blink 1s infinite;
     }
 
@@ -49,8 +49,8 @@
 
 {% block content %}
 <div class="page-header">
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle">Overview of your meeting recordings and system status</p>
+    <h1 class="page-title" style="font-size: 1.25rem; margin-bottom: 0.25rem;">Dashboard</h1>
+    <p class="page-subtitle" style="font-size: 0.75rem; margin-bottom: 0.75rem;">Overview of your meeting recordings and system status</p>
 </div>
 
 {% if active_recording %}
@@ -190,58 +190,58 @@
 <style>
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 1rem;
     }
 
     .stat-card {
         background: white;
         border: 1px solid var(--gray-200);
-        border-radius: 8px;
-        padding: 1.25rem;
+        border-radius: 4px;
+        padding: 0.75rem;
         box-shadow: var(--shadow-sm);
     }
 
     .stat-label {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
         color: var(--gray-500);
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
     }
 
     .stat-value {
-        font-size: 1.75rem;
+        font-size: 1.25rem;
         font-weight: 600;
         color: var(--gray-900);
     }
 
     .stat-subtext {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
         color: var(--gray-500);
-        margin-top: 0.25rem;
+        margin-top: 0.2rem;
     }
 
     .actions-section {
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
     }
 
     .action-buttons {
         display: flex;
-        gap: 0.75rem;
+        gap: 0.5rem;
         flex-wrap: wrap;
     }
 
     .recent-recordings {
         background: white;
         border: 1px solid var(--gray-200);
-        border-radius: 8px;
+        border-radius: 4px;
         box-shadow: var(--shadow-sm);
     }
 
     .section-header {
-        padding: 1rem 1.25rem;
+        padding: 0.75rem;
         border-bottom: 1px solid var(--gray-200);
         display: flex;
         justify-content: space-between;
@@ -249,14 +249,14 @@
     }
 
     .section-title {
-        font-size: 1rem;
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--gray-900);
     }
 
     .view-all-link {
         color: var(--secondary-blue);
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         text-decoration: none;
         font-weight: 500;
     }
@@ -267,7 +267,7 @@
 
     .recordings-list {
         background: white;
-        border-radius: 8px;
+        border-radius: 4px;
         overflow: hidden;
         box-shadow: var(--shadow-sm);
         padding: 0;
@@ -281,7 +281,7 @@
     .list-item {
         display: flex;
         align-items: center;
-        padding: 0.5rem 1.25rem;
+        padding: 0.5rem 0.75rem;
         border-bottom: 1px solid var(--gray-200);
         cursor: pointer;
         transition: background-color 0.2s;
@@ -296,16 +296,16 @@
     }
 
     .list-thumbnail {
-        width: 40px;
-        height: 28px;
+        width: 32px;
+        height: 24px;
         background: var(--gray-200);
-        border-radius: 4px;
-        margin-right: 0.75rem;
+        border-radius: 3px;
+        margin-right: 0.5rem;
         display: flex;
         align-items: center;
         justify-content: center;
         color: var(--gray-400);
-        font-size: 1.2rem;
+        font-size: 1rem;
         flex-shrink: 0;
     }
 
@@ -315,10 +315,10 @@
     }
 
     .list-title {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 500;
         color: var(--gray-900);
-        margin-bottom: 0.1875rem;
+        margin-bottom: 0.15rem;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -327,15 +327,15 @@
 
     .list-meta {
         display: flex;
-        gap: 1rem;
-        font-size: 0.65rem;
+        gap: 0.75rem;
+        font-size: 0.6rem;
         color: var(--gray-500);
         line-height: 1.2;
     }
 
     .list-actions {
         display: flex;
-        gap: 0.25rem;
+        gap: 0.2rem;
         align-items: center;
         flex-shrink: 0;
     }
@@ -343,15 +343,15 @@
     .list-actions .status-icon {
         display: flex;
         align-items: center;
-        margin-right: 0.25rem;
-        padding: 0.125rem;
+        margin-right: 0.2rem;
+        padding: 0.1rem;
     }
 
     .download-btn {
         color: var(--gray-400);
         text-decoration: none;
-        padding: 0.375rem 0.5rem;
-        border-radius: 5px;
+        padding: 0.25rem 0.375rem;
+        border-radius: 3px;
         transition: all 0.2s;
         display: inline-flex;
         align-items: center;
@@ -422,13 +422,13 @@
 
     .empty-state {
         text-align: center;
-        padding: 2rem;
+        padding: 1.5rem;
         color: var(--gray-500);
     }
 
     .empty-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+        margin-bottom: 0.375rem;
     }
 
     @media (max-width: 768px) {
@@ -442,12 +442,12 @@
         }
 
         .list-item {
-            padding: 0.75rem;
+            padding: 0.5rem;
         }
 
         .list-meta {
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.2rem;
         }
     }
 </style>
@@ -533,5 +533,36 @@
         modal.appendChild(videoContainer);
         document.body.appendChild(modal);
     }
+
+    // Auto-refresh when recording state changes
+    let lastRecordingState = null;
+    let hasActiveRecording = {{ 'true' if active_recording else 'false' }};
+
+    function checkRecordingStatus() {
+        fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                const currentRecordingState = data.active;
+                
+                // Check if recording state has changed
+                if (lastRecordingState !== null && lastRecordingState !== currentRecordingState) {
+                    console.log('Recording state changed, refreshing dashboard...');
+                    location.reload();
+                }
+                
+                // Also check if page state doesn't match actual recording state
+                if (hasActiveRecording !== currentRecordingState) {
+                    console.log('Dashboard state mismatch, refreshing...');
+                    location.reload();
+                }
+                
+                lastRecordingState = currentRecordingState;
+            })
+            .catch(console.error);
+    }
+
+    // Initialize and monitor recording status
+    checkRecordingStatus();
+    setInterval(checkRecordingStatus, 5000);
 </script>
 {% endblock %}

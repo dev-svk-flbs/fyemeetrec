@@ -137,8 +137,12 @@ recording_state = {
     'streamer': None,
     'thread': None,
     'transcriptions': [],
-    'selected_monitor': None
+    'selected_monitor': None,
+    'recording_id': None
 }
+
+# Threading lock to prevent race conditions in recording start/stop
+recording_lock = threading.Lock()
 
 def get_monitor_manufacturers():
     """Get monitor manufacturer info using WMI InstanceNames and full model names"""
@@ -384,114 +388,130 @@ def start_recording():
     user_info = current_user.username if current_user.is_authenticated else "hotkey"
     logger.info(f"🎬 Recording start requested by: {user_info}")
     
-    if recording_state['active']:
-        logger.warning(f"⚠️ Recording already active - rejecting request from {user_info}")
-        return jsonify({'error': 'Already recording'}), 400
+    # Use lock to prevent race conditions
+    with recording_lock:
+        if recording_state['active']:
+            logger.warning(f"⚠️ Recording already active - rejecting request from {user_info}")
+            return jsonify({'error': 'Already recording'}), 400
+        
+        # Immediately set active flag to prevent duplicate requests
+        recording_state['active'] = True
+        logger.info(f"🔒 Recording state locked for {user_info}")
     
-    # Get monitor selection and title from request
-    data = request.get_json() or {}
-    monitor_id = data.get('monitor_id')
-    recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-    meeting_id = data.get('meeting_id')  # New: get meeting ID for association
+    try:
+        # Get monitor selection and title from request
+        data = request.get_json() or {}
+        monitor_id = data.get('monitor_id')
+        recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        meeting_id = data.get('meeting_id')  # New: get meeting ID for association
+        
+        logger.info(f"📝 Recording request details:")
+        logger.info(f"   Title: {recording_title}")
+        logger.info(f"   Requested Monitor ID: {monitor_id}")
+        logger.info(f"   Meeting ID: {meeting_id}")
+        logger.info(f"   Request data: {data}")
+        
+        # If meeting_id provided, check if meeting already has a recording
+        if meeting_id:
+            try:
+                meeting = Meeting.query.filter_by(id=meeting_id, user_id=current_user.id if current_user.is_authenticated else None).first()
+                if meeting and meeting.recording_id:
+                    logger.warning(f"⚠️ Meeting {meeting_id} already has a recording linked")
+                    recording_state['active'] = False  # Reset flag on error
+                    return jsonify({'error': 'This meeting already has a recording'}), 400
+            except Exception as e:
+                logger.error(f"❌ Error checking meeting: {str(e)}")
+                # Continue with recording anyway
+        
+        # Use default monitor from settings if no monitor specified
+        if monitor_id is None:
+            logger.info("🔍 No monitor specified, getting default from settings...")
+            default_monitor = get_default_monitor()
+            monitor_id = default_monitor['id'] if default_monitor else 0
+            logger.info(f"📺 Using default monitor ID: {monitor_id}")
     
-    logger.info(f"📝 Recording request details:")
-    logger.info(f"   Title: {recording_title}")
-    logger.info(f"   Requested Monitor ID: {monitor_id}")
-    logger.info(f"   Meeting ID: {meeting_id}")
-    logger.info(f"   Request data: {data}")
-    
-    # If meeting_id provided, check if meeting already has a recording
-    if meeting_id:
-        try:
-            meeting = Meeting.query.filter_by(id=meeting_id, user_id=current_user.id if current_user.is_authenticated else None).first()
-            if meeting and meeting.recording_id:
-                logger.warning(f"⚠️ Meeting {meeting_id} already has a recording linked")
-                return jsonify({'error': 'This meeting already has a recording'}), 400
-        except Exception as e:
-            logger.error(f"❌ Error checking meeting: {str(e)}")
-            # Continue with recording anyway
-    
-    # Use default monitor from settings if no monitor specified
-    if monitor_id is None:
-        logger.info("🔍 No monitor specified, getting default from settings...")
-        default_monitor = get_default_monitor()
-        monitor_id = default_monitor['id'] if default_monitor else 0
-        logger.info(f"📺 Using default monitor ID: {monitor_id}")
-    
-    # Get monitor info
-    logger.info("🔍 Getting all available monitors...")
-    monitors = get_monitors()
-    selected_monitor = None
-    for monitor in monitors:
-        if monitor['id'] == monitor_id:
-            selected_monitor = monitor
-            logger.info(f"✅ Found matching monitor: ID={monitor['id']}, Name='{monitor['name']}'")
-            break
-    
-    if not selected_monitor:
-        logger.error(f"❌ Invalid monitor selection: ID={monitor_id}")
-        logger.error(f"   Available monitors: {[m['id'] for m in monitors]}")
-        return jsonify({'error': 'Invalid monitor selection'}), 400
-    
-    logger.info(f"📺 Selected monitor configuration:")
-    logger.info(f"   ID: {selected_monitor['id']}")
-    logger.info(f"   Name: {selected_monitor['name']}")
-    logger.info(f"   Position: ({selected_monitor['x']}, {selected_monitor['y']})")
-    logger.info(f"   Size: {selected_monitor['width']}x{selected_monitor['height']}")
-    logger.info(f"   Primary: {selected_monitor.get('primary', False)}")
-    
-    # Create database record for this recording
-    logger.info("💾 Creating database record...")
-    
-    # Always use the single user for this system
-    single_user = get_single_user()
-    if not single_user:
-        return jsonify({'error': 'System user not available'}), 500
-    
-    recording = Recording(
-        title=recording_title,
-        filename='',  # Will be set when recording completes
-        file_path='',  # Will be set when recording completes
-        started_at=datetime.utcnow(),
-        monitor_name=selected_monitor['name'],
-        resolution=f"{selected_monitor['width']}x{selected_monitor['height']}",
-        user_id=single_user.id,
-        status='recording'
-    )
-    db.session.add(recording)
-    db.session.commit()
-    logger.info(f"✅ Database record created with ID: {recording.id}")
-    
-    # If meeting_id provided, link the recording to the meeting
-    if meeting_id:
-        try:
-            meeting = Meeting.query.filter_by(id=meeting_id, user_id=single_user.id).first()
-            if meeting:
-                meeting.recording_id = recording.id
-                meeting.recording_status = 'recording'
-                meeting.last_updated = datetime.utcnow()
-                db.session.commit()
-                logger.info(f"🔗 Linked recording {recording.id} to meeting {meeting_id}")
-            else:
-                logger.warning(f"⚠️ Meeting {meeting_id} not found or doesn't belong to user")
-        except Exception as e:
-            logger.error(f"❌ Error linking recording to meeting: {str(e)}")
-            # Continue with recording anyway
-    
-    # Store selected monitor and recording ID
-    recording_state['selected_monitor'] = selected_monitor
-    recording_state['recording_id'] = recording.id
-    recording_state['meeting_id'] = meeting_id  # Store for later use
-    
-    # Create streamer instance with monitor config
-    logger.info("🚀 Creating DualModeStreamer instance...")
-    recording_state['streamer'] = DualModeStreamer(
-        monitor_config=selected_monitor
-    )
-    recording_state['active'] = True
-    recording_state['transcriptions'] = []
-    
-    logger.info("✅ Recording state updated and streamer created")
+        # Get monitor info
+        logger.info("🔍 Getting all available monitors...")
+        monitors = get_monitors()
+        selected_monitor = None
+        for monitor in monitors:
+            if monitor['id'] == monitor_id:
+                selected_monitor = monitor
+                logger.info(f"✅ Found matching monitor: ID={monitor['id']}, Name='{monitor['name']}'")
+                break
+        
+        if not selected_monitor:
+            logger.error(f"❌ Invalid monitor selection: ID={monitor_id}")
+            logger.error(f"   Available monitors: {[m['id'] for m in monitors]}")
+            recording_state['active'] = False  # Reset flag on error
+            return jsonify({'error': 'Invalid monitor selection'}), 400
+        
+        logger.info(f"📺 Selected monitor configuration:")
+        logger.info(f"   ID: {selected_monitor['id']}")
+        logger.info(f"   Name: {selected_monitor['name']}")
+        logger.info(f"   Position: ({selected_monitor['x']}, {selected_monitor['y']})")
+        logger.info(f"   Size: {selected_monitor['width']}x{selected_monitor['height']}")
+        logger.info(f"   Primary: {selected_monitor.get('primary', False)}")
+        
+        # Create database record for this recording
+        logger.info("💾 Creating database record...")
+        
+        # Always use the single user for this system
+        single_user = get_single_user()
+        if not single_user:
+            recording_state['active'] = False  # Reset flag on error
+            return jsonify({'error': 'System user not available'}), 500
+        
+        recording = Recording(
+            title=recording_title,
+            filename='',  # Will be set when recording completes
+            file_path='',  # Will be set when recording completes
+            started_at=datetime.utcnow(),
+            monitor_name=selected_monitor['name'],
+            resolution=f"{selected_monitor['width']}x{selected_monitor['height']}",
+            user_id=single_user.id,
+            status='recording'
+        )
+        db.session.add(recording)
+        db.session.commit()
+        logger.info(f"✅ Database record created with ID: {recording.id}")
+        
+        # If meeting_id provided, link the recording to the meeting
+        if meeting_id:
+            try:
+                meeting = Meeting.query.filter_by(id=meeting_id, user_id=single_user.id).first()
+                if meeting:
+                    meeting.recording_id = recording.id
+                    meeting.recording_status = 'recording'
+                    meeting.last_updated = datetime.utcnow()
+                    db.session.commit()
+                    logger.info(f"🔗 Linked recording {recording.id} to meeting {meeting_id}")
+                else:
+                    logger.warning(f"⚠️ Meeting {meeting_id} not found or doesn't belong to user")
+            except Exception as e:
+                logger.error(f"❌ Error linking recording to meeting: {str(e)}")
+                # Continue with recording anyway
+        
+        # Store selected monitor and recording ID
+        recording_state['selected_monitor'] = selected_monitor
+        recording_state['recording_id'] = recording.id
+        recording_state['meeting_id'] = meeting_id  # Store for later use
+        
+        # Create streamer instance with monitor config
+        logger.info("🚀 Creating DualModeStreamer instance...")
+        recording_state['streamer'] = DualModeStreamer(
+            monitor_config=selected_monitor
+        )
+        # Note: active flag already set at the beginning with lock
+        recording_state['transcriptions'] = []
+        
+        logger.info("✅ Recording state updated and streamer created")
+        
+    except Exception as e:
+        # Reset flag on any error during setup
+        logger.error(f"❌ Error during recording setup: {str(e)}")
+        recording_state['active'] = False
+        return jsonify({'error': f'Recording setup failed: {str(e)}'}), 500
     
     # Start recording in background thread
     def record_thread():
@@ -586,29 +606,32 @@ def start_recording():
 
 @app.route('/stop', methods=['POST'])
 def stop_recording():
-    if not recording_state['active']:
-        return jsonify({'error': 'Not recording'}), 400
-    
-    # Stop recording
-    if recording_state['streamer']:
-        # Signal streamer to stop
-        recording_state['streamer'].transcription_active = False
-        recording_state['streamer'].recording_active = False
-        # Terminate ffmpeg processes if running
-        try:
-            if getattr(recording_state['streamer'], 'audio_process', None):
-                recording_state['streamer'].audio_process.terminate()
-        except Exception:
-            pass
-        try:
-            if getattr(recording_state['streamer'], 'video_process', None):
-                recording_state['streamer'].video_process.terminate()
-        except Exception:
-            pass
-        # Don't wait for thread - let it clean up in background
-        # This prevents Flask from blocking and timing out
-    
-    recording_state['active'] = False
+    with recording_lock:
+        if not recording_state['active']:
+            return jsonify({'error': 'Not recording'}), 400
+        
+        # Stop recording
+        if recording_state['streamer']:
+            # Signal streamer to stop
+            recording_state['streamer'].transcription_active = False
+            recording_state['streamer'].recording_active = False
+            # Terminate ffmpeg processes if running
+            try:
+                if getattr(recording_state['streamer'], 'audio_process', None):
+                    recording_state['streamer'].audio_process.terminate()
+            except Exception:
+                pass
+            try:
+                if getattr(recording_state['streamer'], 'video_process', None):
+                    recording_state['streamer'].video_process.terminate()
+            except Exception:
+                pass
+            # Don't wait for thread - let it clean up in background
+            # This prevents Flask from blocking and timing out
+        
+        recording_state['active'] = False
+        logger.info("🛑 Recording stopped via API request")
+        
     return jsonify({'status': 'stopped'})
 
 @app.route('/status')
@@ -1078,9 +1101,11 @@ def update_monitor_arrangement():
             'message': f'Failed to update monitor arrangement: {str(e)}'
         }), 500
 
-@app.route('/autorecorder')
-@login_required
-def autorecorder():
+# @app.route('/autorecorder')
+# @login_required
+# def autorecorder():
+#     """AutoRecorder route removed - function disabled"""
+#     return "AutoRecorder functionality has been removed", 404
     """AutoRecorder calendar view - stunning weekly calendar with events"""
     import requests
     from datetime import datetime, timedelta
@@ -2723,9 +2748,39 @@ def start_scheduler():
     logger.info("   - Calendar sync: daily at 6:00 AM")
     return scheduler
 
+def cleanup_stuck_recordings():
+    """Clean up any recordings stuck in 'recording' state on startup"""
+    try:
+        logger.info("🧹 Checking for stuck recordings on startup...")
+        stuck_recordings = Recording.query.filter_by(status='recording').all()
+        
+        if stuck_recordings:
+            logger.warning(f"⚠️ Found {len(stuck_recordings)} stuck recording(s), cleaning up...")
+            for recording in stuck_recordings:
+                logger.info(f"   🔧 Fixing stuck recording ID: {recording.id} - {recording.title}")
+                recording.status = 'failed'
+                recording.ended_at = datetime.utcnow()
+                recording.duration = 0
+            
+            db.session.commit()
+            logger.info("✅ Cleanup complete - all stuck recordings marked as failed")
+        else:
+            logger.info("✅ No stuck recordings found")
+            
+        # Also reset global recording state
+        recording_state['active'] = False
+        recording_state['streamer'] = None
+        recording_state['thread'] = None
+        recording_state['recording_id'] = None
+        logger.info("🔄 Global recording state reset")
+        
+    except Exception as e:
+        logger.error(f"❌ Error during startup cleanup: {str(e)}")
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Create database tables
+        cleanup_stuck_recordings()  # Clean up any stuck recordings
     
     # Start the retry scheduler after Flask is ready
     scheduler = start_scheduler()

@@ -15,51 +15,47 @@
     .container {
         max-width: 1400px;
         margin: 0 auto;
-        padding: 1rem;
+        padding: 0.25rem;
     }
 
     .admin-header {
         background: #fff;
-        color: #212529;
-        padding: 1.5rem 2rem;
-        margin-bottom: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border: 1px solid #dee2e6;
+        color: #1e293b;
+        padding: 0.5rem 1rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
     }
 
-
-
     .admin-header h1 {
-        font-size: 1.75rem;
+        font-size: 1.1rem;
         font-weight: 600;
-        margin-bottom: 0.25rem;
-        color: #212529;
+        margin-bottom: 0.05rem;
+        color: #1e293b;
     }
 
     .admin-header p {
-        color: #6c757d;
+        color: #64748b;
         margin: 0;
-        font-size: 1.2rem;
-        font-weight: 300;
-        position: relative;
-        z-index: 1;
+        font-size: 0.7rem;
+        font-weight: 400;
     }
 
     .recording-alert {
         background: linear-gradient(135deg, #dc2626, #ef4444);
         color: white;
-        padding: 1rem 1.5rem;
-        margin-bottom: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+        padding: 0.4rem 0.75rem;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
         animation: pulse-dashboard 2s infinite;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 1rem;
+        gap: 0.4rem;
         font-weight: 600;
-        font-size: 1.1rem;
+        font-size: 0.8rem;
     }
 
     @keyframes pulse-dashboard {
@@ -89,60 +85,61 @@
 
     .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 0.3rem;
+        margin-bottom: 0.5rem;
     }
 
     .stat-card {
         background: white;
-        padding: 1.5rem;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        border: 1px solid #dee2e6;
+        padding: 0.5rem;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
         position: relative;
-        transition: box-shadow 0.2s ease;
+        transition: all 0.15s ease;
     }
 
     .stat-card:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
     }
     .stat-card:nth-child(6) { border-left-color: #43e97b; }
 
     .stat-number {
-        font-size: 2rem;
+        font-size: 1.2rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
-        color: #212529;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, monospace;
+        margin-bottom: 0.1rem;
+        color: #1e293b;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
 
     .stat-label {
-        color: #6c757d;
-        font-size: 0.875rem;
+        color: #64748b;
+        font-size: 0.65rem;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.3px;
         font-weight: 500;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.3rem;
     }
 
     .stat-details {
-        font-size: 0.75rem;
-        color: #868e96;
-        line-height: 1.4;
+        font-size: 0.65rem;
+        color: #64748b;
+        line-height: 1.3;
         text-align: left;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid #e9ecef;
+        margin-top: 0.4rem;
+        padding-top: 0.3rem;
+        border-top: 1px solid #e2e8f0;
     }
 
     .stat-meta {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        font-size: 0.75rem;
+        font-size: 0.6rem;
         color: #adb5bd;
-        margin-top: 0.5rem;
+        margin-top: 0.3rem;
     }
 
     .stat-icon {
@@ -173,8 +170,8 @@
 
     .recent-section {
         background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
+        border-radius: 4px;
+        padding: 0.75rem;
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         border: 1px solid #dee2e6;
     }
@@ -182,24 +179,25 @@
     .professional-table {
         width: 100%;
         background: white;
-        border-radius: 8px;
+        border-radius: 6px;
         overflow: hidden;
         border: 1px solid #dee2e6;
-        margin-top: 0.5rem;
+        margin-top: 0.3rem;
     }
 
     .professional-table th,
     .professional-table td {
-        padding: 0.75rem 1rem;
+        padding: 0.4rem 0.6rem;
         text-align: left;
         border-bottom: 1px solid #dee2e6;
+        font-size: 0.7rem;
     }
 
     .professional-table th {
         background: #f8f9fa;
         font-weight: 600;
         color: #495057;
-        font-size: 0.875rem;
+        font-size: 0.65rem;
         text-transform: uppercase;
         letter-spacing: 0.025em;
     }
@@ -271,9 +269,9 @@
     /* Compact Dashboard Layout */
     .dashboard-layout {
         display: grid;
-        grid-template-columns: 1fr 300px;
-        gap: 1.5rem;
-        margin-top: 1rem;
+        grid-template-columns: 1fr 220px;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
     }
 
     .main-content {
@@ -283,20 +281,20 @@
     .sidebar-content {
         display: flex;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .quick-stats-mini {
         background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
+        border-radius: 6px;
+        padding: 0.75rem;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
     .mini-title {
-        font-size: 1rem;
+        font-size: 0.8rem;
         font-weight: 700;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
         color: #374151;
     }
 
@@ -304,7 +302,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.75rem 0;
+        padding: 0.4rem 0;
         border-bottom: 1px solid #f3f4f6;
     }
 
@@ -313,7 +311,7 @@
     }
 
     .mini-number {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         font-weight: 800;
         background: linear-gradient(135deg, #667eea, #764ba2);
         -webkit-background-clip: text;
@@ -322,7 +320,7 @@
     }
 
     .mini-label {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
         color: #6b7280;
         text-transform: uppercase;
         font-weight: 600;
@@ -331,30 +329,30 @@
 
     .upload-progress-mini {
         background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
+        border-radius: 6px;
+        padding: 0.75rem;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         text-align: center;
     }
 
     .progress-ring {
-        width: 80px;
-        height: 80px;
-        margin: 1rem auto;
+        width: 60px;
+        height: 60px;
+        margin: 0.5rem auto;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         position: relative;
         background: #e9ecef;
-        border: 4px solid #007bff;
+        border: 3px solid #007bff;
     }
 
     .progress-ring::before {
         content: '';
         position: absolute;
-        width: 60px;
-        height: 60px;
+        width: 45px;
+        height: 45px;
         background: white;
         border-radius: 50%;
     }
@@ -362,13 +360,13 @@
     .progress-value {
         position: relative;
         z-index: 1;
-        font-size: 1.2rem;
+        font-size: 1rem;
         font-weight: 800;
         color: #374151;
     }
 
     .progress-text {
-        font-size: 0.8rem;
+        font-size: 0.65rem;
         color: #6b7280;
         margin: 0;
     }
@@ -386,13 +384,13 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 1rem;
-        padding-bottom: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.3rem;
         border-bottom: 2px solid #e9ecef;
     }
 
     .section-title {
-        font-size: 1.4rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: var(--gray-800);
     }
@@ -402,9 +400,9 @@
         color: white;
         text-decoration: none;
         font-weight: 500;
-        font-size: 0.875rem;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
+        font-size: 0.7rem;
+        padding: 0.3rem 0.75rem;
+        border-radius: 3px;
         border: 1px solid #007bff;
         transition: all 0.2s ease;
         display: inline-block;
@@ -424,16 +422,18 @@
 
     .recordings-table th {
         text-align: left;
-        padding: 0.75rem;
+        padding: 0.4rem;
         color: var(--gray-700);
         font-weight: 600;
         border-bottom: 2px solid var(--gray-200);
+        font-size: 0.65rem;
     }
 
     .recordings-table td {
-        padding: 0.75rem;
+        padding: 0.4rem;
         border-bottom: 1px solid var(--gray-100);
         vertical-align: middle;
+        font-size: 0.7rem;
     }
 
     .recordings-table tr:hover {
@@ -442,9 +442,9 @@
 
     .status-badge {
         display: inline-block;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
+        padding: 0.2rem 0.6rem;
+        border-radius: 16px;
+        font-size: 0.65rem;
         font-weight: 600;
         text-transform: uppercase;
     }
@@ -455,8 +455,8 @@
     .status-pending { background-color: #fff3cd; color: #856404; }
 
     .user-avatar {
-        width: 32px;
-        height: 32px;
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
         display: inline-flex;
@@ -464,13 +464,15 @@
         justify-content: center;
         color: white;
         font-weight: 600;
-        margin-right: 0.5rem;
+        margin-right: 0.3rem;
+        font-size: 0.7rem;
     }
 
     .recording-title {
         font-weight: 600;
         color: var(--gray-800);
         text-decoration: none;
+        font-size: 0.7rem;
     }
 
     .recording-title:hover {
@@ -480,40 +482,132 @@
 
     .text-muted {
         color: var(--gray-500);
-        font-size: 0.9rem;
+        font-size: 0.65rem;
     }
 
     .admin-actions {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 0.3rem;
+        margin-bottom: 0.5rem;
     }
 
     .action-btn {
-        background: var(--secondary-blue);
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border: none;
-        border-radius: 6px;
-        font-weight: 600;
+        background: #f8fafc;
+        color: #475569;
+        padding: 0.3rem 0.6rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 3px;
+        font-weight: 500;
+        font-size: 0.7rem;
         cursor: pointer;
-        transition: background-color 0.2s;
+        transition: all 0.15s ease;
         text-decoration: none;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.2;
     }
 
     .action-btn:hover {
-        background: var(--primary-blue);
-        color: white;
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #334155;
         text-decoration: none;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .action-btn.primary {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+
+    .action-btn.primary:hover {
+        background: #2563eb;
+        border-color: #2563eb;
+        color: white;
     }
 
     .action-btn.secondary {
-        background: var(--gray-600);
+        background: #64748b;
+        color: white;
+        border-color: #64748b;
     }
 
     .action-btn.secondary:hover {
-        background: var(--gray-700);
+        background: #475569;
+        border-color: #475569;
+        color: white;
+    }
+
+    /* Ultra-compact responsive styles */
+    @media (max-width: 768px) {
+        .container {
+            padding: 0.25rem;
+        }
+        
+        .admin-header {
+            padding: 0.5rem 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .admin-header h1 {
+            font-size: 1.1rem;
+        }
+        
+        .admin-header p {
+            font-size: 0.7rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 0.3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-card {
+            padding: 0.5rem;
+        }
+        
+        .stat-number {
+            font-size: 1.2rem;
+            margin-bottom: 0.1rem;
+        }
+        
+        .stat-label {
+            font-size: 0.65rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .admin-actions {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 0.3rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .action-btn {
+            font-size: 0.7rem;
+            padding: 0.3rem 0.6rem;
+        }
+        
+        .professional-table th,
+        .professional-table td {
+            padding: 0.4rem 0.5rem;
+            font-size: 0.7rem;
+        }
+        
+        .professional-table th {
+            font-size: 0.65rem;
+        }
+        
+        .recording-alert {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8rem;
+            gap: 0.3rem;
+        }
     }
 </style>
 {% endblock %}
@@ -521,7 +615,7 @@
 {% block content %}
 <div class="admin-header">
     <div style="text-align: center;">
-        <h1>🛠️ Admin Dashboard</h1>
+        <h1>Admin Dashboard</h1>
         <p>Database overview and system management</p>
     </div>
 </div>
@@ -535,19 +629,19 @@
 {% endif %}
 
 <div class="admin-actions">
-    <a href="{{ url_for('admin_meetings') }}" class="action-btn">📅 View All Meetings</a>
-    <a href="{{ url_for('admin_recordings') }}" class="action-btn">📹 View All Recordings</a>
-    <a href="{{ url_for('admin_users') }}" class="action-btn">👥 Manage Users</a>
-    <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
-        <button type="submit" class="action-btn secondary">🔄 Sync Calendar (1 week)</button>
+    <a href="{{ url_for('admin_meetings') }}" class="action-btn primary">View Meetings</a>
+    <a href="{{ url_for('admin_recordings') }}" class="action-btn primary">View Recordings</a>
+    <a href="{{ url_for('admin_users') }}" class="action-btn">Manage Users</a>
+    <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: contents;">
+        <button type="submit" class="action-btn">Sync Calendar</button>
     </form>
-    <form method="POST" action="{{ url_for('admin_test_auto_sync') }}" style="display: inline;" onsubmit="return confirm('This will sync calendar for all users. Continue?')">
-        <button type="submit" class="action-btn secondary">🧪 Test Auto-Sync</button>
+    <form method="POST" action="{{ url_for('admin_test_auto_sync') }}" style="display: contents;" onsubmit="return confirm('This will sync calendar for all users. Continue?')">
+        <button type="submit" class="action-btn">Test Auto-Sync</button>
     </form>
-    <form method="POST" action="{{ url_for('admin_cleanup_duplicates') }}" style="display: inline;" onsubmit="return confirm('This will remove duplicate meetings from the database. Continue?')">
-        <button type="submit" class="action-btn secondary">🧹 Clean Duplicates</button>
+    <form method="POST" action="{{ url_for('admin_cleanup_duplicates') }}" style="display: contents;" onsubmit="return confirm('This will remove duplicate meetings from the database. Continue?')">
+        <button type="submit" class="action-btn secondary">Clean Duplicates</button>
     </form>
-    <a href="{{ url_for('recordings') }}" class="action-btn secondary">🔙 Back to App</a>
+    <a href="{{ url_for('recordings') }}" class="action-btn secondary">Back to App</a>
 </div>
 
 <div class="stats-grid">
@@ -786,6 +880,9 @@
 
 {% block extra_js %}
 <script>
+    let lastRecordingState = null;
+    let hasActiveRecording = {{ 'true' if active_recording else 'false' }};
+
     // Auto-refresh stats every 30 seconds
     function refreshStats() {
         fetch('/admin/api/stats')
@@ -810,7 +907,37 @@
             .catch(console.error);
     }
 
-    // Refresh every 30 seconds
+    function checkRecordingStatus() {
+        fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                const currentRecordingState = data.active;
+                
+                // Check if recording state has changed
+                if (lastRecordingState !== null && lastRecordingState !== currentRecordingState) {
+                    console.log('Recording state changed:', lastRecordingState, '->', currentRecordingState);
+                    // Force page refresh when recording starts or stops
+                    location.reload();
+                }
+                
+                // Also check if page state doesn't match actual recording state
+                if (hasActiveRecording !== currentRecordingState) {
+                    console.log('Page state mismatch, refreshing...');
+                    location.reload();
+                }
+                
+                lastRecordingState = currentRecordingState;
+            })
+            .catch(console.error);
+    }
+
+    // Initialize with current state
+    checkRecordingStatus();
+    
+    // Check recording status every 5 seconds for quick response
+    setInterval(checkRecordingStatus, 5000);
+    
+    // Refresh stats every 30 seconds
     setInterval(refreshStats, 30000);
 </script>
 {% endblock %}
