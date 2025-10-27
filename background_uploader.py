@@ -83,16 +83,24 @@ class BackgroundUploader:
             raise
     
     def _get_recording_info(self, recording_id):
-        """Get recording information from database including user info"""
+        """Get recording information from database including user info and meeting details"""
         try:
             conn = self._get_db_connection()
             cursor = conn.cursor()
             
-            # Get recording with user info
+            # Get recording with user info and meeting details (if linked)
             cursor.execute("""
-                SELECT r.*, u.username, u.email 
+                SELECT r.*, u.username, u.email,
+                       m.id as meeting_id, m.subject as meeting_subject, 
+                       m.start_time as meeting_start_time, m.end_time as meeting_end_time,
+                       m.duration_minutes as meeting_duration_minutes, m.organizer as meeting_organizer,
+                       m.required_attendees, m.optional_attendees, m.attendee_count,
+                       m.location as meeting_location, m.web_link as meeting_web_link,
+                       m.meeting_type, m.is_teams_meeting, m.is_recurring,
+                       m.discovered_at as meeting_discovered_at, m.calendar_event_id as meeting_calendar_id
                 FROM recording r
                 JOIN user u ON r.user_id = u.id
+                LEFT JOIN meeting m ON m.recording_id = r.id
                 WHERE r.id = ?
             """, (recording_id,))
             
@@ -416,7 +424,25 @@ class BackgroundUploader:
                     raise Exception(f"All uploads failed: {'; '.join(upload_errors)}")
                 
                 # Create comprehensive metadata
+                logger.info("=" * 60)
+                logger.info("📋 CREATING UPLOAD METADATA")
+                logger.info("=" * 60)
                 metadata = self._create_upload_metadata(recording_info, files, urls)
+                
+                # Log metadata summary
+                logger.info(f"📊 Metadata Summary:")
+                logger.info(f"   Recording ID: {metadata.get('recording_id')}")
+                logger.info(f"   Title: {metadata.get('title')}")
+                logger.info(f"   Duration: {metadata.get('duration_seconds')} seconds")
+                logger.info(f"   User: {metadata.get('user_info', {}).get('email', 'N/A')}")
+                logger.info(f"   Total Size: {metadata.get('file_info', {}).get('total_size_mb', 0)} MB")
+                logger.info(f"   Meeting Linked: {metadata.get('meeting_info', {}).get('is_linked_to_meeting', False)}")
+                if metadata.get('meeting_info', {}).get('is_linked_to_meeting'):
+                    meeting_info = metadata['meeting_info']
+                    logger.info(f"   Meeting Subject: {meeting_info.get('subject', 'N/A')}")
+                    logger.info(f"   Meeting Type: {meeting_info.get('meeting_type', 'N/A')}")
+                    logger.info(f"   Attendees: {meeting_info.get('attendee_count', 0)}")
+                logger.info("=" * 60)
                 
                 # Upload metadata.json (optional - don't fail if this fails)
                 try:
@@ -448,14 +474,35 @@ class BackgroundUploader:
                 
                 # Send webhook to Django server (non-blocking, won't fail upload if webhook fails)
                 try:
-                    logger.info(f"🌐 Sending webhook to Django server for recording {recording_id}")
+                    logger.info("=" * 80)
+                    logger.info("🌐 PREPARING WEBHOOK TO ops.fyelabs.com")
+                    logger.info("=" * 80)
+                    logger.info(f"📊 Recording ID: {recording_id}")
+                    logger.info(f"📄 Recording Title: {recording_info.get('title', 'N/A')}")
+                    logger.info(f"👤 User: {recording_info.get('username', 'N/A')} ({recording_info.get('email', 'N/A')})")
+                    logger.info(f"🔗 Meeting Linked: {'Yes' if recording_info.get('meeting_id') else 'No'}")
+                    if recording_info.get('meeting_id'):
+                        logger.info(f"📅 Meeting: {recording_info.get('meeting_subject', 'N/A')}")
+                    logger.info(f"📁 Files to Send: {len(urls)} URLs")
+                    logger.info(f"💾 Total Size: {metadata.get('file_info', {}).get('total_size_mb', 0)} MB")
+                    
                     webhook_sent = self._send_webhook_to_django(metadata)
                     if webhook_sent:
-                        logger.info(f"✅ Webhook successfully sent to Django for recording {recording_id}")
+                        logger.info("=" * 80)
+                        logger.info(f"✅ WEBHOOK DELIVERY COMPLETE - Recording {recording_id}")
+                        logger.info("🎯 ops.fyelabs.com has been notified of the upload")
+                        logger.info("=" * 80)
                     else:
-                        logger.warning(f"⚠️ Webhook failed but upload succeeded for recording {recording_id}")
+                        logger.warning("=" * 80)
+                        logger.warning(f"⚠️ WEBHOOK DELIVERY FAILED - Recording {recording_id}")
+                        logger.warning("❌ ops.fyelabs.com was NOT notified (upload still succeeded)")
+                        logger.warning("=" * 80)
                 except Exception as webhook_error:
-                    logger.error(f"❌ Webhook error (non-critical): {webhook_error}")
+                    logger.error("=" * 80)
+                    logger.error(f"❌ WEBHOOK ERROR - Recording {recording_id}")
+                    logger.error(f"🐛 Exception: {webhook_error}")
+                    logger.error("⚠️ Upload succeeded but webhook failed")
+                    logger.error("=" * 80)
                     # Don't fail the upload if webhook fails
                 
                 # Determine final status
@@ -541,7 +588,49 @@ class BackgroundUploader:
     def _send_webhook_to_django(self, metadata):
         """Send recording metadata to Django webhook"""
         try:
-            logger.info(f"📤 Sending webhook to {self.webhook_url} for recording {metadata['recording_id']}")
+            recording_id = metadata.get('recording_id', 'unknown')
+            logger.info(f"📤 Sending webhook to {self.webhook_url} for recording {recording_id}")
+            
+            # Log the complete JSON payload being sent
+            logger.info("=" * 80)
+            logger.info("🌐 WEBHOOK PAYLOAD TO ops.fyelabs.com")
+            logger.info("=" * 80)
+            logger.info(f"🔗 URL: {self.webhook_url}")
+            logger.info(f"🔑 Auth Token: {self.webhook_token[:20]}...")
+            logger.info(f"📊 Recording ID: {recording_id}")
+            
+            # Pretty print the JSON payload
+            import json
+            payload_json = json.dumps(metadata, indent=2, default=str)
+            logger.info("📦 JSON Payload:")
+            logger.info("-" * 40)
+            for line_num, line in enumerate(payload_json.split('\n'), 1):
+                logger.info(f"{line_num:3d}: {line}")
+            logger.info("-" * 40)
+            
+            # Log meeting info summary
+            if metadata.get('meeting_info', {}).get('is_linked_to_meeting'):
+                meeting_info = metadata['meeting_info']
+                logger.info("📅 Meeting Details Summary:")
+                logger.info(f"   Subject: {meeting_info.get('subject', 'N/A')}")
+                logger.info(f"   Start: {meeting_info.get('start_time', 'N/A')}")
+                logger.info(f"   Organizer: {meeting_info.get('organizer', 'N/A')}")
+                logger.info(f"   Attendees: {meeting_info.get('attendee_count', 0)}")
+                logger.info(f"   Type: {meeting_info.get('meeting_type', 'N/A')}")
+            else:
+                logger.info("📹 Recording Type: Standalone (No Meeting Linked)")
+            
+            # Log file URLs
+            logger.info("📁 Uploaded Files:")
+            for file_type, url in metadata.get('uploaded_files', {}).items():
+                logger.info(f"   {file_type}: {url}")
+            
+            # Log file sizes
+            file_info = metadata.get('file_info', {})
+            logger.info(f"💾 Total Size: {file_info.get('total_size_mb', 0)} MB")
+            
+            logger.info("=" * 80)
+            logger.info("🚀 SENDING WEBHOOK REQUEST...")
             
             response = requests.post(
                 self.webhook_url,
@@ -553,31 +642,76 @@ class BackgroundUploader:
                 timeout=30  # 30 second timeout
             )
             
-            if response.status_code in [200, 201]:
+            # Log response details
+            logger.info("=" * 80)
+            logger.info("📥 WEBHOOK RESPONSE RECEIVED")
+            logger.info("=" * 80)
+            logger.info(f"📊 Status Code: {response.status_code}")
+            logger.info(f"⏱️ Response Time: {response.elapsed.total_seconds():.2f} seconds")
+            logger.info(f"📏 Content Length: {len(response.content)} bytes")
+            
+            # Log response headers
+            logger.info("📋 Response Headers:")
+            for key, value in response.headers.items():
+                logger.info(f"   {key}: {value}")
+            
+            # Log response body
+            logger.info("📄 Response Body:")
+            try:
                 response_data = response.json()
-                logger.info(f"✅ Webhook sent successfully: {response_data.get('message', 'Success')}")
-                logger.info(f"   Action: {response_data.get('action', 'unknown')}")
-                logger.info(f"   Django PK: {response_data.get('pk', 'unknown')}")
+                response_json = json.dumps(response_data, indent=2)
+                for line_num, line in enumerate(response_json.split('\n'), 1):
+                    logger.info(f"{line_num:3d}: {line}")
+            except:
+                logger.info(f"   (Raw text): {response.text}")
+            
+            logger.info("=" * 80)
+            
+            if response.status_code in [200, 201]:
+                try:
+                    response_data = response.json()
+                    logger.info(f"✅ Webhook sent successfully: {response_data.get('message', 'Success')}")
+                    logger.info(f"   Action: {response_data.get('action', 'unknown')}")
+                    logger.info(f"   Django PK: {response_data.get('pk', 'unknown')}")
+                    logger.info(f"   Server Response: {response_data.get('status', 'success')}")
+                except:
+                    logger.info(f"✅ Webhook sent successfully (non-JSON response)")
+                
+                logger.info("🎉 WEBHOOK DELIVERY SUCCESSFUL!")
+                logger.info("=" * 80)
                 return True
             elif response.status_code == 401:
                 logger.error(f"❌ Webhook authentication failed - invalid token")
+                logger.error("🔒 Check webhook token configuration")
+                logger.error("=" * 80)
                 return False
             else:
-                logger.error(f"❌ Webhook failed with status {response.status_code}: {response.text}")
+                logger.error(f"❌ Webhook failed with status {response.status_code}")
+                logger.error(f"📄 Response: {response.text}")
+                logger.error("=" * 80)
                 return False
                 
         except requests.exceptions.Timeout:
             logger.error(f"❌ Webhook timeout after 30 seconds")
+            logger.error(f"🌐 URL: {self.webhook_url}")
+            logger.error("⏰ Server may be slow or unresponsive")
+            logger.error("=" * 80)
             return False
         except requests.exceptions.ConnectionError as e:
             logger.error(f"❌ Webhook connection failed: {e}")
+            logger.error(f"🌐 URL: {self.webhook_url}")
+            logger.error("🔌 Check network connectivity to ops.fyelabs.com")
+            logger.error("=" * 80)
             return False
         except Exception as e:
             logger.error(f"❌ Webhook send failed: {e}")
+            logger.error(f"🌐 URL: {self.webhook_url}")
+            logger.error("🐛 Unexpected error during webhook delivery")
+            logger.error("=" * 80)
             return False
     
     def _create_upload_metadata(self, recording_info, files, urls):
-        """Create comprehensive metadata for the upload"""
+        """Create comprehensive metadata for the upload including meeting details"""
         try:
             # Get file sizes
             file_sizes = {}
@@ -605,6 +739,24 @@ class BackgroundUploader:
                 if ffprobe_duration:
                     actual_duration = ffprobe_duration
             
+            # Parse attendees JSON if available
+            required_attendees = []
+            optional_attendees = []
+            try:
+                if recording_info.get('required_attendees'):
+                    import json
+                    required_attendees = json.loads(recording_info['required_attendees'])
+            except:
+                pass
+            
+            try:
+                if recording_info.get('optional_attendees'):
+                    import json
+                    optional_attendees = json.loads(recording_info['optional_attendees'])
+            except:
+                pass
+            
+            # Base metadata
             metadata = {
                 'recording_id': recording_info['id'],
                 'title': recording_info['title'],
@@ -625,6 +777,34 @@ class BackgroundUploader:
                 'bucket_name': self.bucket_name,
                 'region': self.region
             }
+            
+            # Add meeting information if recording is linked to a meeting
+            if recording_info.get('meeting_id'):
+                metadata['meeting_info'] = {
+                    'meeting_id': recording_info['meeting_id'],
+                    'subject': recording_info.get('meeting_subject'),
+                    'start_time': recording_info.get('meeting_start_time'),
+                    'end_time': recording_info.get('meeting_end_time'),
+                    'duration_minutes': recording_info.get('meeting_duration_minutes'),
+                    'organizer': recording_info.get('meeting_organizer'),
+                    'location': recording_info.get('meeting_location'),
+                    'web_link': recording_info.get('meeting_web_link'),
+                    'meeting_type': recording_info.get('meeting_type', 'teams'),
+                    'is_teams_meeting': bool(recording_info.get('is_teams_meeting', False)),
+                    'is_recurring': bool(recording_info.get('is_recurring', False)),
+                    'attendee_count': recording_info.get('attendee_count', 0),
+                    'required_attendees': required_attendees,
+                    'optional_attendees': optional_attendees,
+                    'calendar_event_id': recording_info.get('meeting_calendar_id'),
+                    'discovered_at': recording_info.get('meeting_discovered_at'),
+                    'is_linked_to_meeting': True
+                }
+                logger.info(f"📅 Including meeting info for recording {recording_info['id']}: {recording_info.get('meeting_subject')}")
+            else:
+                metadata['meeting_info'] = {
+                    'is_linked_to_meeting': False
+                }
+                logger.info(f"📹 Recording {recording_info['id']} is not linked to any meeting")
             
             return metadata
             
