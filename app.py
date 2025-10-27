@@ -126,10 +126,11 @@ def format_eastern_datetime_filter(utc_dt, format_str='%a, %b %d, %H:%M EST'):
     return 'N/A'
 
 @app.template_filter('format_eastern_local')
-def format_eastern_local_filter(local_dt, format_str='%a, %b %d, %H:%M EST'):
-    """Format datetime that's already in Eastern time as 'MON, OCT 27, hh:mm EST'"""
+def format_eastern_local_filter(local_dt, format_str='%a, %b %d, %I:%M %p EST'):
+    """Format datetime that's already in Eastern time in human-readable format"""
     if local_dt:
         # This datetime is already in Eastern time, just format it
+        # %a = Mon, %b = Oct, %d = 27, %I = 12-hour, %M = minutes, %p = AM/PM
         formatted = local_dt.strftime(format_str).upper()
         return formatted
     return 'N/A'
@@ -2641,6 +2642,10 @@ def fetch_and_sync_calendar_events(user):
                 if start_time and end_time:
                     duration_minutes = int((end_time - start_time).total_seconds() / 60)
                 
+                # Detect if this is a recurring meeting
+                is_recurring = bool(event.get('seriesMasterId'))
+                series_id = event.get('seriesMasterId') if is_recurring else None
+                
                 # Check for existing meetings using multiple criteria
                 existing_meeting = None
                 
@@ -2700,6 +2705,8 @@ def fetch_and_sync_calendar_events(user):
                     existing_meeting.web_link = event.get('webLink', '')
                     existing_meeting.organizer = organizer
                     existing_meeting.is_teams_meeting = True
+                    existing_meeting.is_recurring = is_recurring
+                    existing_meeting.series_id = series_id
                     existing_meeting.last_updated = datetime.utcnow()
                     
                     # Update calendar_event_id if it was missing
@@ -2721,6 +2728,8 @@ def fetch_and_sync_calendar_events(user):
                         web_link=event.get('webLink', ''),
                         organizer=organizer,
                         is_teams_meeting=True,
+                        is_recurring=is_recurring,
+                        series_id=series_id,
                         user_id=user.id,
                         auto_record=False  # Default to not auto-record
                     )

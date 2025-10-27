@@ -13,7 +13,7 @@
     .admin-header {
         background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 50%, #2563eb 100%);
         color: white;
-        padding: 0.5rem 0;
+        padding: 0.6rem 0;
         margin: -0.5rem -0.5rem 0.5rem -0.5rem;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
@@ -27,9 +27,17 @@
     .admin-title {
         font-size: 1.1rem;
         font-weight: 600;
-        margin: 0;
+        margin: 0 0 0.15rem 0;
         color: #f7e68c;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .admin-subtitle {
+        font-size: 0.7rem;
+        font-weight: 400;
+        margin: 0;
+        color: rgba(255, 255, 255, 0.8);
+        font-style: italic;
     }
 
     .meetings-container {
@@ -83,10 +91,12 @@
         letter-spacing: 0.05em;
     }
 
-    .meetings-table th:nth-child(1) { width: 5%; }   /* ID */
-    .meetings-table th:nth-child(2) { width: 50%; }  /* Meeting */
-    .meetings-table th:nth-child(3) { width: 30%; }  /* Schedule */
-    .meetings-table th:nth-child(4) { width: 15%; }  /* Actions */
+    .meetings-table th:nth-child(1) { width: 5%; text-align: center; }   /* ID */
+    .meetings-table th:nth-child(2) { width: 35%; }  /* Meeting */
+    .meetings-table th:nth-child(3) { width: 20%; }  /* Schedule */
+    .meetings-table th:nth-child(4) { width: 10%; text-align: center; }  /* Exclude */
+    .meetings-table th:nth-child(5) { width: 10%; text-align: center; }  /* Exclude Series */
+    .meetings-table th:nth-child(6) { width: 20%; text-align: center; }  /* Actions */
 
     .meetings-table td {
         padding: 0.2rem 0.5rem;
@@ -100,7 +110,9 @@
         text-align: center;
     }
 
-    .meetings-table td:nth-child(4)  /* Actions column */ {
+    .meetings-table td:nth-child(4),  /* Exclude column */
+    .meetings-table td:nth-child(5),  /* Exclude Series column */
+    .meetings-table td:nth-child(6)   /* Actions column */ {
         text-align: center;
     }
 
@@ -206,12 +218,13 @@
 
     .filter-tabs {
         display: flex;
-        background: #f9fafb;
+        background: #f3f4f6;
         border-radius: 4px;
         padding: 0.2rem;
         margin-bottom: 0.5rem;
-        justify-content: space-between;
+        gap: 0.3rem;
         align-items: center;
+        border: 1px solid #e5e7eb;
     }
 
     .filter-tab {
@@ -222,12 +235,15 @@
         font-weight: 500;
         font-size: 0.7rem;
         transition: all 0.2s;
+        white-space: nowrap;
+        background: transparent;
     }
 
     .filter-tab.active {
         background: white;
         color: #2563eb;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        font-weight: 600;
     }
 
     .filter-tab:hover {
@@ -650,12 +666,15 @@
 
     /* Custom Checkbox Styles */
     .checkbox-container {
-        display: inline-block;
+        display: inline-flex;
         position: relative;
+        align-items: center;
+        justify-content: center;
         padding-left: 25px;
         margin: 0;
         cursor: pointer;
         user-select: none;
+        min-height: 18px;
     }
 
     .checkbox-container input {
@@ -722,6 +741,7 @@
 <div class="admin-header">
     <div class="admin-header-content">
         <h1 class="admin-title">📅 Meetings Management</h1>
+        <p class="admin-subtitle">Showing meetings for the next 7 days</p>
     </div>
 </div>
 
@@ -936,7 +956,8 @@
             start_time: {{ meeting.start_time.isoformat() | tojson }},
             end_time: {{ meeting.end_time.isoformat() | tojson }},
             recording_status: {{ meeting.recording_status | tojson }},
-            recording: {{ (meeting.recording.id if meeting.recording else None) | tojson }}
+            recording: {{ (meeting.recording.id if meeting.recording else None) | tojson }},
+            is_recurring: {{ meeting.is_recurring | tojson }}
         }{% if not loop.last %},{% endif %}
         {% endfor %}
     ];
@@ -1050,9 +1071,11 @@
             hour12: true
         });
         
+        const recurringBadge = meeting.is_recurring ? '<span class="recurring-badge" title="Recurring Meeting" style="margin-left: 4px;">🔁</span>' : '';
+        
                 eventItem.innerHTML = `
             <div class="event-time">${startTime}</div>
-            <div class="event-title" title="${meeting.subject}">${meeting.subject}</div>
+            <div class="event-title" title="${meeting.subject}">${meeting.subject}${recurringBadge}</div>
             <div class="event-actions">
                 ${meeting.recording_status === 'recording' ? `<span class="recording-indicator pulsating">⬤</span><button onclick="event.stopPropagation(); stopRecording(this, ${meeting.id}, '${meeting.subject}')" class="event-action-btn event-stop-btn">⏹</button>` : ''}
                 ${!meeting.recording && meeting.recording_status !== 'recording' ? `<button onclick="event.stopPropagation(); startRecording(this, ${meeting.id}, '${meeting.subject}')" class="event-action-btn event-record-btn">⬤</button>` : ''}

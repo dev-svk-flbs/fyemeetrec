@@ -186,7 +186,7 @@ class DualModeStreamer:
             "-thread_queue_size", "512",
             "-f", "dshow", "-i", f"audio={self.audio_source}",
             "-vf", "scale=1280:-1",
-            "-filter:a", "volume=1.9",
+            "-filter:a", "volume=1.0",
             "-c:v", "libx265", "-preset", "fast", "-crf", "32", "-pix_fmt", "yuv420p",
             "-c:a", "libopus", "-b:a", "64k", "-ac", "1", "-ar", "48000",
             "-movflags", "+faststart",
