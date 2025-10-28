@@ -768,6 +768,116 @@ def patched_send(self, text):
 DualModeStreamer.send_text_to_server = patched_send
 
 
+# ============================================================================
+# WebSocket Client API Endpoints
+# ============================================================================
+
+@app.route('/api/find_meeting', methods=['POST'])
+def api_find_meeting():
+    """Find meeting by calendar_event_id for WebSocket client"""
+    try:
+        data = request.get_json()
+        calendar_event_id = data.get('calendar_event_id')
+        
+        if not calendar_event_id:
+            return jsonify({'found': False, 'error': 'No calendar_event_id provided'}), 400
+        
+        meeting = Meeting.query.filter_by(calendar_event_id=calendar_event_id).first()
+        
+        if meeting:
+            return jsonify({
+                'found': True,
+                'meeting': {
+                    'id': meeting.id,
+                    'subject': meeting.subject,
+                    'start_time': meeting.start_time.isoformat() if meeting.start_time else None,
+                    'end_time': meeting.end_time.isoformat() if meeting.end_time else None,
+                    'calendar_event_id': meeting.calendar_event_id
+                }
+            })
+        else:
+            return jsonify({'found': False})
+    
+    except Exception as e:
+        logger.error(f"Error finding meeting: {e}")
+        return jsonify({'found': False, 'error': str(e)}), 500
+
+
+@app.route('/api/start_recording', methods=['POST'])
+def api_start_recording():
+    """Start recording endpoint for WebSocket client"""
+    try:
+        data = request.get_json()
+        meeting_id = data.get('meeting_id')
+        
+        if not meeting_id:
+            return jsonify({'success': False, 'message': 'No meeting_id provided'}), 400
+        
+        # Find the meeting
+        meeting = Meeting.query.get(meeting_id)
+        if not meeting:
+            return jsonify({'success': False, 'message': f'Meeting {meeting_id} not found'}), 404
+        
+        # Check if already recording
+        with recording_lock:
+            if recording_state['active']:
+                return jsonify({'success': False, 'message': 'Already recording'}), 400
+        
+        # Start recording with meeting details
+        recording_data = {
+            'meeting_id': meeting_id,
+            'title': meeting.subject
+        }
+        
+        # Forward to the main start_recording function
+        original_json = request.get_json
+        request.get_json = lambda: recording_data
+        
+        response = start_recording()
+        request.get_json = original_json
+        
+        return response
+    
+    except Exception as e:
+        logger.error(f"Error starting recording via API: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/stop_recording', methods=['POST'])
+def api_stop_recording():
+    """Stop recording endpoint for WebSocket client"""
+    try:
+        return stop_recording()
+    except Exception as e:
+        logger.error(f"Error stopping recording via API: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """Health check endpoint for WebSocket client"""
+    try:
+        # Check if recording is active
+        is_recording = recording_state.get('active', False)
+        
+        return jsonify({
+            'status': 'ok',
+            'alive': True,
+            'recording_active': is_recording,
+            'timestamp': datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        logger.error(f"Error in health check: {e}")
+        return jsonify({
+            'status': 'error',
+            'alive': True,
+            'message': str(e)
+        }), 500
+
+
+# ============================================================================
+# Video Serving Routes
+# ============================================================================
 
 @app.route('/video/<int:recording_id>')
 @login_required
@@ -2226,7 +2336,7 @@ def admin_meetings():
     """Admin page to view all meetings"""
     try:
         page = request.args.get('page', 1, type=int)
-        per_page = 50
+        per_page = 10
         
         # Get filter parameters
         filter_status = request.args.get('filter', 'all')
@@ -2254,8 +2364,8 @@ def admin_meetings():
         elif filter_status == 'orphaned':
             query = query.filter(Meeting.recording_id.is_(None))
         
-        # Get meetings for display
-        meetings_paginated = query.order_by(Meeting.start_time.asc()).paginate(
+        # Get meetings for display - sorted by newest first (descending)
+        meetings_paginated = query.order_by(Meeting.start_time.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
         
