@@ -693,10 +693,6 @@
     <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="btn btn-primary">
         📹 View Recording
     </a>
-    {% else %}
-    <button id="recordButton" class="btn btn-success" onclick="startMeetingRecording()">
-        Record Meeting
-    </button>
     {% endif %}
 </div>
 
@@ -712,14 +708,20 @@
                     <!-- Local Video Player Section (Priority) -->
                     {% if meeting.recording.file_exists %}
                     <div class="video-player-container">
-                        <video controls class="recording-video-player" preload="metadata">
+                        <video id="recordingVideo" controls class="recording-video-player" preload="metadata">
                             <source src="{{ url_for('serve_recording', recording_id=meeting.recording.id) }}" type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
                         <div class="video-controls">
                             <div class="video-meta">
                                 <strong>{{ meeting.recording.title }}</strong><br>
-                                Duration: {{ format_duration(meeting.recording.duration) }} • 
+                                <span id="durationInfo">
+                                    DB Duration: {{ format_duration(meeting.recording.duration) }} • 
+                                    Video Duration: <span id="videoDuration">Loading...</span>
+                                </span><br>
+                                <span id="playbackInfo" style="font-size: 0.85rem; color: #6b7280;">
+                                    Current: <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
+                                </span><br>
                                 Size: {{ format_file_size(meeting.recording.file_size) }} • 
                                 <span style="color: #10b981;">Local File</span>
                             </div>
@@ -841,15 +843,28 @@
                     <span class="compact-label">Location:</span>
                     <span class="compact-value">{{ meeting.location or 'N/A' }}</span>
                 </div>
-                <div class="compact-row">
-                    <span class="compact-label">Attendees:</span>
-                    <span class="compact-value">{{ meeting.attendee_count }}</span>
+                
+                <!-- Organizer -->
+                {% if meeting.organizer %}
+                <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f3f4f6;">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                        👤 Organizer:
+                    </div>
+                    <div style="font-size: 0.8rem; color: #2563eb; margin-bottom: 0.5rem; word-break: break-all;">
+                        {{ meeting.organizer }}
+                    </div>
                 </div>
+                {% endif %}
+                
+                <!-- Participants -->
                 {% if meeting.all_attendees and meeting.all_attendees|length > 0 %}
                 <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #f3f4f6;">
+                    <div style="font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                        👥 Participants ({{ meeting.attendee_count }}):
+                    </div>
                     {% for attendee in meeting.all_attendees %}
-                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.25rem;">
-                        {{ attendee.split('@')[0] if '@' in attendee else attendee }}
+                    <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.35rem; word-break: break-all;">
+                        {{ attendee }}
                     </div>
                     {% endfor %}
                 </div>
@@ -885,51 +900,106 @@
 
 {% block extra_js %}
 <script>
-    function startMeetingRecording() {
-        const button = document.getElementById('recordButton');
-        const originalText = button.innerHTML;
-        
-        // Disable button and show loading state
-        button.disabled = true;
-        button.innerHTML = '⏳ Starting Recording...';
-        
-        // Prepare recording data
-        const recordingData = {
-            title: '{{ meeting.subject | replace("'", "\\'") }} - {{ meeting.start_time.strftime("%Y-%m-%d %H:%M") }}',
-            meeting_id: {{ meeting.id }}
-        };
-        
-        // Start recording
-        fetch('/start', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(recordingData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success || data.recording_id) {
-                // Success - redirect to recordings page or refresh
-                alert('✅ Recording started successfully!');
-                window.location.reload();
-            } else {
-                // Error
-                alert('❌ Failed to start recording: ' + (data.error || 'Unknown error'));
-                button.disabled = false;
-                button.innerHTML = originalText;
-            }
-        })
-        .catch(error => {
-            console.error('Error starting recording:', error);
-            alert('❌ Failed to start recording: ' + error.message);
-            button.disabled = false;
-            button.innerHTML = originalText;
-        });
-    }
-
-    // Transcript viewer functionality
+    // Video player duration tracking
     document.addEventListener('DOMContentLoaded', function() {
+        const video = document.getElementById('recordingVideo');
+        if (video) {
+            const dbDuration = {{ meeting.recording.duration if meeting.recording else 0 }};
+            
+            // When video metadata is loaded
+            video.addEventListener('loadedmetadata', function() {
+                const videoDurationRaw = video.duration;
+                const videoDuration = isFinite(videoDurationRaw) ? Math.floor(videoDurationRaw) : 0;
+                const videoDurationElement = document.getElementById('videoDuration');
+                const totalTimeElement = document.getElementById('totalTime');
+                const durationInfoElement = document.getElementById('durationInfo');
+                
+                if (videoDurationElement) {
+                    if (isFinite(videoDurationRaw) && videoDuration > 0) {
+                        videoDurationElement.textContent = formatDuration(videoDuration);
+                    } else {
+                        videoDurationElement.textContent = 'Unknown';
+                        videoDurationElement.style.color = '#ef4444';
+                    }
+                }
+                if (totalTimeElement) {
+                    if (isFinite(videoDurationRaw) && videoDuration > 0) {
+                        totalTimeElement.textContent = formatDuration(videoDuration);
+                    } else {
+                        totalTimeElement.textContent = '?:??';
+                    }
+                }
+                
+                // Check for duration mismatch (more than 5 seconds difference)
+                if (isFinite(videoDurationRaw) && videoDuration > 0) {
+                    const diff = Math.abs(dbDuration - videoDuration);
+                    if (diff > 5 && durationInfoElement) {
+                        durationInfoElement.style.background = '#fef3c7';
+                        durationInfoElement.style.padding = '0.5rem';
+                        durationInfoElement.style.borderRadius = '4px';
+                        durationInfoElement.style.border = '1px solid #f59e0b';
+                    }
+                    
+                    console.log('📊 Video Duration Info:');
+                    console.log(`   Database Duration: ${dbDuration}s (${formatDuration(dbDuration)})`);
+                    console.log(`   Video Metadata Duration: ${videoDuration}s (${formatDuration(videoDuration)})`);
+                    console.log(`   Difference: ${diff}s`);
+                    if (diff > 5) {
+                        console.warn(`⚠️ Duration mismatch detected! Difference: ${diff} seconds`);
+                    }
+                } else {
+                    console.warn('⚠️ Video duration is invalid or not available');
+                    console.log(`   Raw duration value: ${videoDurationRaw}`);
+                }
+            });
+            
+            // Track playback position and try to detect duration
+            let maxTimeObserved = 0;
+            video.addEventListener('timeupdate', function() {
+                const currentTimeElement = document.getElementById('currentTime');
+                if (currentTimeElement && isFinite(video.currentTime)) {
+                    currentTimeElement.textContent = formatDuration(Math.floor(video.currentTime));
+                }
+                
+                // Track maximum time observed
+                if (isFinite(video.currentTime) && video.currentTime > maxTimeObserved) {
+                    maxTimeObserved = video.currentTime;
+                }
+                
+                // Update total time if it wasn't available initially or if it's still invalid
+                const totalTimeElement = document.getElementById('totalTime');
+                const videoDurationElement = document.getElementById('videoDuration');
+                
+                if (isFinite(video.duration) && video.duration > 0) {
+                    // Duration is now available from metadata
+                    if (totalTimeElement) {
+                        totalTimeElement.textContent = formatDuration(Math.floor(video.duration));
+                    }
+                    if (videoDurationElement && videoDurationElement.textContent === 'Unknown') {
+                        videoDurationElement.textContent = formatDuration(Math.floor(video.duration));
+                        videoDurationElement.style.color = '#10b981'; // Green to show it updated
+                        console.log(`✅ Video duration detected during playback: ${Math.floor(video.duration)}s`);
+                    }
+                } else {
+                    // Duration still not available, show estimated from playback
+                    if (totalTimeElement && maxTimeObserved > 0) {
+                        totalTimeElement.textContent = formatDuration(Math.floor(maxTimeObserved)) + '+';
+                    }
+                }
+            });
+            
+            // Detect if video ends prematurely
+            video.addEventListener('ended', function() {
+                const actualPlayedTime = Math.floor(video.currentTime);
+                console.log(`📹 Video ended at: ${actualPlayedTime}s (${formatDuration(actualPlayedTime)})`);
+                
+                if (isFinite(actualPlayedTime) && actualPlayedTime < dbDuration - 5) {
+                    console.warn(`⚠️ Video ended prematurely! Played ${actualPlayedTime}s but expected ${dbDuration}s`);
+                }
+            });
+        }
+        
+        // Transcript viewer functionality
         const toggleButton = document.getElementById('toggleTranscript');
         const transcriptContent = document.getElementById('transcriptContent');
         
@@ -949,6 +1019,21 @@
             });
         }
     });
+    
+    // Helper function to format duration (seconds to HH:MM:SS or MM:SS)
+    function formatDuration(seconds) {
+        if (isNaN(seconds) || seconds < 0) return '0:00';
+        
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        
+        if (hours > 0) {
+            return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        } else {
+            return `${minutes}:${String(secs).padStart(2, '0')}`;
+        }
+    }
 
     function loadTranscript() {
         const transcriptContent = document.getElementById('transcriptContent');

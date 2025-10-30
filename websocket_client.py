@@ -49,14 +49,21 @@ class MeetingRecorderClient:
             print(f"❌ Connection failed: {e}")
             return False
     
-    def find_meeting_by_event_id(self, calendar_event_id):
-        """Find meeting in local database by calendar_event_id via Flask API"""
+    def find_meeting_by_details(self, subject, organizer, start_time):
+        """Find meeting in local database by subject, organizer, and start_time via Flask API"""
         try:
-            print(f"🔍 Searching for meeting with event ID: {calendar_event_id[:50]}...")
+            print(f"🔍 Searching for meeting:")
+            print(f"   Subject: {subject}")
+            print(f"   Organizer: {organizer}")
+            print(f"   Start Time: {start_time}")
             
-            # Use Flask API to find meeting
-            url = f"{self.app_base_url}/api/find_meeting"
-            payload = {"calendar_event_id": calendar_event_id}
+            # Use Flask API to find meeting by matching fields
+            url = f"{self.app_base_url}/api/find_meeting_by_details"
+            payload = {
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time
+            }
             
             response = requests.post(url, json=payload, timeout=5)
             
@@ -69,7 +76,10 @@ class MeetingRecorderClient:
                     print(f"   Meeting DB ID: {meeting.get('id')}")
                     return meeting
                 else:
-                    print(f"❌ No meeting found with event ID: {calendar_event_id[:50]}...")
+                    print(f"❌ No meeting found matching:")
+                    print(f"   Subject: {subject}")
+                    print(f"   Organizer: {organizer}")
+                    print(f"   Start Time: {start_time}")
                     return None
             else:
                 print(f"❌ API error: {response.status_code} - {response.text}")
@@ -167,8 +177,20 @@ class MeetingRecorderClient:
         """Monitor Flask app health and report to server"""
         print("\n💓 Starting health monitor...")
         
+        user_info_refresh_count = 0
+        
         while True:
             try:
+                # Refresh user info every 30 seconds (30 iterations)
+                if user_info_refresh_count % 30 == 0:
+                    self.user_info = self.get_current_user()
+                    if self.user_info.get('logged_in'):
+                        print(f"👤 User: {self.user_info.get('username')} ({self.user_info.get('email')})")
+                    else:
+                        print("👤 No user logged in")
+                
+                user_info_refresh_count += 1
+                
                 # Check app health
                 health = self.check_app_health()
                 is_alive = health.get('alive', False)
@@ -186,8 +208,19 @@ class MeetingRecorderClient:
                     "alive": is_alive,
                     "recording_active": health.get('recording_active', False),
                     "recording_type": health.get('recording_type', 'none'),
-                    "error": health.get('error')
+                    "error": health.get('error'),
+                    "hostname": os.environ.get('COMPUTERNAME', 'unknown')
                 }
+                
+                # Add user info to health report
+                if self.user_info and self.user_info.get('logged_in'):
+                    health_report['user'] = {
+                        'username': self.user_info.get('username'),
+                        'email': self.user_info.get('email'),
+                        'user_id': self.user_info.get('user_id')
+                    }
+                else:
+                    health_report['user'] = None
                 
                 # Add meeting info if recording a meeting
                 if health.get('meeting'):
@@ -218,27 +251,34 @@ class MeetingRecorderClient:
                 "data": data
             }
             await self.websocket.send(json.dumps(message))
-            print(f"📤 Sent: {message_type} - {data}")
+            print(f"📤 Sent: {message_type}")
         except Exception as e:
             print(f"❌ Error sending message: {e}")
     
     async def handle_start_command(self, data):
         """Handle start recording command from server"""
-        calendar_event_id = data.get('meeting_id')
+        # Extract matching fields from command
+        subject = data.get('subject')
+        organizer = data.get('organizer')
+        start_time = data.get('start_time')
         duration_minutes = data.get('duration', 60)
         
         print(f"\n{'='*60}")
         print(f"📋 START COMMAND RECEIVED")
-        print(f"   Meeting ID: {calendar_event_id}")
+        print(f"   Subject: {subject}")
+        print(f"   Organizer: {organizer}")
+        print(f"   Start Time: {start_time}")
         print(f"   Duration: {duration_minutes} minutes")
         print(f"{'='*60}\n")
         
-        # Step 1: Find meeting in database
-        meeting = self.find_meeting_by_event_id(calendar_event_id)
+        # Step 1: Find meeting in database using matching fields
+        meeting = self.find_meeting_by_details(subject, organizer, start_time)
         
         if not meeting:
             await self.send_message("start_failed", {
-                "meeting_id": calendar_event_id,
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time,
                 "reason": "Meeting not found in local database"
             })
             return
@@ -249,15 +289,17 @@ class MeetingRecorderClient:
         if success:
             self.current_recording = {
                 "meeting_id": meeting.get('id'),
-                "calendar_event_id": calendar_event_id,
-                "subject": meeting.get('subject')
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time
             }
             self.recording_start_time = time.time()
             self.recording_duration = duration_minutes * 60  # Convert to seconds
             
             await self.send_message("start_confirmed", {
-                "meeting_id": calendar_event_id,
-                "subject": meeting.get('subject'),
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time,
                 "duration": duration_minutes
             })
             
@@ -265,7 +307,9 @@ class MeetingRecorderClient:
             asyncio.create_task(self.monitor_recording())
         else:
             await self.send_message("start_failed", {
-                "meeting_id": calendar_event_id,
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time,
                 "reason": "Failed to start recording"
             })
     
@@ -280,7 +324,7 @@ class MeetingRecorderClient:
         print("⏳ Waiting 10 seconds for FFmpeg to initialize...")
         await asyncio.sleep(10)
         
-        check_interval = 30  # Check every 30 seconds after first check
+        check_interval = 5  # Check every 5 seconds to detect premature stops faster
         
         while self.current_recording:
             # Check elapsed time
@@ -289,19 +333,45 @@ class MeetingRecorderClient:
             
             print(f"\n⏱️  Elapsed: {int(elapsed)}s / {self.recording_duration}s (Remaining: {int(remaining)}s)")
             
+            # Check Flask app health to detect if recording stopped
+            health = self.check_app_health()
+            recording_active = health.get('recording_active', False)
+            
+            # If recording is no longer active in Flask but we think it should be
+            if not recording_active and elapsed < self.recording_duration:
+                print("⚠️  Recording stopped prematurely on Flask side!")
+                await self.send_message("recording_stopped_premature", {
+                    "subject": self.current_recording["subject"],
+                    "organizer": self.current_recording["organizer"],
+                    "start_time": self.current_recording["start_time"],
+                    "duration_actual": int(elapsed),
+                    "duration_expected": self.recording_duration,
+                    "reason": "User stopped recording manually or error occurred"
+                })
+                
+                # Clear tracking state
+                self.current_recording = None
+                self.recording_start_time = None
+                self.recording_duration = None
+                break
+            
             # Check if FFmpeg is running
             ffmpeg_ok = self.check_ffmpeg_running()
             
-            if not ffmpeg_ok:
-                print("⚠️  FFmpeg not detected - recording may have stopped unexpectedly")
+            if not ffmpeg_ok and recording_active:
+                print("⚠️  FFmpeg not detected but Flask reports recording active")
                 await self.send_message("recording_warning", {
-                    "meeting_id": self.current_recording["calendar_event_id"],
+                    "subject": self.current_recording["subject"],
+                    "organizer": self.current_recording["organizer"],
+                    "start_time": self.current_recording["start_time"],
                     "warning": "FFmpeg process not detected"
                 })
-            else:
+            elif recording_active:
                 # Send positive confirmation that recording is ongoing
                 await self.send_message("recording_status", {
-                    "meeting_id": self.current_recording["calendar_event_id"],
+                    "subject": self.current_recording["subject"],
+                    "organizer": self.current_recording["organizer"],
+                    "start_time": self.current_recording["start_time"],
                     "status": "recording",
                     "elapsed": int(elapsed),
                     "remaining": int(remaining)
@@ -310,31 +380,49 @@ class MeetingRecorderClient:
             # Check if duration elapsed
             if elapsed >= self.recording_duration:
                 print("\n⏰ Duration elapsed - stopping recording")
-                await self.stop_recording_and_confirm()
+                await self.stop_recording_and_confirm(reason="completed")
                 break
             
             # Wait before next check
             await asyncio.sleep(check_interval)
     
-    async def stop_recording_and_confirm(self):
-        """Stop recording and send confirmation"""
+    async def stop_recording_and_confirm(self, reason="completed"):
+        """Stop recording and send confirmation
+        
+        Args:
+            reason: Why recording stopped - "completed", "manual", "premature", "error"
+        """
         if not self.current_recording:
             return
         
-        calendar_event_id = self.current_recording["calendar_event_id"]
+        subject = self.current_recording["subject"]
+        organizer = self.current_recording["organizer"]
+        start_time = self.current_recording["start_time"]
+        
+        # Calculate actual duration
+        actual_duration = int(time.time() - self.recording_start_time) if self.recording_start_time else 0
+        expected_duration = self.recording_duration if self.recording_duration else 0
         
         # Stop the recording
         success = self.stop_recording()
         
         if success:
             await self.send_message("stop_confirmed", {
-                "meeting_id": calendar_event_id,
-                "duration_actual": int(time.time() - self.recording_start_time)
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time,
+                "duration_actual": actual_duration,
+                "duration_expected": expected_duration,
+                "reason": reason,
+                "status": "success"
             })
         else:
             await self.send_message("stop_failed", {
-                "meeting_id": calendar_event_id,
-                "reason": "Failed to stop recording"
+                "subject": subject,
+                "organizer": organizer,
+                "start_time": start_time,
+                "reason": f"Failed to stop recording: {reason}",
+                "duration_actual": actual_duration
             })
         
         # Clear current recording
@@ -345,7 +433,10 @@ class MeetingRecorderClient:
     async def handle_stop_command(self, data):
         """Handle manual stop command from server"""
         print("\n🛑 STOP COMMAND RECEIVED")
-        await self.stop_recording_and_confirm()
+        print(f"   Subject: {data.get('subject', 'N/A')}")
+        print(f"   Organizer: {data.get('organizer', 'N/A')}")
+        print(f"   Start Time: {data.get('start_time', 'N/A')}")
+        await self.stop_recording_and_confirm(reason="manual")
     
     async def listen(self):
         """Listen for messages from server"""

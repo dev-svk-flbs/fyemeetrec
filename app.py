@@ -209,11 +209,68 @@ recording_state = {
     'thread': None,
     'transcriptions': [],
     'selected_monitor': None,
-    'recording_id': None
+    'recording_id': None,
+    'start_time': None,  # Track when recording started
+    'is_remote_triggered': False  # Track if recording was triggered remotely
 }
 
 # Threading lock to prevent race conditions in recording start/stop
 recording_lock = threading.Lock()
+
+# Maximum recording duration (3 hours in seconds)
+MAX_RECORDING_DURATION = 3 * 60   # 10800 seconds
+
+def monitor_recording_duration():
+    """Background thread that monitors recording duration and auto-stops after 3 hours"""
+    logger.info("🕐 Recording duration monitor started")
+    
+    while True:
+        try:
+            time.sleep(30)  # Check every 30 seconds
+            
+            with recording_lock:
+                if recording_state['active'] and recording_state['start_time']:
+                    elapsed = time.time() - recording_state['start_time']
+                    
+                    if elapsed >= MAX_RECORDING_DURATION:
+                        logger.warning(f"⚠️ Recording exceeded 3-hour limit ({int(elapsed)}s) - auto-stopping!")
+                        
+                        # Store info before stopping
+                        is_remote = recording_state.get('is_remote_triggered', False)
+                        recording_id = recording_state.get('recording_id')
+                        meeting_id = recording_state.get('meeting_id')
+                        
+                        # Stop the recording
+                        if recording_state['streamer']:
+                            recording_state['streamer'].transcription_active = False
+                            recording_state['streamer'].recording_active = False
+                            
+                            # Terminate ffmpeg processes
+                            try:
+                                if getattr(recording_state['streamer'], 'audio_process', None):
+                                    recording_state['streamer'].audio_process.terminate()
+                            except Exception:
+                                pass
+                            try:
+                                if getattr(recording_state['streamer'], 'video_process', None):
+                                    recording_state['streamer'].video_process.terminate()
+                            except Exception:
+                                pass
+                        
+                        recording_state['active'] = False
+                        logger.info(f"✅ Recording auto-stopped (3-hour limit)")
+                        
+                        # If this was a remote-triggered recording, notify via websocket
+                        # The websocket client monitor will detect the premature stop
+                        if is_remote:
+                            logger.info("📡 Recording was remote-triggered - websocket client will notify server")
+                        
+        except Exception as e:
+            logger.error(f"❌ Error in recording duration monitor: {e}")
+    
+# Start the duration monitor thread
+duration_monitor_thread = threading.Thread(target=monitor_recording_duration, daemon=True)
+duration_monitor_thread.start()
 
 def get_monitor_manufacturers():
     """Get monitor manufacturer info using WMI InstanceNames and full model names"""
@@ -574,6 +631,8 @@ def start_recording():
         recording_state['selected_monitor'] = selected_monitor
         recording_state['recording_id'] = recording.id
         recording_state['meeting_id'] = meeting_id  # Store for later use
+        recording_state['start_time'] = time.time()  # Track start time for 3-hour limit
+        recording_state['is_remote_triggered'] = False  # Default to manual/local
         
         # Create streamer instance with monitor config
         logger.info("🚀 Creating DualModeStreamer instance...")
@@ -611,6 +670,38 @@ def start_recording():
                     if success and hasattr(recording_state['streamer'], 'last_output_file'):
                         file_path = recording_state['streamer'].last_output_file
                         if os.path.exists(file_path):
+                            # Repair video metadata by remuxing with FFmpeg
+                            # This fixes corrupted duration metadata in MKV files
+                            try:
+                                import subprocess
+                                logger.info(f"🔧 Remuxing video to repair metadata: {file_path}")
+                                
+                                # Create temporary output filename
+                                temp_file = file_path + '.temp.mkv'
+                                ffmpeg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ffmpeg', 'bin', 'ffmpeg.exe')
+                                
+                                # Run FFmpeg remux: copy all streams without re-encoding
+                                result = subprocess.run([
+                                    ffmpeg_path, '-i', file_path,
+                                    '-c', 'copy', '-map', '0',
+                                    '-y',  # Overwrite output file if exists
+                                    temp_file
+                                ], capture_output=True, text=True, timeout=60)
+                                
+                                if result.returncode == 0 and os.path.exists(temp_file):
+                                    # Replace original file with remuxed version
+                                    os.remove(file_path)
+                                    os.rename(temp_file, file_path)
+                                    logger.info(f"✅ Video metadata repaired successfully")
+                                else:
+                                    logger.warning(f"⚠️ FFmpeg remux failed: {result.stderr}")
+                                    # Clean up temp file if it exists
+                                    if os.path.exists(temp_file):
+                                        os.remove(temp_file)
+                            except Exception as remux_error:
+                                logger.error(f"❌ Video metadata repair failed: {remux_error}")
+                                # Continue anyway - video is still playable even with broken metadata
+                            
                             # Store only the filename, not the full path to avoid cross-machine issues
                             rec.file_path = os.path.basename(file_path)  # Store just filename
                             rec.filename = os.path.basename(file_path)
@@ -708,6 +799,8 @@ def stop_recording():
             # This prevents Flask from blocking and timing out
         
         recording_state['active'] = False
+        recording_state['start_time'] = None  # Reset start time
+        recording_state['is_remote_triggered'] = False  # Reset remote flag
         logger.info("🛑 Recording stopped via API request")
         
     return jsonify({'status': 'stopped'})
@@ -803,6 +896,76 @@ def api_find_meeting():
         return jsonify({'found': False, 'error': str(e)}), 500
 
 
+@app.route('/api/find_meeting_by_details', methods=['POST'])
+def api_find_meeting_by_details():
+    """Find meeting by subject, organizer, and start_time for WebSocket client"""
+    try:
+        data = request.get_json()
+        subject = data.get('subject')
+        organizer = data.get('organizer')
+        start_time_str = data.get('start_time')
+        
+        if not subject or not organizer or not start_time_str:
+            return jsonify({'found': False, 'error': 'Missing required fields: subject, organizer, start_time'}), 400
+        
+        # Parse the start_time string to datetime
+        from dateutil import parser as dateutil_parser
+        try:
+            start_time_utc = dateutil_parser.parse(start_time_str)
+            
+            # Convert UTC to Eastern time (database stores as naive datetime in Eastern time)
+            if start_time_utc.tzinfo is not None:
+                # Has timezone info - convert to Eastern
+                start_time_eastern = start_time_utc.astimezone(EASTERN)
+                # Remove timezone info to match database format (naive datetime)
+                start_time = start_time_eastern.replace(tzinfo=None)
+            else:
+                # No timezone info - assume it's already in Eastern
+                start_time = start_time_utc
+                
+            logger.info(f"Time conversion: {start_time_str} (UTC) -> {start_time} (Eastern)")
+        except Exception as e:
+            logger.error(f"Error parsing start_time: {e}")
+            return jsonify({'found': False, 'error': f'Invalid start_time format: {e}'}), 400
+        
+        # Query database for matching meeting
+        # Match by subject, organizer, and start_time (within 1 minute tolerance)
+        from datetime import timedelta
+        time_tolerance = timedelta(minutes=1)
+        
+        logger.info(f"Searching for meeting: subject={subject}, organizer={organizer}, start_time={start_time}")
+        
+        meeting = Meeting.query.filter(
+            Meeting.subject == subject,
+            Meeting.organizer == organizer,
+            Meeting.start_time >= start_time - time_tolerance,
+            Meeting.start_time <= start_time + time_tolerance
+        ).first()
+        
+        if meeting:
+            logger.info(f"Found meeting: ID={meeting.id}, subject={meeting.subject}")
+            return jsonify({
+                'found': True,
+                'meeting': {
+                    'id': meeting.id,
+                    'subject': meeting.subject,
+                    'start_time': meeting.start_time.isoformat() if meeting.start_time else None,
+                    'end_time': meeting.end_time.isoformat() if meeting.end_time else None,
+                    'organizer': meeting.organizer,
+                    'calendar_event_id': meeting.calendar_event_id
+                }
+            })
+        else:
+            logger.warning(f"No meeting found matching: subject={subject}, organizer={organizer}, start_time={start_time}")
+            return jsonify({'found': False})
+    
+    except Exception as e:
+        logger.error(f"Error finding meeting by details: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'found': False, 'error': str(e)}), 500
+
+
 @app.route('/api/start_recording', methods=['POST'])
 def api_start_recording():
     """Start recording endpoint for WebSocket client"""
@@ -834,6 +997,11 @@ def api_start_recording():
         request.get_json = lambda: recording_data
         
         response = start_recording()
+        
+        # Mark this as remote-triggered for websocket notification
+        with recording_lock:
+            recording_state['is_remote_triggered'] = True
+        
         request.get_json = original_json
         
         return response
@@ -2395,6 +2563,10 @@ def admin_meetings():
         # Get filter parameters
         filter_status = request.args.get('filter', 'all')
         
+        # Get sorting parameters
+        sort_by = request.args.get('sort', 'date')  # 'date' or 'subject'
+        sort_order = request.args.get('order', 'desc')  # 'asc' or 'desc'
+        
         # Calculate statistics for all meetings
         total_meetings = Meeting.query.count()
         recorded_meetings = Meeting.query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local'])).count()
@@ -2418,8 +2590,20 @@ def admin_meetings():
         elif filter_status == 'orphaned':
             query = query.filter(Meeting.recording_id.is_(None))
         
-        # Get meetings for display - sorted by newest first (descending)
-        meetings_paginated = query.order_by(Meeting.start_time.desc()).paginate(
+        # Apply sorting
+        if sort_by == 'subject':
+            if sort_order == 'asc':
+                query = query.order_by(Meeting.subject.asc())
+            else:
+                query = query.order_by(Meeting.subject.desc())
+        else:  # Default to date sorting
+            if sort_order == 'asc':
+                query = query.order_by(Meeting.start_time.asc())
+            else:
+                query = query.order_by(Meeting.start_time.desc())
+        
+        # Get meetings for display with pagination
+        meetings_paginated = query.paginate(
             page=page, per_page=per_page, error_out=False
         )
         
@@ -2433,11 +2617,19 @@ def admin_meetings():
             'total_attendees': total_attendees
         }
         
+        # Get currently recording meeting if any
+        active_recording_meeting = None
+        if recording_state.get('active') and recording_state.get('meeting_id'):
+            active_recording_meeting = Meeting.query.get(recording_state['meeting_id'])
+        
         return render_template('admin/meetings.html', 
                              meetings=meetings_paginated.items,
                              pagination=meetings_paginated,
                              stats=stats,
-                             filter_status=filter_status)
+                             filter_status=filter_status,
+                             active_recording_meeting=active_recording_meeting,
+                             sort_by=sort_by,
+                             sort_order=sort_order)
     except Exception as e:
         logger.error(f"❌ Admin meetings error: {str(e)}")
         flash(f"Error loading meetings: {str(e)}", "error")
@@ -2446,17 +2638,31 @@ def admin_meetings():
 @app.route('/admin/meetings/<int:meeting_id>/exclude', methods=['POST'])
 @login_required
 def toggle_meeting_exclusion(meeting_id):
-    """Toggle exclusion status for a single meeting"""
+    """Toggle exclusion status for a single meeting (only organizer can exclude)"""
     try:
         data = request.get_json()
         excluded = data.get('excluded', False)
         
         meeting = Meeting.query.get_or_404(meeting_id)
+        
+        # Check if current user is the organizer
+        if meeting.organizer and current_user.email:
+            if meeting.organizer.lower() != current_user.email.lower():
+                return jsonify({
+                    'success': False,
+                    'error': 'Only the meeting organizer can exclude meetings'
+                }), 403
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot verify meeting organizer'
+            }), 400
+        
         meeting.user_excluded = excluded
         
         db.session.commit()
         
-        logger.info(f"Meeting {meeting_id} exclusion updated to: {excluded}")
+        logger.info(f"Meeting {meeting_id} exclusion updated to: {excluded} by organizer {current_user.email}")
         
         return jsonify({
             'success': True,
@@ -2474,7 +2680,7 @@ def toggle_meeting_exclusion(meeting_id):
 @app.route('/admin/meetings/exclude-series', methods=['POST'])
 @login_required
 def toggle_series_exclusion():
-    """Toggle exclusion status for an entire recurring series"""
+    """Toggle exclusion status for an entire recurring series (only organizer can exclude)"""
     try:
         data = request.get_json()
         series_id = data.get('series_id')
@@ -2493,6 +2699,26 @@ def toggle_series_exclusion():
             # If no series_id match, try calendar_event_id
             meetings = Meeting.query.filter_by(calendar_event_id=series_id).all()
         
+        if not meetings:
+            return jsonify({
+                'success': False,
+                'error': 'No meetings found in this series'
+            }), 404
+        
+        # Check if current user is the organizer of the first meeting in the series
+        first_meeting = meetings[0]
+        if first_meeting.organizer and current_user.email:
+            if first_meeting.organizer.lower() != current_user.email.lower():
+                return jsonify({
+                    'success': False,
+                    'error': 'Only the meeting organizer can exclude series'
+                }), 403
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot verify meeting organizer'
+            }), 400
+        
         updated_count = 0
         for meeting in meetings:
             meeting.exclude_all_series = excluded
@@ -2501,7 +2727,7 @@ def toggle_series_exclusion():
         
         db.session.commit()
         
-        logger.info(f"Updated {updated_count} meetings in series {series_id} to excluded={excluded}")
+        logger.info(f"Updated {updated_count} meetings in series {series_id} to excluded={excluded} by organizer {current_user.email}")
         
         return jsonify({
             'success': True,
@@ -2766,6 +2992,12 @@ def fetch_and_sync_calendar_events(user):
                 event_id = event.get('id') or event.get('iCalUId')
                 subject = event.get('subject', 'No Title')
                 
+                # DEBUG: Log organizer data structure
+                if 'Test238764' in subject:
+                    logger.info(f"🔍 DEBUG - Event data for {subject}:")
+                    logger.info(f"   organizer field: {event.get('organizer')}")
+                    logger.info(f"   organizer type: {type(event.get('organizer'))}")
+                
                 # Parse start/end times and convert to Eastern time
                 start_time = None
                 end_time = None
@@ -2780,7 +3012,21 @@ def fetch_and_sync_calendar_events(user):
                 
                 # Create a unique key for duplicate detection
                 # Use multiple criteria: time + subject + organizer for robust duplicate detection
-                organizer = event.get('organizer', {}).get('emailAddress', {}).get('address', '') if isinstance(event.get('organizer'), dict) else ''
+                # Extract organizer - handle both string and dict formats
+                organizer = ''
+                if event.get('organizer'):
+                    organizer_data = event['organizer']
+                    if isinstance(organizer_data, str):
+                        # Direct string format from Power Automate
+                        organizer = organizer_data.strip()
+                    elif isinstance(organizer_data, dict):
+                        # Dict format (emailAddress.address)
+                        organizer = organizer_data.get('emailAddress', {}).get('address', '')
+                
+                # DEBUG: Log extracted organizer
+                if 'Test238764' in subject:
+                    logger.info(f"🔍 DEBUG - Extracted organizer for {subject}: [{organizer}]")
+                
                 duplicate_key = f"{start_time.isoformat()}|{end_time.isoformat()}|{subject.lower().strip()}|{organizer.lower()}"
                 
                 # Skip if we've already processed this exact meeting in this batch

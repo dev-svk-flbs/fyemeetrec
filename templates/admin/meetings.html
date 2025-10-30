@@ -91,6 +91,29 @@
         letter-spacing: 0.05em;
     }
 
+    .meetings-table th.sortable {
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.2s;
+    }
+
+    .meetings-table th.sortable:hover {
+        background: #f3f4f6;
+    }
+
+    .sort-arrow {
+        display: inline-block;
+        margin-left: 0.25rem;
+        font-size: 0.7rem;
+        color: #9ca3af;
+        transition: color 0.2s;
+    }
+
+    .sort-arrow.active {
+        color: #374151;
+        font-weight: bold;
+    }
+
     .meetings-table th:nth-child(1) { width: 5%; text-align: center; }   /* ID */
     .meetings-table th:nth-child(2) { width: 35%; }  /* Meeting */
     .meetings-table th:nth-child(3) { width: 20%; }  /* Schedule */
@@ -399,236 +422,7 @@
         transform: none;
     }
 
-    .view-toggle {
-        display: flex;
-        gap: 0.1rem;
-        margin-left: 0.5rem;
-    }
 
-    .view-btn {
-        padding: 0.25rem;
-        border: 1px solid #d1d5db;
-        background: white;
-        color: #6b7280;
-        border-radius: 3px;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-size: 0.7rem;
-        width: 24px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .view-btn:hover {
-        border-color: #9ca3af;
-        color: #374151;
-    }
-
-    .view-btn.active {
-        background: #374151;
-        color: white;
-        border-color: #374151;
-    }
-
-    /* Calendar Styles */
-    .calendar-container {
-        background: white;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        overflow: hidden;
-        display: none;
-    }
-
-    .calendar-container.active {
-        display: block;
-    }
-
-    .calendar-header {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        background: #f8f9fa;
-        border-bottom: 1px solid #d1d5db;
-    }
-
-    .calendar-header-day {
-        padding: 0.5rem 0.3rem;
-        text-align: center;
-        font-weight: 600;
-        font-size: 0.65rem;
-        color: #374151;
-        border-right: 1px solid #e5e7eb;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .calendar-header-day:last-child {
-        border-right: none;
-    }
-
-    .calendar-body {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        min-height: 400px;
-        border-top: 1px solid #d1d5db;
-    }
-
-    .day-column {
-        border-right: 1px solid #e5e7eb;
-        display: flex;
-        flex-direction: column;
-        min-height: 400px;
-        position: relative;
-    }
-
-    .day-column:last-child {
-        border-right: none;
-    }
-
-    .day-date-header {
-        padding: 0.3rem;
-        text-align: center;
-        border-bottom: 1px solid #e5e7eb;
-        background: #fafbfc;
-        font-weight: 600;
-        font-size: 0.7rem;
-        flex-shrink: 0;
-    }
-
-    .day-date-header.today {
-        background: #2563eb;
-        color: white;
-    }
-
-    .day-events-container {
-        flex: 1;
-        padding: 0.3rem;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 0.1rem;
-    }
-
-    .event-item {
-        background: #deebff;
-        border: 1px solid #b3d4ff;
-        border-radius: 3px;
-        padding: 0.25rem 0.3rem;
-        margin-bottom: 2px;
-        cursor: pointer;
-        font-size: 0.65rem;
-        line-height: 1.2;
-        display: flex;
-        flex-direction: column;
-        gap: 0.2rem;
-        transition: all 0.2s ease;
-    }
-
-    .event-item:hover {
-        background: #cee0ff;
-        border-color: #93c5fd;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .event-item.recording {
-        background: #fee2e2;
-        border-color: #fca5a5;
-        box-shadow: 0 0 10px rgba(220, 38, 38, 0.3);
-    }
-
-    .event-item.recording:hover {
-        background: #fecaca;
-        border-color: #f87171;
-    }
-
-    .event-item.recorded {
-        background: #d1fae5;
-        border-color: #a7f3d0;
-    }
-
-    .event-item.recorded:hover {
-        background: #bbf7d0;
-        border-color: #86efac;
-    }
-
-    .event-item.scheduled {
-        background: #dbeafe;
-        border-color: #93c5fd;
-    }
-
-    .event-item.scheduled:hover {
-        background: #bfdbfe;
-        border-color: #60a5fa;
-    }
-
-    .event-time {
-        font-weight: 600;
-        font-size: 0.6rem;
-        color: #374151;
-    }
-
-    .event-title {
-        font-size: 0.65rem;
-        color: #1f2937;
-        line-height: 1.2;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        hyphens: auto;
-    }
-
-    .event-actions {
-        display: flex;
-        gap: 0.2rem;
-        justify-content: flex-start;
-        align-items: center;
-        margin-top: 0.1rem;
-    }
-
-    .event-action-btn {
-        padding: 0.1rem 0.2rem;
-        font-size: 0.6rem;
-        border-radius: 2px;
-        border: none;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 16px;
-        height: 16px;
-        line-height: 1;
-    }
-
-    .event-view-btn {
-        background: #f3f4f6;
-        color: #374151;
-    }
-
-    .event-view-btn:hover {
-        background: #e5e7eb;
-        text-decoration: none;
-    }
-
-    .event-record-btn {
-        background: #fee2e2;
-        color: #dc2626;
-    }
-
-    .event-record-btn:hover {
-        background: #fecaca;
-    }
-
-    .event-stop-btn {
-        background: #374151;
-        color: white;
-        margin-left: 2px;
-    }
-
-    .event-stop-btn:hover {
-        background: #1f2937;
-    }
 
     .recording-indicator {
         background: #dc2626;
@@ -734,6 +528,180 @@
         font-size: 0.75rem;
         opacity: 0.7;
     }
+
+    /* Active Recording Card */
+    .active-recording-card {
+        background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4), 0 0 0 1px rgba(220, 38, 38, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        animation: card-pulse 2s infinite;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .active-recording-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: shimmer 3s infinite;
+    }
+
+    @keyframes card-pulse {
+        0%, 100% {
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4), 0 0 0 1px rgba(220, 38, 38, 0.1);
+        }
+        50% {
+            box-shadow: 0 12px 32px rgba(220, 38, 38, 0.6), 0 0 0 2px rgba(220, 38, 38, 0.3);
+        }
+    }
+
+    @keyframes shimmer {
+        0% {
+            left: -100%;
+        }
+        100% {
+            left: 100%;
+        }
+    }
+
+    .recording-status-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .recording-pulse-dot {
+        font-size: 1.5rem;
+        color: white;
+        animation: pulse-dot 1.5s infinite;
+    }
+
+    @keyframes pulse-dot {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.6;
+            transform: scale(1.2);
+        }
+    }
+
+    .recording-label {
+        font-weight: 700;
+        font-size: 0.75rem;
+        color: white;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+    }
+
+    .recording-details {
+        flex: 1;
+        min-width: 0;
+        color: white;
+    }
+
+    .recording-meeting-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .recording-meeting-time {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 0.25rem;
+    }
+
+    .recording-timer {
+        font-family: 'Courier New', monospace;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: #fef08a;
+        letter-spacing: 0.05em;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .stop-recording-btn {
+        background: rgba(0, 0, 0, 0.3);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .stop-recording-btn:hover {
+        background: rgba(0, 0, 0, 0.5);
+        border-color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .stop-recording-btn:active {
+        transform: translateY(0);
+    }
+
+    .stop-icon {
+        font-size: 1.1rem;
+    }
+
+    /* Recording indicator in table */
+    .inline-recording-indicator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.3rem;
+    }
+
+    .inline-recording-pulse {
+        width: 10px;
+        height: 10px;
+        background: #dc2626;
+        border-radius: 50%;
+        animation: pulse-indicator 1.5s infinite;
+    }
+
+    @keyframes pulse-indicator {
+        0%, 100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.5;
+            transform: scale(1.3);
+        }
+    }
+
+    .inline-recording-text {
+        font-size: 0.7rem;
+        color: #dc2626;
+        font-weight: 600;
+    }
+
+
 </style>
 {% endblock %}
 
@@ -744,6 +712,28 @@
         <p class="admin-subtitle">Showing meetings for the next 7 days</p>
     </div>
 </div>
+
+<!-- Active Recording Card -->
+{% if active_recording_meeting %}
+<div class="active-recording-card">
+    <div class="recording-status-badge">
+        <span class="recording-pulse-dot">⬤</span>
+        <span class="recording-label">NOW RECORDING</span>
+    </div>
+    <div class="recording-details">
+        <div class="recording-meeting-title">{{ active_recording_meeting.subject }}</div>
+        <div class="recording-meeting-time">
+            Started: {{ active_recording_meeting.start_time | format_eastern_local }}
+        </div>
+        <div class="recording-timer" id="recordingTimer">00:00:00</div>
+    </div>
+    <button onclick="stopActiveRecording({{ active_recording_meeting.id }}, '{{ active_recording_meeting.subject }}')" 
+            class="stop-recording-btn">
+        <span class="stop-icon">⏹</span>
+        <span>Stop Recording</span>
+    </button>
+</div>
+{% endif %}
 
 <div class="action-buttons">
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
@@ -756,27 +746,21 @@
 </div>
 
 <div class="filter-tabs">
-    <a href="{{ url_for('admin_meetings') }}" class="filter-tab {{ 'active' if filter_status == 'all' else '' }}">
+    <a href="{{ url_for('admin_meetings', sort=sort_by, order=sort_order) }}" class="filter-tab {{ 'active' if filter_status == 'all' else '' }}">
         All Meetings ({{ stats.total_meetings }})
     </a>
-    <a href="{{ url_for('admin_meetings', filter='recorded') }}" class="filter-tab {{ 'active' if filter_status == 'recorded' else '' }}">
+    <a href="{{ url_for('admin_meetings', filter='recorded', sort=sort_by, order=sort_order) }}" class="filter-tab {{ 'active' if filter_status == 'recorded' else '' }}">
         Recorded ({{ stats.recorded_meetings }})
     </a>
-    <a href="{{ url_for('admin_meetings', filter='scheduled') }}" class="filter-tab {{ 'active' if filter_status == 'scheduled' else '' }}">
+    <a href="{{ url_for('admin_meetings', filter='scheduled', sort=sort_by, order=sort_order) }}" class="filter-tab {{ 'active' if filter_status == 'scheduled' else '' }}">
         Scheduled ({{ stats.scheduled_meetings }})
     </a>
-    <a href="{{ url_for('admin_meetings', filter='upcoming') }}" class="filter-tab {{ 'active' if filter_status == 'upcoming' else '' }}">
+    <a href="{{ url_for('admin_meetings', filter='upcoming', sort=sort_by, order=sort_order) }}" class="filter-tab {{ 'active' if filter_status == 'upcoming' else '' }}">
         Upcoming ({{ stats.upcoming_meetings }})
     </a>
-    <a href="{{ url_for('admin_meetings', filter='orphaned') }}" class="filter-tab {{ 'active' if filter_status == 'orphaned' else '' }}">
+    <a href="{{ url_for('admin_meetings', filter='orphaned', sort=sort_by, order=sort_order) }}" class="filter-tab {{ 'active' if filter_status == 'orphaned' else '' }}">
         No Recording ({{ stats.no_recording_meetings }})
     </a>
-    
-    <!-- View Toggle integrated into filter tabs -->
-    <div class="view-toggle">
-        <button onclick="switchView('list')" class="view-btn active" id="list-btn" title="List View">⋮⋮⋮</button>
-        <button onclick="switchView('calendar')" class="view-btn" id="calendar-btn" title="Calendar View">◷</button>
-    </div>
 </div>
 
 <div class="meetings-container" id="list-view">
@@ -802,8 +786,12 @@
         <thead>
             <tr>
                 <th>#</th>
-                <th>Meeting</th>
-                <th>Schedule</th>
+                <th class="sortable" onclick="sortTable('subject')">
+                    Meeting <span class="sort-arrow" id="sort-arrow-subject">⇅</span>
+                </th>
+                <th class="sortable" onclick="sortTable('date')">
+                    Schedule <span class="sort-arrow" id="sort-arrow-date">⇅</span>
+                </th>
                 <th>Exclude</th>
                 <th>Exclude Series</th>
                 <th>Actions</th>
@@ -811,7 +799,7 @@
         </thead>
         <tbody>
             {% for meeting in meetings %}
-            <tr>
+            <tr data-meeting-subject="{{ meeting.subject }}" data-meeting-date="{{ meeting.start_time.isoformat() }}">
                 <td>
                     {{ loop.index }}
                 </td>
@@ -829,7 +817,8 @@
                     </div>
                 </td>
                 <td>
-                    <label class="checkbox-container" title="Exclude this specific meeting from recording">
+                    {% if meeting.organizer and current_user.email and meeting.organizer.lower() == current_user.email.lower() %}
+                    <label class="checkbox-container" title="Exclude this specific meeting from recording (Only organizer can exclude)">
                <input type="checkbox" 
                    class="exclude-checkbox" 
                    data-meeting-id="{{ meeting.id }}"
@@ -837,18 +826,25 @@
                    onchange="toggleMeetingExclusion(this, {{ meeting.id }}, this.checked)">
                         <span class="checkmark"></span>
                     </label>
+                    {% else %}
+                    <span style="color: #9ca3af; font-size: 0.7rem;" title="Only the meeting organizer can exclude meetings">🔒</span>
+                    {% endif %}
                 </td>
                 <td>
                     {% if meeting.is_recurring %}
-                    <label class="checkbox-container" title="Exclude all meetings in this recurring series">
+                        {% if meeting.organizer and current_user.email and meeting.organizer.lower() == current_user.email.lower() %}
+                        <label class="checkbox-container" title="Exclude all meetings in this recurring series (Only organizer can exclude)">
                <input type="checkbox" 
                    class="exclude-series-checkbox" 
                    data-meeting-id="{{ meeting.id }}"
                    data-series-id="{{ meeting.series_id or meeting.calendar_event_id }}"
                    {{ 'checked' if meeting.exclude_all_series else '' }}
                    onchange="toggleSeriesExclusion(this, {{ meeting.id }}, this.checked, '{{ meeting.series_id or meeting.calendar_event_id }}')">
-                        <span class="checkmark"></span>
-                    </label>
+                            <span class="checkmark"></span>
+                        </label>
+                        {% else %}
+                        <span style="color: #9ca3af; font-size: 0.7rem;" title="Only the meeting organizer can exclude series">🔒</span>
+                        {% endif %}
                     {% else %}
                     <span style="color: #9ca3af;">N/A</span>
                     {% endif %}
@@ -856,20 +852,14 @@
                 <td>
                     <div class="action-buttons-group">
                         {% if meeting.recording_status == 'recording' %}
-                        <span class="recording-indicator pulsating" title="Currently Recording">
-                            ⬤
-                        </span>
-            <button onclick="stopRecording(this, {{ meeting.id }}, '{{ meeting.subject }}')" 
-                class="btn btn-stop-icon" 
-                title="Stop Recording">
-                            ⏹
-                        </button>
-                        {% elif not meeting.recording %}
-            <button onclick="startRecording(this, {{ meeting.id }}, '{{ meeting.subject }}')" 
-                class="btn btn-record-icon" 
-                title="Start Recording">
-                            ⬤
-                        </button>
+                        <div class="inline-recording-indicator">
+                            <span class="inline-recording-pulse"></span>
+                            <span class="inline-recording-text">RECORDING</span>
+                        </div>
+                        {% elif meeting.recording %}
+                        <span style="color: #10b981; font-size: 0.7rem; font-weight: 600;">✓ Recorded</span>
+                        {% else %}
+                        <span style="color: #9ca3af; font-size: 0.7rem;">—</span>
                         {% endif %}
                     </div>
                 </td>
@@ -903,32 +893,16 @@
     {% endif %}
 </div>
 
-<!-- Calendar View -->
-<div class="calendar-container" id="calendar-view">
-    <div class="calendar-header">
-        <div class="calendar-header-day">Sunday</div>
-        <div class="calendar-header-day">Monday</div>
-        <div class="calendar-header-day">Tuesday</div>
-        <div class="calendar-header-day">Wednesday</div>
-        <div class="calendar-header-day">Thursday</div>
-        <div class="calendar-header-day">Friday</div>
-        <div class="calendar-header-day">Saturday</div>
-    </div>
-    <div class="calendar-body" id="calendar-grid">
-        <!-- Calendar days will be populated by JavaScript -->
-    </div>
-</div>
-
 {% if pagination %}
 <div class="pagination">
     {% if pagination.has_prev %}
-        <a href="{{ url_for('admin_meetings', page=pagination.prev_num, filter=filter_status) }}">← Previous</a>
+        <a href="{{ url_for('admin_meetings', page=pagination.prev_num, filter=filter_status, sort=sort_by, order=sort_order) }}">← Previous</a>
     {% endif %}
     
     {% for page_num in pagination.iter_pages() %}
         {% if page_num %}
             {% if page_num != pagination.page %}
-                <a href="{{ url_for('admin_meetings', page=page_num, filter=filter_status) }}">{{ page_num }}</a>
+                <a href="{{ url_for('admin_meetings', page=page_num, filter=filter_status, sort=sort_by, order=sort_order) }}">{{ page_num }}</a>
             {% else %}
                 <span class="current">{{ page_num }}</span>
             {% endif %}
@@ -938,7 +912,7 @@
     {% endfor %}
     
     {% if pagination.has_next %}
-        <a href="{{ url_for('admin_meetings', page=pagination.next_num, filter=filter_status) }}">Next →</a>
+        <a href="{{ url_for('admin_meetings', page=pagination.next_num, filter=filter_status, sort=sort_by, order=sort_order) }}">Next →</a>
     {% endif %}
 </div>
 {% endif %}
@@ -962,127 +936,106 @@
         {% endfor %}
     ];
     
-    // Auto-refresh meetings every 60 seconds when on 'all' or 'upcoming' filter
+    // Auto-refresh meetings every 30 seconds to update recording status
     {% if filter_status in ['all', 'upcoming'] %}
     setTimeout(() => {
         location.reload();
-    }, 60000);
+    }, 30000);
     {% endif %}
 
-    // View switching functionality
-    function switchView(viewType) {
-        const listView = document.getElementById('list-view');
-        const calendarView = document.getElementById('calendar-view');
-        const listBtn = document.getElementById('list-btn');
-        const calendarBtn = document.getElementById('calendar-btn');
+    // Recording timer for the active recording card
+    {% if active_recording_meeting %}
+    let recordingStartTime = new Date('{{ active_recording_meeting.start_time.isoformat() }}');
+    
+    function updateRecordingTimer() {
+        const now = new Date();
+        const elapsed = Math.floor((now - recordingStartTime) / 1000);
         
-        if (viewType === 'calendar') {
-            listView.style.display = 'none';
-            calendarView.style.display = 'block';
-            listBtn.classList.remove('active');
-            calendarBtn.classList.add('active');
-            generateCalendar();
+        const hours = Math.floor(elapsed / 3600);
+        const minutes = Math.floor((elapsed % 3600) / 60);
+        const seconds = elapsed % 60;
+        
+        const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        const timerElement = document.getElementById('recordingTimer');
+        if (timerElement) {
+            timerElement.textContent = timeString;
+        }
+    }
+    
+    // Update timer every second
+    setInterval(updateRecordingTimer, 1000);
+    updateRecordingTimer(); // Initial update
+    {% endif %}
+
+    // Sorting functionality - reload page with sort parameters
+    function sortTable(column) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSort = urlParams.get('sort');
+        const currentOrder = urlParams.get('order') || 'desc';
+        
+        // Determine new sort order
+        let newOrder = 'asc';
+        if (currentSort === column) {
+            // Toggle direction if clicking same column
+            newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
         } else {
-            listView.style.display = 'block';
-            calendarView.style.display = 'none';
-            listBtn.classList.add('active');
-            calendarBtn.classList.remove('active');
+            // Default to ascending for new column
+            newOrder = 'asc';
         }
+        
+        // Update URL parameters
+        urlParams.set('sort', column);
+        urlParams.set('order', newOrder);
+        urlParams.set('page', '1'); // Reset to first page when sorting
+        
+        // Reload page with new parameters
+        window.location.search = urlParams.toString();
     }
 
-    // Generate calendar grid
-    function generateCalendar() {
-        const calendarGrid = document.getElementById('calendar-grid');
-        calendarGrid.innerHTML = '';
+    // Initialize sort arrow indicators on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSort = urlParams.get('sort') || 'date';
+        const currentOrder = urlParams.get('order') || 'desc';
         
-        // Get current week (Sunday to Saturday - full week view)
-        const today = new Date();
-        const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const sunday = new Date(today);
-        sunday.setDate(today.getDate() - currentDay); // Go back to Sunday
-        
-        // Create 7 day columns starting from Sunday
-        for (let i = 0; i < 7; i++) {
-            const date = new Date(sunday);
-            date.setDate(sunday.getDate() + i);
-            
-            const dayColumn = document.createElement('div');
-            dayColumn.className = 'day-column';
-            
-            const dayHeader = document.createElement('div');
-            dayHeader.className = 'day-date-header';
-            if (date.toDateString() === today.toDateString()) {
-                dayHeader.classList.add('today');
-            }
-            dayHeader.textContent = date.toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
-            });
-            
-            const eventsContainer = document.createElement('div');
-            eventsContainer.className = 'day-events-container';
-            
-            // Filter meetings for this day
-            const dayMeetings = meetings.filter(meeting => {
-                const meetingDate = new Date(meeting.start_time);
-                return meetingDate.toDateString() === date.toDateString();
-            });
-            
-            // Add meetings to this day
-            dayMeetings.forEach(meeting => {
-                const eventItem = createEventItem(meeting);
-                eventsContainer.appendChild(eventItem);
-            });
-            
-            dayColumn.appendChild(dayHeader);
-            dayColumn.appendChild(eventsContainer);
-            calendarGrid.appendChild(dayColumn);
+        // Update arrow for current sort
+        const activeArrow = document.getElementById(`sort-arrow-${currentSort}`);
+        if (activeArrow) {
+            activeArrow.classList.add('active');
+            activeArrow.textContent = currentOrder === 'asc' ? '↑' : '↓';
         }
-    }
+    });
 
-    // Create event item for calendar
-    function createEventItem(meeting) {
-        const eventItem = document.createElement('div');
-        eventItem.className = 'event-item';
-        
-        // Add status class
-        if (meeting.recording) {
-            eventItem.classList.add('recorded');
-        } else if (meeting.recording_status === 'recording') {
-            eventItem.classList.add('recording');
-        } else if (meeting.recording_status === 'scheduled') {
-            eventItem.classList.add('scheduled');
+    // Function to stop the active recording from the card
+    async function stopActiveRecording(meetingId, meetingTitle) {
+        if (!confirm(`Stop recording for "${meetingTitle}"?`)) {
+            return;
         }
         
-        // Make the entire card clickable to go to details
-        eventItem.addEventListener('click', function(e) {
-            // Don't navigate if clicking on action buttons
-            if (!e.target.classList.contains('event-action-btn')) {
-                window.location.href = `/admin/meetings/${meeting.id}`;
+        try {
+            const response = await fetch('/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    meeting_id: meetingId
+                })
+            });
+            
+            if (response.ok) {
+                // Show success message
+                alert('Recording stopped successfully!');
+                
+                // Reload the page to update the UI
+                window.location.reload();
+            } else {
+                throw new Error('Failed to stop recording');
             }
-        });
-        
-        // Add cursor pointer to indicate it's clickable
-        eventItem.style.cursor = 'pointer';
-        
-        const startTime = new Date(meeting.start_time).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        });
-        
-        const recurringBadge = meeting.is_recurring ? '<span class="recurring-badge" title="Recurring Meeting" style="margin-left: 4px;">🔁</span>' : '';
-        
-                eventItem.innerHTML = `
-            <div class="event-time">${startTime}</div>
-            <div class="event-title" title="${meeting.subject}">${meeting.subject}${recurringBadge}</div>
-            <div class="event-actions">
-                ${meeting.recording_status === 'recording' ? `<span class="recording-indicator pulsating">⬤</span><button onclick="event.stopPropagation(); stopRecording(this, ${meeting.id}, '${meeting.subject}')" class="event-action-btn event-stop-btn">⏹</button>` : ''}
-                ${!meeting.recording && meeting.recording_status !== 'recording' ? `<button onclick="event.stopPropagation(); startRecording(this, ${meeting.id}, '${meeting.subject}')" class="event-action-btn event-record-btn">⬤</button>` : ''}
-            </div>
-        `;
-        
-        return eventItem;
+        } catch (error) {
+            console.error('Error stopping recording:', error);
+            alert('Failed to stop recording: ' + error.message);
+        }
     }
 
     // Function to start recording for a meeting
@@ -1153,11 +1106,12 @@
                 })
             });
             
-            if (!response.ok) {
-                throw new Error('Failed to update exclusion status');
-            }
-            
             const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                // Show specific error message
+                throw new Error(result.error || 'Failed to update exclusion status');
+            }
             
             // Visual feedback
             const checkbox = element;
@@ -1173,7 +1127,7 @@
             
         } catch (error) {
             console.error('Error updating meeting exclusion:', error);
-            alert('Failed to update exclusion status. Please try again.');
+            alert(error.message || 'Failed to update exclusion status. Please try again.');
             // Revert checkbox state
             element.checked = !isChecked;
         }
@@ -1193,11 +1147,12 @@
                 })
             });
             
-            if (!response.ok) {
-                throw new Error('Failed to update series exclusion status');
-            }
-            
             const result = await response.json();
+            
+            if (!response.ok || !result.success) {
+                // Show specific error message
+                throw new Error(result.error || 'Failed to update series exclusion status');
+            }
             
             // Show success message with count
             alert(`${result.updated_count} meeting(s) in series updated`);
@@ -1207,7 +1162,7 @@
             
         } catch (error) {
             console.error('Error updating series exclusion:', error);
-            alert('Failed to update series exclusion. Please try again.');
+            alert(error.message || 'Failed to update series exclusion. Please try again.');
             // Revert checkbox state
             element.checked = !isChecked;
         }

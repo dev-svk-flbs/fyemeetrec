@@ -770,16 +770,9 @@
         .then(response => response.json())
         .then(data => {
             if (data.active !== isRecording) {
-                isRecording = data.active;
-                if (isRecording) {
-                    startTime = new Date();
-                    startPolling();
-                    startTimer();
-                } else {
-                    stopPolling();
-                    stopTimer();
-                }
-                updateUI();
+                // State changed - refresh the page to ensure clean UI state
+                console.log('Recording state changed:', isRecording, '→', data.active, '- Refreshing page...');
+                location.reload();
             }
             updateUploadStatus(data);
         })
