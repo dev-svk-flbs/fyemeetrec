@@ -69,7 +69,16 @@ class MeetingControlServer:
             
             # Log client responses
             if msg_type == 'client_connected':
-                print(f"   ✅ Client ready: {msg_data.get('hostname', 'unknown')}")
+                hostname = msg_data.get('hostname', 'unknown')
+                user = msg_data.get('user', {})
+                
+                print(f"   ✅ Client ready: {hostname}")
+                
+                if user:
+                    print(f"      User: {user.get('username', 'N/A')} ({user.get('email', 'N/A')})")
+                    print(f"      User ID: {user.get('user_id', 'N/A')}")
+                else:
+                    print(f"      User: Not logged in")
             
             elif msg_type == 'start_confirmed':
                 print(f"   ✅ Recording started successfully")
@@ -100,9 +109,23 @@ class MeetingControlServer:
             elif msg_type == 'app_health':
                 alive = msg_data.get('alive', False)
                 recording = msg_data.get('recording_active', False)
+                recording_type = msg_data.get('recording_type', 'none')
+                
                 if alive:
-                    status_icon = "💚" if recording else "💛"
-                    print(f"   {status_icon} Flask app health: {'Recording' if recording else 'Idle'}")
+                    if recording:
+                        if recording_type == 'meeting':
+                            meeting = msg_data.get('meeting', {})
+                            meeting_subject = meeting.get('subject', 'Unknown')
+                            meeting_id = meeting.get('id', 'N/A')
+                            print(f"   💚 Flask app health: Recording MEETING")
+                            print(f"      Meeting: {meeting_subject}")
+                            print(f"      Meeting ID: {meeting_id}")
+                        elif recording_type == 'manual':
+                            print(f"   💚 Flask app health: Recording MANUAL (hotkey/button)")
+                        else:
+                            print(f"   💚 Flask app health: Recording")
+                    else:
+                        print(f"   💛 Flask app health: Idle")
                 else:
                     print(f"   ❤️‍🩹 Flask app health: DOWN")
                     if msg_data.get('error'):

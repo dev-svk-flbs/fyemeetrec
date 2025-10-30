@@ -860,18 +860,72 @@ def api_health():
         # Check if recording is active
         is_recording = recording_state.get('active', False)
         
-        return jsonify({
+        # Get meeting information if recording
+        meeting_info = None
+        recording_type = 'none'
+        
+        if is_recording:
+            meeting_id = recording_state.get('meeting_id')
+            
+            if meeting_id:
+                # Recording associated with a meeting
+                meeting = Meeting.query.get(meeting_id)
+                if meeting:
+                    recording_type = 'meeting'
+                    meeting_info = {
+                        'id': meeting.id,
+                        'subject': meeting.subject,
+                        'calendar_event_id': meeting.calendar_event_id,
+                        'start_time': meeting.start_time.isoformat() if meeting.start_time else None
+                    }
+            else:
+                # Manual recording (hotkey or record button)
+                recording_type = 'manual'
+        
+        response_data = {
             'status': 'ok',
             'alive': True,
             'recording_active': is_recording,
+            'recording_type': recording_type,
             'timestamp': datetime.now().isoformat()
-        }), 200
+        }
+        
+        if meeting_info:
+            response_data['meeting'] = meeting_info
+        
+        return jsonify(response_data), 200
     except Exception as e:
         logger.error(f"Error in health check: {e}")
         return jsonify({
             'status': 'error',
             'alive': True,
             'message': str(e)
+        }), 500
+
+
+@app.route('/api/current_user', methods=['GET'])
+def api_current_user():
+    """Get current logged-in user information"""
+    try:
+        # Get the first user (single-user system)
+        user = User.query.first()
+        
+        if user:
+            return jsonify({
+                'logged_in': True,
+                'username': user.username,
+                'email': user.email,
+                'user_id': user.id
+            }), 200
+        else:
+            return jsonify({
+                'logged_in': False
+            }), 200
+    except Exception as e:
+        logger.error(f"Error getting current user: {e}")
+        return jsonify({
+            'logged_in': False,
+            'error': str(e)
         }), 500
 
 

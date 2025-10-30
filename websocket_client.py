@@ -23,6 +23,20 @@ class MeetingRecorderClient:
         self.recording_duration = None
         self.health_check_task = None
         self.app_is_alive = False
+        self.user_info = None
+    
+    def get_current_user(self):
+        """Get current logged-in user information"""
+        try:
+            url = f"{self.app_base_url}/api/current_user"
+            response = requests.get(url, timeout=2)
+            
+            if response.status_code == 200:
+                return response.json()
+            return {'logged_in': False}
+        except Exception as e:
+            print(f"❌ Error getting user info: {e}")
+            return {'logged_in': False}
         
     async def connect(self):
         """Connect to WebSocket server"""
@@ -140,6 +154,8 @@ class MeetingRecorderClient:
                 return {
                     'alive': data.get('alive', False),
                     'recording_active': data.get('recording_active', False),
+                    'recording_type': data.get('recording_type', 'none'),
+                    'meeting': data.get('meeting'),
                     'timestamp': data.get('timestamp')
                 }
             else:
@@ -165,12 +181,20 @@ class MeetingRecorderClient:
                     else:
                         print("❌ Flask app is NOT responding")
                 
-                # Report to server
-                await self.send_message("app_health", {
+                # Build health report
+                health_report = {
                     "alive": is_alive,
                     "recording_active": health.get('recording_active', False),
+                    "recording_type": health.get('recording_type', 'none'),
                     "error": health.get('error')
-                })
+                }
+                
+                # Add meeting info if recording a meeting
+                if health.get('meeting'):
+                    health_report['meeting'] = health.get('meeting')
+                
+                # Report to server
+                await self.send_message("app_health", health_report)
                 
                 # If app is dead, send alert
                 if not is_alive:
@@ -357,10 +381,24 @@ class MeetingRecorderClient:
         """Main run loop"""
         while True:
             if await self.connect():
-                await self.send_message("client_connected", {
+                # Get user information
+                self.user_info = self.get_current_user()
+                
+                # Build connection message
+                connection_data = {
                     "hostname": os.environ.get('COMPUTERNAME', 'unknown'),
                     "status": "ready"
-                })
+                }
+                
+                # Add user info if available
+                if self.user_info.get('logged_in'):
+                    connection_data['user'] = {
+                        'username': self.user_info.get('username'),
+                        'email': self.user_info.get('email'),
+                        'user_id': self.user_info.get('user_id')
+                    }
+                
+                await self.send_message("client_connected", connection_data)
                 
                 # Start health monitor
                 if not self.health_check_task or self.health_check_task.done():
