@@ -363,24 +363,11 @@ def get_monitor_manufacturers():
 
 def get_monitors():
     """Get list of available monitors from settings configuration"""
-    logger.debug("🔍 Getting monitors from settings manager...")
-    monitors = settings_manager.get_all_monitors()
-    logger.info(f"📺 Found {len(monitors)} monitors")
-    for i, monitor in enumerate(monitors):
-        logger.debug(f"   Monitor {i}: {monitor['name']} at ({monitor['x']}, {monitor['y']}) - {monitor['width']}x{monitor['height']}")
-    return monitors
+    return settings_manager.get_all_monitors()
 
 def get_default_monitor():
     """Get the default monitor configuration from settings"""
-    logger.debug("🔍 Getting default monitor from settings manager...")
-    default_monitor = settings_manager.get_default_monitor()
-    if default_monitor:
-        logger.info(f"📺 Default monitor: ID={default_monitor['id']}, Name='{default_monitor['name']}'")
-        logger.debug(f"   Position: ({default_monitor['x']}, {default_monitor['y']})")
-        logger.debug(f"   Size: {default_monitor['width']}x{default_monitor['height']}")
-    else:
-        logger.warning("⚠️ No default monitor found")
-    return default_monitor
+    return settings_manager.get_default_monitor()
 
 # Authentication routes
 @app.route('/login', methods=['GET', 'POST'])
@@ -540,12 +527,6 @@ def start_recording():
         recording_title = data.get('title', f"Meeting {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         meeting_id = data.get('meeting_id')  # New: get meeting ID for association
         
-        logger.info(f"📝 Recording request details:")
-        logger.info(f"   Title: {recording_title}")
-        logger.info(f"   Requested Monitor ID: {monitor_id}")
-        logger.info(f"   Meeting ID: {meeting_id}")
-        logger.info(f"   Request data: {data}")
-        
         # If meeting_id provided, check if meeting already has a recording
         if meeting_id:
             try:
@@ -567,36 +548,23 @@ def start_recording():
         
         # Use default monitor from settings if no monitor specified
         if monitor_id is None:
-            logger.info("🔍 No monitor specified, getting default from settings...")
             default_monitor = get_default_monitor()
             monitor_id = default_monitor['id'] if default_monitor else 0
-            logger.info(f"📺 Using default monitor ID: {monitor_id}")
     
         # Get monitor info
-        logger.info("🔍 Getting all available monitors...")
         monitors = get_monitors()
         selected_monitor = None
         for monitor in monitors:
             if monitor['id'] == monitor_id:
                 selected_monitor = monitor
-                logger.info(f"✅ Found matching monitor: ID={monitor['id']}, Name='{monitor['name']}'")
                 break
         
         if not selected_monitor:
-            logger.error(f"❌ Invalid monitor selection: ID={monitor_id}")
-            logger.error(f"   Available monitors: {[m['id'] for m in monitors]}")
+            logger.error(f"❌ Invalid monitor selection: ID={monitor_id}, Available: {[m['id'] for m in monitors]}")
             recording_state['active'] = False  # Reset flag on error
             return jsonify({'error': 'Invalid monitor selection'}), 400
         
-        logger.info(f"📺 Selected monitor configuration:")
-        logger.info(f"   ID: {selected_monitor['id']}")
-        logger.info(f"   Name: {selected_monitor['name']}")
-        logger.info(f"   Position: ({selected_monitor['x']}, {selected_monitor['y']})")
-        logger.info(f"   Size: {selected_monitor['width']}x{selected_monitor['height']}")
-        logger.info(f"   Primary: {selected_monitor.get('primary', False)}")
-        
         # Create database record for this recording
-        logger.info("💾 Creating database record...")
         
         # Always use the single user for this system
         single_user = get_single_user()
@@ -1725,13 +1693,10 @@ def cleanup_old_recordings():
 @login_required
 def detect_monitors():
     """API endpoint to detect and save monitors"""
-    logger.info(f"🔍 Monitor detection requested by user: {current_user.username}")
-    
     try:
         result = settings_manager.detect_and_save_monitors()
         
         if result['success']:
-            logger.info(f"✅ Monitor detection successful: {result['message']}")
             return jsonify({
                 'success': True,
                 'message': result['message'],
@@ -1755,20 +1720,14 @@ def detect_monitors():
 @login_required  
 def update_monitor_arrangement():
     """API endpoint to update monitor physical arrangement"""
-    logger.info(f"🔄 Monitor arrangement update requested by user: {current_user.username}")
-    
     try:
         data = request.get_json()
         monitor_order = data.get('monitor_order', [])
         primary_monitor_id = data.get('primary_monitor_id')
         
-        logger.info(f"📺 New monitor order: {monitor_order}")
-        logger.info(f"🔝 Primary monitor ID: {primary_monitor_id}")
-        
         result = settings_manager.update_monitor_arrangement(monitor_order, primary_monitor_id)
         
         if result['success']:
-            logger.info(f"✅ Monitor arrangement updated: {result['message']}")
             return jsonify({
                 'success': True,
                 'message': result['message']
@@ -2013,36 +1972,17 @@ def settings():
             
             # Update monitor settings using settings manager
             default_monitor = request.form.get('default_monitor', '')
-            logger.info(f"📺 Monitor selection from form: '{default_monitor}'")
             
             if default_monitor:
                 monitor_id = int(default_monitor)
-                logger.info(f"📺 Converting to monitor ID: {monitor_id}")
                 
-                # Log current default before change
-                current_default = get_default_monitor()
-                if current_default:
-                    logger.info(f"📺 Current default monitor: ID={current_default['id']}, Name='{current_default['name']}'")
-                else:
-                    logger.warning("⚠️ No current default monitor found")
-                
-                if settings_manager.set_default_monitor(monitor_id):
-                    logger.info(f"✅ Default monitor updated to ID: {monitor_id}")
-                    
-                    # Log new default after change
-                    new_default = get_default_monitor()
-                    if new_default:
-                        logger.info(f"📺 New default monitor: ID={new_default['id']}, Name='{new_default['name']}'")
-                        logger.info(f"   Position: ({new_default['x']}, {new_default['y']})")
-                        logger.info(f"   Size: {new_default['width']}x{new_default['height']}")
-                else:
+                if not settings_manager.set_default_monitor(monitor_id):
                     logger.error(f"❌ Failed to set monitor ID: {monitor_id}")
                     flash('Failed to update default monitor.', 'error')
                     return redirect(url_for('settings'))
             
             # Handle auto delete days
             auto_delete_days = request.form.get('auto_delete_days', '30')
-            logger.info(f"📅 Auto delete days from form: '{auto_delete_days}'")
             try:
                 auto_delete_days = int(auto_delete_days)
                 if auto_delete_days < 0 or auto_delete_days > 365:
