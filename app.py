@@ -164,6 +164,12 @@ def format_duration(seconds):
     secs = seconds % 60
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
+def is_remote_recording_enabled():
+    """Check if remote recording is enabled via JavaScript localStorage check"""
+    # This function returns a JavaScript snippet that can be used in templates
+    # to check the localStorage value client-side
+    return "localStorage.getItem('remoteRecordingEnabled') !== 'false'"
+
 # Add utility functions to template context
 @app.context_processor
 def utility_processor():
@@ -184,7 +190,8 @@ def utility_processor():
     return dict(
         format_file_size=format_file_size, 
         format_duration=format_duration,
-        active_recording=active_recording
+        active_recording=active_recording,
+        is_remote_recording_enabled=is_remote_recording_enabled
     )
 
 @login_manager.user_loader
@@ -1093,6 +1100,241 @@ def api_current_user():
         logger.error(f"Error getting current user: {e}")
         return jsonify({
             'logged_in': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/save_weekly_meetings', methods=['POST'])
+def api_save_weekly_meetings():
+    """Save weekly meetings from server to local database"""
+    try:
+        data = request.get_json()
+        user_email = data.get('user_email')
+        meetings = data.get('meetings', [])
+        
+        if not user_email or not meetings:
+            return jsonify({
+                'success': False,
+                'error': 'user_email and meetings are required'
+            }), 400
+        
+        # Get the user by email
+        user = User.query.filter_by(email=user_email).first()
+        if not user:
+            # Create user if doesn't exist (in case of new user)
+            user = User(
+                username=user_email.split('@')[0],
+                email=user_email
+            )
+            db.session.add(user)
+            db.session.commit()
+            logger.info(f"Created new user: {user_email}")
+        
+        added_count = 0
+        updated_count = 0
+        skipped_count = 0
+        
+        # Process each meeting
+        for meeting_data in meetings:
+            try:
+                # Parse datetime strings (server sends UTC times)
+                start_time_str = meeting_data.get('start_time')
+                end_time_str = meeting_data.get('end_time')
+                
+                if not start_time_str or not end_time_str:
+                    logger.warning(f"Skipping meeting with missing times: {meeting_data.get('subject', 'Unknown')}")
+                    skipped_count += 1
+                    continue
+                
+                # Parse UTC datetime and convert to Eastern time
+                utc = pytz.UTC
+                eastern = pytz.timezone('US/Eastern')
+                
+                # Parse the UTC datetime (remove Z suffix if present)
+                start_time_utc = datetime.fromisoformat(start_time_str.replace('Z', ''))
+                end_time_utc = datetime.fromisoformat(end_time_str.replace('Z', ''))
+                
+                # If timezone info is missing, assume UTC
+                if start_time_utc.tzinfo is None:
+                    start_time_utc = start_time_utc.replace(tzinfo=utc)
+                if end_time_utc.tzinfo is None:
+                    end_time_utc = end_time_utc.replace(tzinfo=utc)
+                
+                # Convert to Eastern time (remove timezone info for database storage)
+                start_time = start_time_utc.astimezone(eastern).replace(tzinfo=None)
+                end_time = end_time_utc.astimezone(eastern).replace(tzinfo=None)
+                
+                logger.debug(f"Converted {start_time_str} UTC to {start_time} Eastern")
+                logger.debug(f"Converted {end_time_str} UTC to {end_time} Eastern")
+                
+                # Check if meeting already exists (match by subject, organizer, and start_time)
+                existing_meeting = Meeting.query.filter(
+                    Meeting.user_id == user.id,
+                    Meeting.subject == meeting_data.get('subject'),
+                    Meeting.organizer == meeting_data.get('organizer'),
+                    Meeting.start_time == start_time
+                ).first()
+                
+                if existing_meeting:
+                    # Update existing meeting
+                    existing_meeting.description = meeting_data.get('description')
+                    existing_meeting.location = meeting_data.get('location')
+                    existing_meeting.web_link = meeting_data.get('web_link')
+                    existing_meeting.end_time = end_time
+                    existing_meeting.duration_minutes = meeting_data.get('duration_minutes')
+                    existing_meeting.attendee_count = meeting_data.get('attendee_count', 0)
+                    existing_meeting.meeting_type = meeting_data.get('meeting_type', 'teams')
+                    existing_meeting.is_teams_meeting = meeting_data.get('is_teams_meeting', False)
+                    existing_meeting.is_recurring = meeting_data.get('is_recurring', False)
+                    existing_meeting.auto_record = meeting_data.get('auto_record', True)
+                    existing_meeting.is_excluded = meeting_data.get('is_excluded', False)
+                    existing_meeting.last_updated = datetime.utcnow()
+                    
+                    # Set attendees if provided
+                    required_attendees = meeting_data.get('required_attendees', [])
+                    optional_attendees = meeting_data.get('optional_attendees', [])
+                    if required_attendees or optional_attendees:
+                        existing_meeting.set_attendees(required_attendees, optional_attendees)
+                    
+                    updated_count += 1
+                    logger.debug(f"Updated meeting: {existing_meeting.subject} at {start_time}")
+                
+                else:
+                    # Create new meeting
+                    new_meeting = Meeting(
+                        user_id=user.id,
+                        subject=meeting_data.get('subject', 'Unknown Meeting'),
+                        description=meeting_data.get('description'),
+                        location=meeting_data.get('location'),
+                        web_link=meeting_data.get('web_link'),
+                        start_time=start_time,
+                        end_time=end_time,
+                        duration_minutes=meeting_data.get('duration_minutes'),
+                        organizer=meeting_data.get('organizer'),
+                        attendee_count=meeting_data.get('attendee_count', 0),
+                        meeting_type=meeting_data.get('meeting_type', 'teams'),
+                        is_teams_meeting=meeting_data.get('is_teams_meeting', False),
+                        is_recurring=meeting_data.get('is_recurring', False),
+                        auto_record=meeting_data.get('auto_record', True),
+                        is_excluded=meeting_data.get('is_excluded', False),
+                        discovered_at=datetime.utcnow()
+                    )
+                    
+                    # Set attendees if provided
+                    required_attendees = meeting_data.get('required_attendees', [])
+                    optional_attendees = meeting_data.get('optional_attendees', [])
+                    if required_attendees or optional_attendees:
+                        new_meeting.set_attendees(required_attendees, optional_attendees)
+                    
+                    db.session.add(new_meeting)
+                    added_count += 1
+                    logger.debug(f"Added new meeting: {new_meeting.subject} at {start_time}")
+            
+            except Exception as e:
+                logger.error(f"Error processing meeting {meeting_data.get('subject', 'Unknown')}: {e}")
+                skipped_count += 1
+                continue
+        
+        # Commit all changes
+        db.session.commit()
+        
+        logger.info(f"Weekly meetings sync completed for {user_email}: Added {added_count}, Updated {updated_count}, Skipped {skipped_count}")
+        
+        return jsonify({
+            'success': True,
+            'added': added_count,
+            'updated': updated_count,
+            'skipped': skipped_count,
+            'total_processed': len(meetings)
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error saving weekly meetings: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/request_calendar_sync', methods=['POST'])
+def api_request_calendar_sync():
+    """Request calendar sync from WebSocket server via local WebSocket client"""
+    try:
+        # Try to contact the local WebSocket client to trigger a meeting request
+        logger.info("📅 Requesting calendar sync from WebSocket server...")
+        
+        # Send request to local WebSocket client (if it's running)
+        # The WebSocket client should be running and listening for requests
+        import asyncio
+        import websockets
+        import json
+        
+        async def request_sync():
+            try:
+                # Connect to local WebSocket client (if it has a control interface)
+                # For now, we'll simulate the request by directly calling the API
+                # In a real implementation, you might have a control channel
+                
+                # Alternative approach: Use a shared file or signal to communicate
+                # with the WebSocket client process
+                sync_request_file = os.path.join(os.path.dirname(__file__), 'sync_request.flag')
+                
+                # Create a flag file that the WebSocket client can monitor
+                with open(sync_request_file, 'w') as f:
+                    f.write(json.dumps({
+                        'timestamp': datetime.now().isoformat(),
+                        'requested_by': 'admin_interface',
+                        'user_email': current_user.email if current_user and current_user.is_authenticated else 'system'
+                    }))
+                
+                logger.info(f"✅ Sync request flag created: {sync_request_file}")
+                return True
+                
+            except Exception as e:
+                logger.error(f"❌ Error requesting sync: {e}")
+                return False
+        
+        # Run the async function
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        success = loop.run_until_complete(request_sync())
+        loop.close()
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Calendar sync request sent to WebSocket client'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to send sync request'
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"Error requesting calendar sync: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/remote_recording_status', methods=['GET'])
+def api_remote_recording_status():
+    """Get remote recording status (client-side check)"""
+    try:
+        return jsonify({
+            'success': True,
+            'message': 'Remote recording status is managed client-side via localStorage',
+            'check_key': 'remoteRecordingEnabled',
+            'default_value': 'true'
+        }), 200
+    except Exception as e:
+        logger.error(f"Error getting remote recording status: {e}")
+        return jsonify({
+            'success': False,
             'error': str(e)
         }), 500
 
@@ -3188,13 +3430,22 @@ def auto_sync_calendar_for_all_users():
 @app.route('/admin/sync_calendar', methods=['POST'])
 @login_required  
 def admin_sync_calendar():
-    """Sync calendar and create/update meetings"""
+    """Sync calendar via WebSocket server instead of Power Automate"""
     try:
-        logger.info("🗓️ Admin: Manual calendar sync triggered")
+        logger.info("🗓️ Admin: Manual calendar sync triggered (via WebSocket)")
         
-        created, updated, total = fetch_and_sync_calendar_events(current_user)
+        # Use the new WebSocket-based sync instead of Power Automate
+        response = requests.post(f"http://localhost:5000/api/request_calendar_sync", timeout=10)
         
-        flash(f"Calendar sync completed! {created} meetings created, {updated} updated from {total} calendar events.", "success")
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('success'):
+                flash("Calendar sync request sent to WebSocket server. Meetings will be updated shortly.", "success")
+            else:
+                flash(f"Error requesting sync: {data.get('error', 'Unknown error')}", "error")
+        else:
+            flash("Error communicating with sync service.", "error")
+        
         return redirect(request.referrer or url_for('admin_dashboard'))
     except Exception as e:
         logger.error(f"❌ Admin calendar sync error: {str(e)}")

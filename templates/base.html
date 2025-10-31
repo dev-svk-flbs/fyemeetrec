@@ -151,6 +151,35 @@
             box-shadow: 0 1px 3px rgba(220, 38, 38, 0.3);
         }
 
+        .remote-status-indicator {
+            padding: 0.3rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.3s ease;
+        }
+
+        .remote-status-enabled {
+            background: #10b981;
+            color: white;
+            box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+        }
+
+        .remote-status-disabled {
+            background: #6b7280;
+            color: white;
+            box-shadow: 0 1px 3px rgba(107, 114, 128, 0.3);
+            animation: fade-pulse 2s infinite;
+        }
+
+        @keyframes fade-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
         @keyframes pulse-nav {
             0% {
                 transform: scale(1);
@@ -417,6 +446,10 @@
                     <span>Recording</span>
                 </div>
                 {% endif %}
+                <div class="remote-status-indicator" id="remoteStatusIndicator">
+                    <span id="remoteStatusIcon">🔗</span>
+                    <span id="remoteStatusText">Remote</span>
+                </div>
                 <span class="user-info">Hi {{ current_user.username }}!</span>
             </div>
         </div>
@@ -442,5 +475,43 @@
     </main>
 
     {% block extra_js %}{% endblock %}
+
+    <!-- Global Remote Recording Status -->
+    <script>
+        function updateGlobalRemoteStatus() {
+            const indicator = document.getElementById('remoteStatusIndicator');
+            const icon = document.getElementById('remoteStatusIcon');
+            const text = document.getElementById('remoteStatusText');
+            
+            if (!indicator) return; // Element not present on all pages
+            
+            const isEnabled = localStorage.getItem('remoteRecordingEnabled') !== 'false';
+            
+            if (isEnabled) {
+                indicator.className = 'remote-status-indicator remote-status-enabled';
+                icon.textContent = '🔗';
+                text.textContent = 'Remote';
+                indicator.title = 'Remote recording is enabled';
+            } else {
+                indicator.className = 'remote-status-indicator remote-status-disabled';
+                icon.textContent = '🔒';
+                text.textContent = 'Offline';
+                indicator.title = 'Remote recording is disabled';
+            }
+        }
+
+        // Update on page load
+        document.addEventListener('DOMContentLoaded', updateGlobalRemoteStatus);
+
+        // Listen for storage changes (when changed from another tab/page)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'remoteRecordingEnabled') {
+                updateGlobalRemoteStatus();
+            }
+        });
+
+        // Update every 5 seconds to catch any changes
+        setInterval(updateGlobalRemoteStatus, 5000);
+    </script>
 </body>
 </html>

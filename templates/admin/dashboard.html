@@ -609,6 +609,103 @@
             gap: 0.3rem;
         }
     }
+
+    /* Toggle Switch Styles */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 54px;
+        height: 28px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .3s;
+        border-radius: 28px;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    input:checked + .toggle-slider {
+        background-color: #28a745;
+    }
+
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+
+    /* Disabled States */
+    .disabled {
+        opacity: 0.4;
+        pointer-events: none;
+        filter: grayscale(50%);
+    }
+
+    .disabled-subtle {
+        opacity: 0.3;
+        pointer-events: none;
+    }
+
+    .section-disabled {
+        opacity: 0.3;
+        transition: opacity 0.3s ease;
+    }
+
+    .admin-actions .action-btn.disabled {
+        background: #6c757d;
+        color: #fff;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    .admin-actions .action-btn.disabled:hover {
+        background: #6c757d;
+        transform: none;
+    }
+
+    /* Disabled Links in Tables */
+    .meeting-link.disabled,
+    .recording-link.disabled {
+        color: #6c757d !important;
+        text-decoration: none !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
+
+    .section-disabled .meeting-link,
+    .section-disabled .recording-link {
+        color: #6c757d !important;
+        text-decoration: none !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+    }
+
+    .section-disabled .recording-title {
+        color: #6c757d !important;
+    }
 </style>
 {% endblock %}
 
@@ -628,16 +725,26 @@
 </div>
 {% endif %}
 
-<div class="admin-actions">
-    <a href="{{ url_for('admin_meetings') }}" class="action-btn primary">View Meetings</a>
+<!-- Remote Recording Toggle -->
+<div class="remote-recording-toggle" style="background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid #dee2e6;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h3 style="margin: 0; font-size: 1.1rem; color: #2c3e50;">🔗 Remote Recording</h3>
+            <p style="margin: 0.25rem 0 0 0; color: #6c757d; font-size: 0.9rem;">Enable remote meeting recording control from ops.fyelabs.com</p>
+        </div>
+        <div class="toggle-container">
+            <label class="toggle-switch">
+                <input type="checkbox" id="remoteRecordingToggle" checked>
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="admin-actions" id="adminActions">
+    <a href="{{ url_for('admin_meetings') }}" class="action-btn primary" id="viewMeetingsBtn">View Meetings</a>
     <a href="{{ url_for('admin_recordings') }}" class="action-btn primary">View Recordings</a>
     <a href="{{ url_for('admin_users') }}" class="action-btn">Manage Users</a>
-    <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: contents;">
-        <button type="submit" class="action-btn">Sync Calendar</button>
-    </form>
-    <form method="POST" action="{{ url_for('admin_test_auto_sync') }}" style="display: contents;" onsubmit="return confirm('This will sync calendar for all users. Continue?')">
-        <button type="submit" class="action-btn">Test Auto-Sync</button>
-    </form>
     <form method="POST" action="{{ url_for('admin_cleanup_duplicates') }}" style="display: contents;" onsubmit="return confirm('This will remove duplicate meetings from the database. Continue?')">
         <button type="submit" class="action-btn secondary">Clean Duplicates</button>
     </form>
@@ -717,14 +824,14 @@
 <div class="dashboard-layout">
     <div class="main-content">
         <!-- Recent Meetings Section -->
-        <div class="recent-section" style="margin-bottom: 2rem;">
+        <div class="recent-section" id="recentMeetingsSection" style="margin-bottom: 2rem;">
             <div class="section-header">
                 <h2 class="section-title">📅 Recent Meetings</h2>
-                <a href="{{ url_for('admin_meetings') }}" class="view-all-btn">View All →</a>
+                <a href="{{ url_for('admin_meetings') }}" class="view-all-btn" id="viewAllBtn">View All →</a>
             </div>
     
             {% if recent_meetings %}
-            <table class="recordings-table professional-table">
+            <table class="recordings-table professional-table" id="recentMeetingsTable">
                 <thead>
                     <tr>
                         <th>📅 Meeting</th>
@@ -738,7 +845,7 @@
                     {% for meeting in recent_meetings %}
                     <tr>
                         <td>
-                            <a href="{{ url_for('admin_meeting_detail', meeting_id=meeting.id) }}" class="recording-title">
+                            <a href="{{ url_for('admin_meeting_detail', meeting_id=meeting.id) }}" class="recording-title meeting-link" data-meeting-id="{{ meeting.id }}">
                                 {{ meeting.subject }}
                             </a>
                             <div class="text-muted">{{ meeting.duration_formatted }}</div>
@@ -753,7 +860,7 @@
                         </td>
                         <td>
                             {% if meeting.recording %}
-                                <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="recording-title">
+                                <a href="{{ url_for('admin_recording_detail', recording_id=meeting.recording.id) }}" class="recording-title recording-link" data-recording-id="{{ meeting.recording.id }}">
                                     📹 View Recording
                                 </a>
                             {% else %}
@@ -768,7 +875,7 @@
             <div style="text-align: center; padding: 2rem; color: var(--gray-500);">
                 <p>📋 No meetings found. Try syncing your calendar to discover meetings.</p>
                 <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
-                    <button type="submit" class="action-btn">🔄 Sync Calendar Now</button>
+                    <button type="submit" class="action-btn">🔄 Sync from Server Now</button>
                 </form>
             </div>
             {% endif %}
@@ -939,5 +1046,113 @@
     
     // Refresh stats every 30 seconds
     setInterval(refreshStats, 30000);
+
+    // Remote Recording Toggle Functionality
+    const remoteRecordingToggle = document.getElementById('remoteRecordingToggle');
+    const viewMeetingsBtn = document.getElementById('viewMeetingsBtn');
+    const viewAllBtn = document.getElementById('viewAllBtn');
+    const recentMeetingsSection = document.getElementById('recentMeetingsSection');
+    const recentMeetingsTable = document.getElementById('recentMeetingsTable');
+
+    function updateRemoteRecordingState() {
+        const isEnabled = remoteRecordingToggle.checked;
+        
+        // Save state to localStorage
+        localStorage.setItem('remoteRecordingEnabled', isEnabled.toString());
+        
+        if (isEnabled) {
+            // Enable state
+            viewMeetingsBtn.classList.remove('disabled');
+            viewMeetingsBtn.href = "{{ url_for('admin_meetings') }}";
+            viewMeetingsBtn.onclick = null;
+            
+            viewAllBtn.classList.remove('disabled');
+            viewAllBtn.href = "{{ url_for('admin_meetings') }}";
+            viewAllBtn.onclick = null;
+            
+            recentMeetingsSection.classList.remove('section-disabled');
+            
+            // Enable meeting and recording links
+            const meetingLinks = document.querySelectorAll('.meeting-link');
+            const recordingLinks = document.querySelectorAll('.recording-link');
+            
+            meetingLinks.forEach(link => {
+                link.classList.remove('disabled');
+                const meetingId = link.getAttribute('data-meeting-id');
+                if (meetingId) {
+                    link.href = `/admin/meetings/${meetingId}`;
+                    link.onclick = null;
+                }
+            });
+            
+            recordingLinks.forEach(link => {
+                link.classList.remove('disabled');
+                const recordingId = link.getAttribute('data-recording-id');
+                if (recordingId) {
+                    link.href = `/admin/recordings/${recordingId}`;
+                    link.onclick = null;
+                }
+            });
+            
+            console.log('🟢 Remote recording enabled');
+        } else {
+            // Disable state
+            viewMeetingsBtn.classList.add('disabled');
+            viewMeetingsBtn.href = '#';
+            viewMeetingsBtn.onclick = (e) => {
+                e.preventDefault();
+                alert('Remote recording is disabled. Enable it to view meetings.');
+                return false;
+            };
+            
+            viewAllBtn.classList.add('disabled');
+            viewAllBtn.href = '#';
+            viewAllBtn.onclick = (e) => {
+                e.preventDefault();
+                alert('Remote recording is disabled. Enable it to view meetings.');
+                return false;
+            };
+            
+            recentMeetingsSection.classList.add('section-disabled');
+            
+            // Disable meeting and recording links
+            const meetingLinks = document.querySelectorAll('.meeting-link');
+            const recordingLinks = document.querySelectorAll('.recording-link');
+            
+            meetingLinks.forEach(link => {
+                link.classList.add('disabled');
+                link.href = '#';
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    alert('Remote recording is disabled. Enable it to view meeting details.');
+                    return false;
+                };
+            });
+            
+            recordingLinks.forEach(link => {
+                link.classList.add('disabled');
+                link.href = '#';
+                link.onclick = (e) => {
+                    e.preventDefault();
+                    alert('Remote recording is disabled. Enable it to view recording details.');
+                    return false;
+                };
+            });
+            
+            console.log('🔴 Remote recording disabled');
+        }
+    }
+
+    // Load saved state from localStorage
+    const savedState = localStorage.getItem('remoteRecordingEnabled');
+    if (savedState !== null) {
+        remoteRecordingToggle.checked = savedState === 'true';
+    }
+
+    // Initialize state
+    updateRemoteRecordingState();
+
+    // Handle toggle changes
+    remoteRecordingToggle.addEventListener('change', updateRemoteRecordingState);
 </script>
 {% endblock %}
