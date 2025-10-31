@@ -1339,6 +1339,40 @@ def api_remote_recording_status():
         }), 500
 
 
+@app.route('/api/set_remote_recording_status', methods=['POST'])
+def api_set_remote_recording_status():
+    """Set remote recording status in file for WebSocket client"""
+    try:
+        data = request.get_json()
+        enabled = data.get('enabled', True)
+        
+        # Create status file for WebSocket client to read
+        status_file = os.path.join(os.path.dirname(__file__), 'remote_recording_status.json')
+        status_data = {
+            'enabled': enabled,
+            'timestamp': datetime.now().isoformat(),
+            'updated_by': current_user.username if current_user and current_user.is_authenticated else 'system'
+        }
+        
+        with open(status_file, 'w') as f:
+            f.write(json.dumps(status_data, indent=2))
+        
+        logger.info(f"Remote recording status updated: {'enabled' if enabled else 'disabled'}")
+        
+        return jsonify({
+            'success': True,
+            'enabled': enabled,
+            'message': f"Remote recording {'enabled' if enabled else 'disabled'}"
+        }), 200
+    
+    except Exception as e:
+        logger.error(f"Error setting remote recording status: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ============================================================================
 # Video Serving Routes
 # ============================================================================

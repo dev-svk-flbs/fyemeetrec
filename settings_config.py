@@ -221,25 +221,63 @@ class SettingsManager:
                 native_width, native_height = self.get_native_resolution()
                 logger.info(f"🔍 Native resolution from GPU: {native_width}x{native_height}")
                 
-                # Apply scaling correction if needed
+                # Apply per-monitor scaling correction
                 if monitors_data:
-                    primary_monitor = next((m for m in monitors_data if m.get('Primary')), monitors_data[0])
-                    reported_width = primary_monitor['Width']
-                    
-                    if reported_width != native_width and reported_width > 0:
-                        scaling_factor = native_width / reported_width
-                        logger.info(f"🔧 Scaling detected! Factor: {scaling_factor:.2f}x (Reported: {reported_width}x{primary_monitor['Height']} → Native: {native_width}x{native_height})")
+                    for monitor in monitors_data:
+                        reported_width = monitor['Width']
+                        reported_height = monitor['Height']
                         
-                        # Apply scaling correction to all monitors
-                        for monitor in monitors_data:
-                            monitor['X'] = int(monitor['X'] * scaling_factor)
-                            monitor['Y'] = int(monitor['Y'] * scaling_factor)
-                            monitor['Width'] = int(monitor['Width'] * scaling_factor)
-                            monitor['Height'] = int(monitor['Height'] * scaling_factor)
-                        
-                        logger.info(f"✅ Applied scaling correction: {monitors_data}")
-                    else:
-                        logger.info(f"✅ No scaling correction needed (Native={native_width}, Reported={reported_width})")
+                        # Calculate scaling factor for THIS monitor
+                        if reported_width > 0 and reported_height > 0:
+                            # Check if this monitor's resolution matches common scaled resolutions
+                            scaling_factor = 1.0
+                            
+                            # Common scaling scenarios for 1920x1080 monitors
+                            if reported_width == 1536 and reported_height == 864:
+                                # 125% scaling: 1920/1.25 = 1536, 1080/1.25 = 864
+                                scaling_factor = 1.25
+                                logger.info(f"🔧 Monitor {monitor['DeviceName']}: Detected 125% scaling (1536x864 → 1920x1080)")
+                            elif reported_width == 1280 and reported_height == 720:
+                                # 150% scaling: 1920/1.5 = 1280, 1080/1.5 = 720  
+                                scaling_factor = 1.5
+                                logger.info(f"🔧 Monitor {monitor['DeviceName']}: Detected 150% scaling (1280x720 → 1920x1080)")
+                            elif reported_width == 960 and reported_height == 540:
+                                # 200% scaling: 1920/2 = 960, 1080/2 = 540
+                                scaling_factor = 2.0
+                                logger.info(f"🔧 Monitor {monitor['DeviceName']}: Detected 200% scaling (960x540 → 1920x1080)")
+                            elif reported_width == 1920 and reported_height == 1080:
+                                # No scaling detected
+                                scaling_factor = 1.0
+                                logger.info(f"✅ Monitor {monitor['DeviceName']}: No scaling detected (1920x1080)")
+                            else:
+                                # Try to calculate scaling factor dynamically
+                                if native_width > 0 and native_height > 0:
+                                    width_ratio = native_width / reported_width
+                                    height_ratio = native_height / reported_height
+                                    
+                                    # Use width ratio if both ratios are similar (within 5%)
+                                    if abs(width_ratio - height_ratio) / width_ratio < 0.05:
+                                        scaling_factor = width_ratio
+                                        logger.info(f"🔧 Monitor {monitor['DeviceName']}: Calculated {scaling_factor:.2f}x scaling ({reported_width}x{reported_height} → {native_width}x{native_height})")
+                                    else:
+                                        logger.warning(f"⚠️ Monitor {monitor['DeviceName']}: Inconsistent scaling ratios (W:{width_ratio:.2f}, H:{height_ratio:.2f}), using 1.0x")
+                                        scaling_factor = 1.0
+                            
+                            # Apply scaling correction to this monitor
+                            if scaling_factor != 1.0:
+                                original_x, original_y = monitor['X'], monitor['Y']
+                                monitor['X'] = int(monitor['X'] * scaling_factor)
+                                monitor['Y'] = int(monitor['Y'] * scaling_factor)
+                                monitor['Width'] = int(monitor['Width'] * scaling_factor)
+                                monitor['Height'] = int(monitor['Height'] * scaling_factor)
+                                
+                                logger.info(f"✅ Applied {scaling_factor:.2f}x scaling to {monitor['DeviceName']}: "
+                                          f"Position ({original_x},{original_y}) → ({monitor['X']},{monitor['Y']}), "
+                                          f"Size {reported_width}x{reported_height} → {monitor['Width']}x{monitor['Height']}")
+                            else:
+                                logger.info(f"✅ No scaling correction needed for {monitor['DeviceName']}: {monitor['Width']}x{monitor['Height']}")
+                
+                logger.info(f"🎯 Final corrected monitor data: {monitors_data}")
                 
                 # Format monitor info with manufacturer names using Windows numbers
                 monitors = []

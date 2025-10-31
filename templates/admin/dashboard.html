@@ -1060,6 +1060,9 @@
         // Save state to localStorage
         localStorage.setItem('remoteRecordingEnabled', isEnabled.toString());
         
+        // Also update the server-side file for WebSocket client
+        updateServerSideStatus(isEnabled);
+        
         if (isEnabled) {
             // Enable state
             viewMeetingsBtn.classList.remove('disabled');
@@ -1141,6 +1144,19 @@
             
             console.log('🔴 Remote recording disabled');
         }
+    }
+
+    function updateServerSideStatus(isEnabled) {
+        fetch('/api/set_remote_recording_status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ enabled: isEnabled })
+        })
+        .catch(error => {
+            console.error('Error updating remote recording status:', error);
+        });
     }
 
     // Load saved state from localStorage

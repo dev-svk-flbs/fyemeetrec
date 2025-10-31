@@ -39,6 +39,40 @@ class MeetingRecorderClient:
         except Exception as e:
             print(f"❌ Error getting user info: {e}")
             return {'logged_in': False}
+    
+    def is_remote_recording_enabled(self):
+        """Check if remote recording is enabled by calling Flask API to check localStorage"""
+        try:
+            # Since we can't directly access localStorage from Python, we'll create a simple API check
+            # The API will return instructions on how to check localStorage
+            url = f"{self.app_base_url}/api/remote_recording_status"
+            response = requests.get(url, timeout=2)
+            
+            if response.status_code == 200:
+                # The actual check needs to be done differently since localStorage is browser-only
+                # We'll implement a file-based approach as a fallback
+                return self.check_remote_recording_file_status()
+            return True  # Default to enabled if can't check
+        except Exception as e:
+            print(f"❌ Error checking remote recording status: {e}")
+            return True  # Default to enabled on error
+    
+    def check_remote_recording_file_status(self):
+        """Check remote recording status via file-based storage (fallback method)"""
+        try:
+            # Create a status file approach for cross-process communication
+            status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'remote_recording_status.json')
+            
+            if os.path.exists(status_file):
+                with open(status_file, 'r') as f:
+                    status_data = json.loads(f.read())
+                    return status_data.get('enabled', True)
+            else:
+                # File doesn't exist, default to enabled
+                return True
+        except Exception as e:
+            print(f"❌ Error reading remote recording status file: {e}")
+            return True  # Default to enabled on error
         
     async def connect(self):
         """Connect to WebSocket server"""
@@ -297,6 +331,20 @@ class MeetingRecorderClient:
     
     async def handle_start_command(self, data):
         """Handle start recording command from server"""
+        # Step 0: Check if remote recording is enabled locally
+        if not self.is_remote_recording_enabled():
+            print(f"\n🚫 REMOTE RECORDING DISABLED LOCALLY")
+            print(f"   Remote recording command ignored")
+            print(f"   User has disabled remote recording on this client")
+            
+            await self.send_message("start_failed", {
+                "subject": data.get('subject', 'Unknown'),
+                "organizer": data.get('organizer', 'Unknown'),
+                "start_time": data.get('start_time', 'Unknown'),
+                "reason": "Remote recording is disabled on this client"
+            })
+            return
+        
         # Extract matching fields from command
         subject = data.get('subject')
         organizer = data.get('organizer')
@@ -305,6 +353,7 @@ class MeetingRecorderClient:
         
         print(f"\n{'='*60}")
         print(f"📋 START COMMAND RECEIVED")
+        print(f"   ✅ Remote recording is enabled locally")
         print(f"   Subject: {subject}")
         print(f"   Organizer: {organizer}")
         print(f"   Start Time: {start_time}")
@@ -472,7 +521,22 @@ class MeetingRecorderClient:
     
     async def handle_stop_command(self, data):
         """Handle manual stop command from server"""
-        print("\n🛑 STOP COMMAND RECEIVED")
+        # Check if remote recording is enabled locally
+        if not self.is_remote_recording_enabled():
+            print(f"\n� REMOTE RECORDING DISABLED LOCALLY")
+            print(f"   Remote stop command ignored")
+            print(f"   User has disabled remote recording on this client")
+            
+            await self.send_message("stop_failed", {
+                "subject": data.get('subject', 'Unknown'),
+                "organizer": data.get('organizer', 'Unknown'),
+                "start_time": data.get('start_time', 'Unknown'),
+                "reason": "Remote recording is disabled on this client"
+            })
+            return
+        
+        print("\n�🛑 STOP COMMAND RECEIVED")
+        print(f"   ✅ Remote recording is enabled locally")
         print(f"   Subject: {data.get('subject', 'N/A')}")
         print(f"   Organizer: {data.get('organizer', 'N/A')}")
         print(f"   Start Time: {data.get('start_time', 'N/A')}")
