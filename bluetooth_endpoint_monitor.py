@@ -124,12 +124,14 @@ def configure_virtual_inputs_for_bluetooth(bluetooth_connected):
                 # Bluetooth headset connected: Route Virtual Inputs to B1
                 print("   🎧 Routing Virtual Inputs to B1 (for headphones)")
                 virtual_input_1.B1 = True
+                virtual_input_1.A1 = False
                 virtual_input_2.B1 = True
             else:
                 # Bluetooth headset disconnected: Turn off Virtual Inputs to B1
                 print("   🔊 Turning off Virtual Inputs to B1 (for speakers)")
                 virtual_input_1.B1 = False
                 virtual_input_2.B1 = False
+                virtual_input_1.A1 = True
             
             print(f"   ✅ Virtual Input → B1 routing: {bluetooth_connected}")
             

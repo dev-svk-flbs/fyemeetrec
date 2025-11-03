@@ -225,7 +225,7 @@ recording_state = {
 recording_lock = threading.Lock()
 
 # Maximum recording duration (3 hours in seconds)
-MAX_RECORDING_DURATION = 3 * 60   # 10800 seconds
+MAX_RECORDING_DURATION = 3 * 60  * 60  # 10800 seconds
 
 def monitor_recording_duration():
     """Background thread that monitors recording duration and auto-stops after 3 hours"""

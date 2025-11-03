@@ -783,19 +783,23 @@
                     startBtn.disabled = true;
                     stopBtn.disabled = false;
                     
-                    // If recording just started, start polling for transcripts
+                    // If recording just started, start timer and polling
                     if (!pollInterval) {
+                        startTime = new Date();
+                        startTimer();
                         startPolling();
                     }
                 } else {
                     startBtn.disabled = false;
                     stopBtn.disabled = true;
                     
-                    // Stop polling when recording ends
+                    // Stop polling and timer when recording ends
                     if (pollInterval) {
                         clearInterval(pollInterval);
                         pollInterval = null;
                     }
+                    stopTimer();
+                    startTime = null;
                 }
             }
             updateUploadStatus(data);
