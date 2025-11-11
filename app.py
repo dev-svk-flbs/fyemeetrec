@@ -1084,22 +1084,36 @@ def api_health():
 
 @app.route('/api/current_user', methods=['GET'])
 def api_current_user():
-    """Get current logged-in user information"""
+    """Get current logged-in user information
+    
+    For browser requests: checks Flask-Login session
+    For internal requests (WebSocket client): returns first user from database
+    """
     try:
-        # Get the first user (single-user system)
-        user = User.query.first()
-        
-        if user:
+        # Check if user is actually logged in via Flask-Login session
+        if current_user.is_authenticated:
             return jsonify({
                 'logged_in': True,
-                'username': user.username,
-                'email': user.email,
-                'user_id': user.id
+                'username': current_user.username,
+                'email': current_user.email,
+                'user_id': current_user.id
             }), 200
         else:
-            return jsonify({
-                'logged_in': False
-            }), 200
+            # For internal requests (WebSocket client), check if any user exists in DB
+            # This is safe because the client machine only has one user
+            user = User.query.first()
+            if user:
+                return jsonify({
+                    'logged_in': True,
+                    'username': user.username,
+                    'email': user.email,
+                    'user_id': user.id
+                }), 200
+            else:
+                # No user in database at all
+                return jsonify({
+                    'logged_in': False
+                }), 200
     except Exception as e:
         logger.error(f"Error getting current user: {e}")
         return jsonify({
@@ -2399,8 +2413,14 @@ def factory_reset():
         except Exception as e:
             logger.error(f" Database reset error: {e}")
         
-        # Step 5: Clear Flask session and cache
+        # Step 5: Logout current user and clear Flask session
         try:
+            # Force logout if user is logged in
+            if current_user.is_authenticated:
+                logout_user()
+                logger.info(f" Logged out user: {current_user.username}")
+            
+            # Clear session data
             session.clear()
             logger.info(f" Cleared Flask session")
         except Exception as e:
@@ -2414,6 +2434,22 @@ def factory_reset():
                 logger.info(f" Cleared Python cache")
         except Exception as e:
             logger.error(f" Cache clear error: {e}")
+        
+        # Step 7: Clear WebSocket client cache files
+        try:
+            # Clear weekly meetings cache
+            weekly_meetings_file = os.path.join(os.path.dirname(__file__), 'weekly_meetings.json')
+            if os.path.exists(weekly_meetings_file):
+                os.remove(weekly_meetings_file)
+                logger.info(f" Deleted weekly_meetings.json cache")
+            
+            # Clear remote recording status
+            remote_status_file = os.path.join(os.path.dirname(__file__), 'remote_recording_status.json')
+            if os.path.exists(remote_status_file):
+                os.remove(remote_status_file)
+                logger.info(f" Deleted remote_recording_status.json")
+        except Exception as e:
+            logger.error(f" WebSocket cache clear error: {e}")
         
         # Convert space to human readable format
         if space_freed < 1024**3:  # Less than 1GB

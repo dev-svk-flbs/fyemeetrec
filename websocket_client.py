@@ -97,6 +97,12 @@ class MeetingRecorderClient:
         try:
             meetings_file = 'weekly_meetings.json'
             if os.path.exists(meetings_file):
+                # Check if user is logged in before loading cached meetings
+                user_info = self.get_current_user()
+                if not user_info or not user_info.get('logged_in'):
+                    logger.info(f" Skipping meetings load - no user logged in")
+                    return False
+                
                 with open(meetings_file, 'r') as f:
                     data = json.load(f)
                     
@@ -377,6 +383,9 @@ class MeetingRecorderClient:
         """Monitor Flask app health and send periodic updates"""
         while True:
             try:
+                # Refresh user info to detect login/logout changes
+                self.user_info = self.get_current_user()
+                
                 # Check Flask app health
                 response = requests.get(f"{self.app_base_url}/api/status", timeout=2)
                 self.app_is_alive = response.status_code == 200
@@ -416,13 +425,16 @@ class MeetingRecorderClient:
                 logger.info(" No meetings to sync to database")
                 return
                 
+            # Refresh user info to get current login status (important after factory reset)
+            self.user_info = self.get_current_user()
+            
             # Get user email for the API call
             user_email = None
             if self.user_info and self.user_info.get('logged_in'):
                 user_email = self.user_info.get('email')
             
             if not user_email:
-                logger.warning(" Cannot sync meetings - no user email available")
+                logger.warning(" Cannot sync meetings - no user logged in")
                 return
                 
             logger.info(f" Syncing {len(self.weekly_meetings)} meetings to database for {user_email}...")
