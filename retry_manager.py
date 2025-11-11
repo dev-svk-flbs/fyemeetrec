@@ -33,21 +33,21 @@ class RetryManager:
     def start(self):
         """Start the retry manager background thread"""
         if self.running:
-            logger.warning("⚠️ Retry manager already running")
+            logger.warning(" Retry manager already running")
             return
         
         self.running = True
         self.retry_thread = threading.Thread(target=self._retry_loop, daemon=True)
         self.retry_thread.name = "RetryManager"
         self.retry_thread.start()
-        logger.info(f"🔄 Auto-retry manager started (check every {self.retry_interval}s)")
+        logger.info(f" Auto-retry manager started (check every {self.retry_interval}s)")
     
     def stop(self):
         """Stop the retry manager"""
         self.running = False
         if self.retry_thread:
             self.retry_thread.join(timeout=5)
-        logger.info("⏹️ Auto-retry manager stopped")
+        logger.info(" Auto-retry manager stopped")
     
     def _get_db_connection(self):
         """Get database connection"""
@@ -96,20 +96,20 @@ class RetryManager:
                     
                     if now >= next_retry_time:
                         eligible_recordings.append(recording)
-                        logger.debug(f"🔄 Recording {recording['id']} eligible for retry #{retry_count + 1}")
+                        logger.debug(f" Recording {recording['id']} eligible for retry #{retry_count + 1}")
                     else:
                         time_left = (next_retry_time - now).total_seconds() / 60
-                        logger.debug(f"⏳ Recording {recording['id']} retry in {time_left:.1f} minutes")
+                        logger.debug(f" Recording {recording['id']} retry in {time_left:.1f} minutes")
                         
                 except Exception as e:
-                    logger.error(f"❌ Error parsing retry time for recording {recording['id']}: {e}")
+                    logger.error(f" Error parsing retry time for recording {recording['id']}: {e}")
                     # If parsing fails, allow retry
                     eligible_recordings.append(recording)
             
             return eligible_recordings
             
         except Exception as e:
-            logger.error(f"❌ Failed to get failed recordings: {e}")
+            logger.error(f" Failed to get failed recordings: {e}")
             return []
     
     def _update_retry_attempt(self, recording_id, success=False):
@@ -141,14 +141,14 @@ class RetryManager:
             conn.close()
             
         except Exception as e:
-            logger.error(f"❌ Failed to update retry attempt for recording {recording_id}: {e}")
+            logger.error(f" Failed to update retry attempt for recording {recording_id}: {e}")
     
     def _retry_upload(self, recording):
         """Attempt to retry upload for a single recording"""
         recording_id = recording['id']
         retry_count = (recording.get('retry_count') or 0) + 1
         
-        logger.info(f"🔄 Retrying upload for recording {recording_id} (attempt #{retry_count})")
+        logger.info(f" Retrying upload for recording {recording_id} (attempt #{retry_count})")
         logger.info(f"   Title: {recording['title']}")
         
         try:
@@ -159,22 +159,22 @@ class RetryManager:
             success = trigger_upload(recording_id)
             
             if success:
-                logger.info(f"✅ Retry successful for recording {recording_id}")
+                logger.info(f" Retry successful for recording {recording_id}")
                 self._update_retry_attempt(recording_id, success=True)
                 return True
             else:
-                logger.warning(f"⚠️ Retry failed for recording {recording_id}")
+                logger.warning(f" Retry failed for recording {recording_id}")
                 self._update_retry_attempt(recording_id, success=False)
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Retry attempt failed for recording {recording_id}: {e}")
+            logger.error(f" Retry attempt failed for recording {recording_id}: {e}")
             self._update_retry_attempt(recording_id, success=False)
             return False
     
     def _retry_loop(self):
         """Main retry loop that runs in background thread"""
-        logger.info("🔄 Auto-retry loop started")
+        logger.info(" Auto-retry loop started")
         
         while self.running:
             try:
@@ -182,7 +182,7 @@ class RetryManager:
                 failed_recordings = self._get_failed_recordings()
                 
                 if failed_recordings:
-                    logger.info(f"🔄 Found {len(failed_recordings)} recordings eligible for retry")
+                    logger.info(f" Found {len(failed_recordings)} recordings eligible for retry")
                     
                     for recording in failed_recordings:
                         if not self.running:  # Check if we should stop
@@ -193,15 +193,15 @@ class RetryManager:
                         # Small delay between retries to avoid overwhelming the system
                         time.sleep(2)
                 else:
-                    logger.debug("✅ No failed uploads found for retry")
+                    logger.debug(" No failed uploads found for retry")
                 
             except Exception as e:
-                logger.error(f"❌ Error in retry loop: {e}")
+                logger.error(f" Error in retry loop: {e}")
             
             # Wait for next check
             time.sleep(self.retry_interval)
         
-        logger.info("🔄 Auto-retry loop stopped")
+        logger.info(" Auto-retry loop stopped")
     
     def manual_retry_all_failed(self):
         """Manually trigger retry for all failed recordings (ignoring backoff)"""
@@ -221,10 +221,10 @@ class RetryManager:
             conn.close()
             
             if not failed_recordings:
-                logger.info("✅ No failed uploads found")
+                logger.info(" No failed uploads found")
                 return 0
             
-            logger.info(f"🔄 Manually retrying {len(failed_recordings)} failed uploads")
+            logger.info(f" Manually retrying {len(failed_recordings)} failed uploads")
             
             success_count = 0
             for recording in failed_recordings:
@@ -232,11 +232,11 @@ class RetryManager:
                     success_count += 1
                 time.sleep(1)  # Small delay between retries
             
-            logger.info(f"📊 Manual retry complete: {success_count}/{len(failed_recordings)} succeeded")
+            logger.info(f" Manual retry complete: {success_count}/{len(failed_recordings)} succeeded")
             return success_count
             
         except Exception as e:
-            logger.error(f"❌ Manual retry failed: {e}")
+            logger.error(f" Manual retry failed: {e}")
             return 0
     
     def get_retry_stats(self):
@@ -275,7 +275,7 @@ class RetryManager:
             return stats
             
         except Exception as e:
-            logger.error(f"❌ Failed to get retry stats: {e}")
+            logger.error(f" Failed to get retry stats: {e}")
             return {}
 
 # Global instance

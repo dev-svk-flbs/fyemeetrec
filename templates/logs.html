@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}System Logs{% endblock %}
+
+{% block content %}
+<div style="max-width: 1400px; margin: 2rem auto; padding: 0 1rem;">
+    <h2>System Logs</h2>
+    
+    <div style="margin: 20px 0;">
+        <button onclick="refreshLogs()" style="padding: 10px 20px; margin-right: 10px;">Refresh</button>
+        <button onclick="toggleAutoRefresh()" id="autoRefreshBtn" style="padding: 10px 20px; margin-right: 10px;">Auto-refresh: ON</button>
+        <button onclick="clearDisplay()" style="padding: 10px 20px; margin-right: 10px;">Clear Display</button>
+        <button onclick="clearLogFiles()" style="padding: 10px 20px; background: #dc3545; color: white; border: none; cursor: pointer; font-weight: bold;">DELETE LOG FILES</button>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+        <label>Service: 
+            <select id="serviceFilter" onchange="refreshLogs()" style="padding: 5px;">
+                <option value="all">All Services</option>
+                <option value="app">Flask App</option>
+                <option value="dual_stream">Dual Stream</option>
+                <option value="hotkey_listener">Hotkey Listener</option>
+                <option value="websocket_client">WebSocket Client</option>
+                <option value="bluetooth_monitor">Bluetooth Monitor</option>
+                <option value="launcher">Launcher</option>
+            </select>
+        </label>
+        
+        <label style="margin-left: 20px;">Lines: 
+            <select id="linesCount" onchange="refreshLogs()" style="padding: 5px;">
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+                <option value="200">200</option>
+                <option value="500">500</option>
+            </select>
+        </label>
+        
+        <label style="margin-left: 20px;">
+            <input type="checkbox" id="autoScroll" checked> Auto-scroll
+        </label>
+    </div>
+
+    <div style="background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 5px; font-family: monospace; height: 600px; overflow-y: auto;" id="logContainer">
+        <div id="logOutput">Loading...</div>
+    </div>
+</div>
+
+<script>
+let autoRefresh = true;
+let refreshInterval = null;
+
+function refreshLogs() {
+    const service = document.getElementById('serviceFilter').value;
+    const lines = document.getElementById('linesCount').value;
+    
+    const url = service === 'all' ? `/api/logs/all?lines=${lines}` : `/api/logs/${service}?lines=${lines}`;
+    
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            const output = document.getElementById('logOutput');
+            if (data.logs && data.logs.length > 0) {
+                output.innerHTML = data.logs.map(log => {
+                    const badge = service === 'all' && log.service ? `[${log.service.toUpperCase()}] ` : '';
+                    return `<div>${badge}${escapeHtml(log.text)}</div>`;
+                }).join('');
+                
+                if (document.getElementById('autoScroll').checked) {
+                    document.getElementById('logContainer').scrollTop = 999999;
+                }
+            } else {
+                output.innerHTML = 'No logs found';
+            }
+        })
+        .catch(e => {
+            document.getElementById('logOutput').innerHTML = 'Error loading logs: ' + e.message;
+        });
+}
+
+function clearDisplay() {
+    document.getElementById('logOutput').innerHTML = 'Display cleared';
+}
+
+function clearLogFiles() {
+    const service = document.getElementById('serviceFilter').value;
+    
+    if (!confirm(`Are you sure you want to DELETE log files for: ${service}?\n\nThis CANNOT be undone!`)) {
+        return;
+    }
+    
+    fetch('/api/logs/clear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({service: service})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Deleted: ' + data.cleared_files.join(', '));
+            setTimeout(refreshLogs, 1000);
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(e => {
+        alert('Failed: ' + e.message);
+    });
+}
+
+function toggleAutoRefresh() {
+    autoRefresh = !autoRefresh;
+    const btn = document.getElementById('autoRefreshBtn');
+    
+    if (autoRefresh) {
+        btn.textContent = 'Auto-refresh: ON';
+        refreshInterval = setInterval(refreshLogs, 3000);
+    } else {
+        btn.textContent = 'Auto-refresh: OFF';
+        clearInterval(refreshInterval);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Start
+refreshLogs();
+refreshInterval = setInterval(refreshLogs, 3000);
+</script>
+{% endblock %}

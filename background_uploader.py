@@ -59,15 +59,15 @@ class BackgroundUploader:
                 )
                 # Test connection
                 self.s3_client.head_bucket(Bucket=self.bucket_name)
-                logger.info(f"✅ IDrive E2 connection established to bucket: {self.bucket_name}")
+                logger.info(f" IDrive E2 connection established to bucket: {self.bucket_name}")
             except NoCredentialsError:
-                logger.error("❌ IDrive E2 credentials not found. Please configure AWS credentials.")
+                logger.error(" IDrive E2 credentials not found. Please configure AWS credentials.")
                 raise
             except ClientError as e:
-                logger.error(f"❌ IDrive E2 connection failed: {e}")
+                logger.error(f" IDrive E2 connection failed: {e}")
                 raise
             except Exception as e:
-                logger.error(f"❌ Unexpected error connecting to IDrive E2: {e}")
+                logger.error(f" Unexpected error connecting to IDrive E2: {e}")
                 raise
         
         return self.s3_client
@@ -79,7 +79,7 @@ class BackgroundUploader:
             conn.row_factory = sqlite3.Row  # Enable dict-like access
             return conn
         except Exception as e:
-            logger.error(f"❌ Database connection failed: {e}")
+            logger.error(f" Database connection failed: {e}")
             raise
     
     def _get_recording_info(self, recording_id):
@@ -110,11 +110,11 @@ class BackgroundUploader:
             if result:
                 return dict(result)
             else:
-                logger.error(f"❌ Recording {recording_id} not found in database")
+                logger.error(f" Recording {recording_id} not found in database")
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Failed to get recording info: {e}")
+            logger.error(f" Failed to get recording info: {e}")
             return None
     
     def _find_recording_files(self, recording_info):
@@ -136,16 +136,16 @@ class BackgroundUploader:
                 
                 if os.path.exists(video_path):
                     files['video'] = str(video_path)
-                    logger.info(f"📹 Found video file: {video_path}")
+                    logger.info(f" Found video file: {video_path}")
                     
                     # Look for thumbnail (same name with _thumb.jpg)
                     base_name = os.path.splitext(video_path)[0]
                     thumbnail_path = f"{base_name}_thumb.jpg"
                     if os.path.exists(thumbnail_path):
                         files['thumbnail'] = thumbnail_path
-                        logger.info(f"🖼️ Found thumbnail: {thumbnail_path}")
+                        logger.info(f" Found thumbnail: {thumbnail_path}")
                 else:
-                    logger.warning(f"⚠️ Video file not found: {video_path}")
+                    logger.warning(f" Video file not found: {video_path}")
             
             # Look for transcript file
             safe_title = "".join(c for c in recording_info['title'] if c.isalnum() or c in (' ', '-', '_')).rstrip()
@@ -154,14 +154,14 @@ class BackgroundUploader:
             
             if os.path.exists(transcript_path):
                 files['transcript'] = str(transcript_path)
-                logger.info(f"📝 Found transcript: {transcript_path}")
+                logger.info(f" Found transcript: {transcript_path}")
             else:
-                logger.warning(f"⚠️ Transcript not found: {transcript_path}")
+                logger.warning(f" Transcript not found: {transcript_path}")
             
             return files
             
         except Exception as e:
-            logger.error(f"❌ Error finding recording files: {e}")
+            logger.error(f" Error finding recording files: {e}")
             return files
     
     def _get_video_duration(self, video_path):
@@ -185,14 +185,14 @@ class BackgroundUploader:
                     try:
                         return int(float(duration_str))
                     except ValueError:
-                        logger.warning(f"⚠️ Invalid duration format: {duration_str}")
+                        logger.warning(f" Invalid duration format: {duration_str}")
                         return None
             
-            logger.warning(f"⚠️ ffprobe failed, using database duration")
+            logger.warning(f" ffprobe failed, using database duration")
             return None
                 
         except Exception as e:
-            logger.warning(f"⚠️ ffprobe error: {e}")
+            logger.warning(f" ffprobe error: {e}")
             return None
     
     def _generate_thumbnail_if_missing(self, video_path):
@@ -204,7 +204,7 @@ class BackgroundUploader:
             if os.path.exists(thumbnail_path):
                 return thumbnail_path
             
-            logger.info(f"🖼️ Generating thumbnail for: {os.path.basename(video_path)}")
+            logger.info(f" Generating thumbnail for: {os.path.basename(video_path)}")
             
             # Try local ffmpeg first
             current_dir = Path(__file__).parent.absolute()
@@ -222,14 +222,14 @@ class BackgroundUploader:
             ], check=True, capture_output=True, timeout=30)
             
             if os.path.exists(thumbnail_path):
-                logger.info(f"✅ Thumbnail generated: {thumbnail_path}")
+                logger.info(f" Thumbnail generated: {thumbnail_path}")
                 return thumbnail_path
             else:
-                logger.warning(f"⚠️ Thumbnail generation failed")
+                logger.warning(f" Thumbnail generation failed")
                 return None
                 
         except Exception as e:
-            logger.error(f"❌ Thumbnail generation error: {e}")
+            logger.error(f" Thumbnail generation error: {e}")
             return None
     
     def _upload_file_to_s3(self, file_path, s3_key, recording_id):
@@ -252,7 +252,7 @@ class BackgroundUploader:
                         self.active_uploads[recording_id]['files'][s3_key]['progress'] = progress
             
             # Perform upload
-            logger.info(f"⬆️ Uploading {os.path.basename(file_path)} to {s3_key}")
+            logger.info(f" Uploading {os.path.basename(file_path)} to {s3_key}")
             s3_client.upload_file(
                 file_path, 
                 self.bucket_name, 
@@ -272,11 +272,11 @@ class BackgroundUploader:
                         'url': url
                     }
             
-            logger.info(f"✅ Upload completed: {s3_key}")
+            logger.info(f" Upload completed: {s3_key}")
             return url
             
         except Exception as e:
-            logger.error(f"❌ Upload failed for {s3_key}: {e}")
+            logger.error(f" Upload failed for {s3_key}: {e}")
             with self.upload_lock:
                 if recording_id in self.active_uploads:
                     self.active_uploads[recording_id]['files'][s3_key] = {
@@ -321,24 +321,24 @@ class BackgroundUploader:
             # Check if any meeting was updated
             updated_rows = cursor.rowcount
             if updated_rows > 0:
-                logger.info(f"✅ Updated meeting status to 'recorded_synced' for recording {recording_id}")
+                logger.info(f" Updated meeting status to 'recorded_synced' for recording {recording_id}")
             else:
-                logger.info(f"ℹ️ No meeting found linked to recording {recording_id}")
+                logger.info(f"ℹ No meeting found linked to recording {recording_id}")
             
             conn.commit()
             conn.close()
             
-            logger.info(f"✅ Database updated with upload URLs for recording {recording_id}")
+            logger.info(f" Database updated with upload URLs for recording {recording_id}")
             
         except Exception as e:
-            logger.error(f"❌ Database update failed: {e}")
+            logger.error(f" Database update failed: {e}")
             raise
     
     def upload_recording_async(self, recording_id):
         """Start asynchronous upload of a recording"""
         def upload_worker():
             try:
-                logger.info(f"🚀 Starting background upload for recording {recording_id}")
+                logger.info(f" Starting background upload for recording {recording_id}")
                 
                 # Mark upload as starting
                 with self.upload_lock:
@@ -356,7 +356,7 @@ class BackgroundUploader:
                     conn.commit()
                     conn.close()
                 except Exception as e:
-                    logger.warning(f"⚠️ Failed to update upload status: {e}")
+                    logger.warning(f" Failed to update upload status: {e}")
                 
                 # Get recording info
                 recording_info = self._get_recording_info(recording_id)
@@ -385,11 +385,11 @@ class BackgroundUploader:
                             f"{folder_prefix}video.mkv", 
                             recording_id
                         )
-                        logger.info(f"✅ Video upload completed for recording {recording_id}")
+                        logger.info(f" Video upload completed for recording {recording_id}")
                     except Exception as e:
                         error_msg = f"Video upload failed: {e}"
                         upload_errors.append(error_msg)
-                        logger.error(f"❌ {error_msg}")
+                        logger.error(f" {error_msg}")
                 
                 # Upload transcript file
                 if files['transcript']:
@@ -399,11 +399,11 @@ class BackgroundUploader:
                             f"{folder_prefix}transcript.txt", 
                             recording_id
                         )
-                        logger.info(f"✅ Transcript upload completed for recording {recording_id}")
+                        logger.info(f" Transcript upload completed for recording {recording_id}")
                     except Exception as e:
                         error_msg = f"Transcript upload failed: {e}"
                         upload_errors.append(error_msg)
-                        logger.error(f"❌ {error_msg}")
+                        logger.error(f" {error_msg}")
                 
                 # Upload thumbnail file
                 if files['thumbnail']:
@@ -413,11 +413,11 @@ class BackgroundUploader:
                             f"{folder_prefix}thumbnail.jpg", 
                             recording_id
                         )
-                        logger.info(f"✅ Thumbnail upload completed for recording {recording_id}")
+                        logger.info(f" Thumbnail upload completed for recording {recording_id}")
                     except Exception as e:
                         error_msg = f"Thumbnail upload failed: {e}"
                         upload_errors.append(error_msg)
-                        logger.error(f"❌ {error_msg}")
+                        logger.error(f" {error_msg}")
                 
                 # Check if we have any successful uploads
                 if not urls:
@@ -425,12 +425,12 @@ class BackgroundUploader:
                 
                 # Create comprehensive metadata
                 logger.info("=" * 60)
-                logger.info("📋 CREATING UPLOAD METADATA")
+                logger.info(" CREATING UPLOAD METADATA")
                 logger.info("=" * 60)
                 metadata = self._create_upload_metadata(recording_info, files, urls)
                 
                 # Log metadata summary
-                logger.info(f"📊 Metadata Summary:")
+                logger.info(f" Metadata Summary:")
                 logger.info(f"   Recording ID: {metadata.get('recording_id')}")
                 logger.info(f"   Title: {metadata.get('title')}")
                 logger.info(f"   Duration: {metadata.get('duration_seconds')} seconds")
@@ -463,10 +463,10 @@ class BackgroundUploader:
                     except:
                         pass
                         
-                    logger.info(f"✅ Metadata upload completed for recording {recording_id}")
+                    logger.info(f" Metadata upload completed for recording {recording_id}")
                         
                 except Exception as e:
-                    logger.warning(f"⚠️ Metadata upload failed (non-critical): {e}")
+                    logger.warning(f" Metadata upload failed (non-critical): {e}")
                     # Don't add to upload_errors since metadata is optional
                 
                 # Update database with URLs
@@ -475,43 +475,43 @@ class BackgroundUploader:
                 # Send webhook to Django server (non-blocking, won't fail upload if webhook fails)
                 try:
                     logger.info("=" * 80)
-                    logger.info("🌐 PREPARING WEBHOOK TO ops.fyelabs.com")
+                    logger.info(" PREPARING WEBHOOK TO ops.fyelabs.com")
                     logger.info("=" * 80)
-                    logger.info(f"📊 Recording ID: {recording_id}")
-                    logger.info(f"📄 Recording Title: {recording_info.get('title', 'N/A')}")
-                    logger.info(f"👤 User: {recording_info.get('username', 'N/A')} ({recording_info.get('email', 'N/A')})")
-                    logger.info(f"🔗 Meeting Linked: {'Yes' if recording_info.get('meeting_id') else 'No'}")
+                    logger.info(f" Recording ID: {recording_id}")
+                    logger.info(f" Recording Title: {recording_info.get('title', 'N/A')}")
+                    logger.info(f" User: {recording_info.get('username', 'N/A')} ({recording_info.get('email', 'N/A')})")
+                    logger.info(f" Meeting Linked: {'Yes' if recording_info.get('meeting_id') else 'No'}")
                     if recording_info.get('meeting_id'):
-                        logger.info(f"📅 Meeting: {recording_info.get('meeting_subject', 'N/A')}")
-                    logger.info(f"📁 Files to Send: {len(urls)} URLs")
-                    logger.info(f"💾 Total Size: {metadata.get('file_info', {}).get('total_size_mb', 0)} MB")
+                        logger.info(f" Meeting: {recording_info.get('meeting_subject', 'N/A')}")
+                    logger.info(f" Files to Send: {len(urls)} URLs")
+                    logger.info(f" Total Size: {metadata.get('file_info', {}).get('total_size_mb', 0)} MB")
                     
                     webhook_sent = self._send_webhook_to_django(metadata)
                     if webhook_sent:
                         logger.info("=" * 80)
-                        logger.info(f"✅ WEBHOOK DELIVERY COMPLETE - Recording {recording_id}")
-                        logger.info("🎯 ops.fyelabs.com has been notified of the upload")
+                        logger.info(f" WEBHOOK DELIVERY COMPLETE - Recording {recording_id}")
+                        logger.info(" ops.fyelabs.com has been notified of the upload")
                         logger.info("=" * 80)
                     else:
                         logger.warning("=" * 80)
-                        logger.warning(f"⚠️ WEBHOOK DELIVERY FAILED - Recording {recording_id}")
-                        logger.warning("❌ ops.fyelabs.com was NOT notified (upload still succeeded)")
+                        logger.warning(f" WEBHOOK DELIVERY FAILED - Recording {recording_id}")
+                        logger.warning(" ops.fyelabs.com was NOT notified (upload still succeeded)")
                         logger.warning("=" * 80)
                 except Exception as webhook_error:
                     logger.error("=" * 80)
-                    logger.error(f"❌ WEBHOOK ERROR - Recording {recording_id}")
-                    logger.error(f"🐛 Exception: {webhook_error}")
-                    logger.error("⚠️ Upload succeeded but webhook failed")
+                    logger.error(f" WEBHOOK ERROR - Recording {recording_id}")
+                    logger.error(f" Exception: {webhook_error}")
+                    logger.error(" Upload succeeded but webhook failed")
                     logger.error("=" * 80)
                     # Don't fail the upload if webhook fails
                 
                 # Determine final status
                 if upload_errors:
                     final_status = 'partially_completed'
-                    logger.warning(f"⚠️ Partial upload for recording {recording_id}: {len(urls)} succeeded, {len(upload_errors)} failed")
+                    logger.warning(f" Partial upload for recording {recording_id}: {len(urls)} succeeded, {len(upload_errors)} failed")
                 else:
                     final_status = 'completed'
-                    logger.info(f"✅ Complete upload for recording {recording_id}: all files uploaded successfully")
+                    logger.info(f" Complete upload for recording {recording_id}: all files uploaded successfully")
                 
                 # Mark upload as completed
                 with self.upload_lock:
@@ -521,7 +521,7 @@ class BackgroundUploader:
                         self.active_uploads[recording_id]['urls'] = urls
                         self.active_uploads[recording_id]['errors'] = upload_errors
                 
-                logger.info(f"📊 Upload summary for recording {recording_id}: {len(urls)} files uploaded")
+                logger.info(f" Upload summary for recording {recording_id}: {len(urls)} files uploaded")
                 for file_type, url in urls.items():
                     logger.info(f"   {file_type}: {url}")
                 
@@ -530,7 +530,7 @@ class BackgroundUploader:
                         logger.warning(f"   Error: {error}")
                 
             except Exception as e:
-                logger.error(f"❌ Background upload failed for recording {recording_id}: {e}")
+                logger.error(f" Background upload failed for recording {recording_id}: {e}")
                 
                 # Mark upload as failed
                 with self.upload_lock:
@@ -556,12 +556,12 @@ class BackgroundUploader:
                     # Check if any meeting was updated
                     updated_rows = cursor.rowcount
                     if updated_rows > 0:
-                        logger.info(f"✅ Updated meeting status to 'upload_failed' for recording {recording_id}")
+                        logger.info(f" Updated meeting status to 'upload_failed' for recording {recording_id}")
                     
                     conn.commit()
                     conn.close()
                 except Exception as db_error:
-                    logger.error(f"❌ Failed to update database with failure status: {db_error}")
+                    logger.error(f" Failed to update database with failure status: {db_error}")
             
             finally:
                 # Clean up active uploads tracking after some time
@@ -572,7 +572,7 @@ class BackgroundUploader:
                             status = self.active_uploads[recording_id].get('status')
                             if status in ['completed', 'failed', 'partially_completed']:
                                 del self.active_uploads[recording_id]
-                                logger.debug(f"🧹 Cleaned up tracking for recording {recording_id}")
+                                logger.debug(f" Cleaned up tracking for recording {recording_id}")
                 
                 cleanup_thread = threading.Thread(target=cleanup_tracking, daemon=True)
                 cleanup_thread.start()
@@ -582,27 +582,27 @@ class BackgroundUploader:
         upload_thread.name = f"UploadWorker-{recording_id}"
         upload_thread.start()
         
-        logger.info(f"🎬 Background upload thread started for recording {recording_id}")
+        logger.info(f" Background upload thread started for recording {recording_id}")
         return True
     
     def _send_webhook_to_django(self, metadata):
         """Send recording metadata to Django webhook"""
         try:
             recording_id = metadata.get('recording_id', 'unknown')
-            logger.info(f"📤 Sending webhook to {self.webhook_url} for recording {recording_id}")
+            logger.info(f" Sending webhook to {self.webhook_url} for recording {recording_id}")
             
             # Log the complete JSON payload being sent
             logger.info("=" * 80)
-            logger.info("🌐 WEBHOOK PAYLOAD TO ops.fyelabs.com")
+            logger.info(" WEBHOOK PAYLOAD TO ops.fyelabs.com")
             logger.info("=" * 80)
-            logger.info(f"🔗 URL: {self.webhook_url}")
-            logger.info(f"🔑 Auth Token: {self.webhook_token[:20]}...")
-            logger.info(f"📊 Recording ID: {recording_id}")
+            logger.info(f" URL: {self.webhook_url}")
+            logger.info(f" Auth Token: {self.webhook_token[:20]}...")
+            logger.info(f" Recording ID: {recording_id}")
             
             # Pretty print the JSON payload
             import json
             payload_json = json.dumps(metadata, indent=2, default=str)
-            logger.info("📦 JSON Payload:")
+            logger.info(" JSON Payload:")
             logger.info("-" * 40)
             for line_num, line in enumerate(payload_json.split('\n'), 1):
                 logger.info(f"{line_num:3d}: {line}")
@@ -611,26 +611,26 @@ class BackgroundUploader:
             # Log meeting info summary
             if metadata.get('meeting_info', {}).get('is_linked_to_meeting'):
                 meeting_info = metadata['meeting_info']
-                logger.info("📅 Meeting Details Summary:")
+                logger.info(" Meeting Details Summary:")
                 logger.info(f"   Subject: {meeting_info.get('subject', 'N/A')}")
                 logger.info(f"   Start: {meeting_info.get('start_time', 'N/A')}")
                 logger.info(f"   Organizer: {meeting_info.get('organizer', 'N/A')}")
                 logger.info(f"   Attendees: {meeting_info.get('attendee_count', 0)}")
                 logger.info(f"   Type: {meeting_info.get('meeting_type', 'N/A')}")
             else:
-                logger.info("📹 Recording Type: Standalone (No Meeting Linked)")
+                logger.info(" Recording Type: Standalone (No Meeting Linked)")
             
             # Log file URLs
-            logger.info("📁 Uploaded Files:")
+            logger.info(" Uploaded Files:")
             for file_type, url in metadata.get('uploaded_files', {}).items():
                 logger.info(f"   {file_type}: {url}")
             
             # Log file sizes
             file_info = metadata.get('file_info', {})
-            logger.info(f"💾 Total Size: {file_info.get('total_size_mb', 0)} MB")
+            logger.info(f" Total Size: {file_info.get('total_size_mb', 0)} MB")
             
             logger.info("=" * 80)
-            logger.info("🚀 SENDING WEBHOOK REQUEST...")
+            logger.info(" SENDING WEBHOOK REQUEST...")
             
             response = requests.post(
                 self.webhook_url,
@@ -644,19 +644,19 @@ class BackgroundUploader:
             
             # Log response details
             logger.info("=" * 80)
-            logger.info("📥 WEBHOOK RESPONSE RECEIVED")
+            logger.info(" WEBHOOK RESPONSE RECEIVED")
             logger.info("=" * 80)
-            logger.info(f"📊 Status Code: {response.status_code}")
-            logger.info(f"⏱️ Response Time: {response.elapsed.total_seconds():.2f} seconds")
-            logger.info(f"📏 Content Length: {len(response.content)} bytes")
+            logger.info(f" Status Code: {response.status_code}")
+            logger.info(f" Response Time: {response.elapsed.total_seconds():.2f} seconds")
+            logger.info(f" Content Length: {len(response.content)} bytes")
             
             # Log response headers
-            logger.info("📋 Response Headers:")
+            logger.info(" Response Headers:")
             for key, value in response.headers.items():
                 logger.info(f"   {key}: {value}")
             
             # Log response body
-            logger.info("📄 Response Body:")
+            logger.info(" Response Body:")
             try:
                 response_data = response.json()
                 response_json = json.dumps(response_data, indent=2)
@@ -670,43 +670,43 @@ class BackgroundUploader:
             if response.status_code in [200, 201]:
                 try:
                     response_data = response.json()
-                    logger.info(f"✅ Webhook sent successfully: {response_data.get('message', 'Success')}")
+                    logger.info(f" Webhook sent successfully: {response_data.get('message', 'Success')}")
                     logger.info(f"   Action: {response_data.get('action', 'unknown')}")
                     logger.info(f"   Django PK: {response_data.get('pk', 'unknown')}")
                     logger.info(f"   Server Response: {response_data.get('status', 'success')}")
                 except:
-                    logger.info(f"✅ Webhook sent successfully (non-JSON response)")
+                    logger.info(f" Webhook sent successfully (non-JSON response)")
                 
-                logger.info("🎉 WEBHOOK DELIVERY SUCCESSFUL!")
+                logger.info(" WEBHOOK DELIVERY SUCCESSFUL!")
                 logger.info("=" * 80)
                 return True
             elif response.status_code == 401:
-                logger.error(f"❌ Webhook authentication failed - invalid token")
-                logger.error("🔒 Check webhook token configuration")
+                logger.error(f" Webhook authentication failed - invalid token")
+                logger.error(" Check webhook token configuration")
                 logger.error("=" * 80)
                 return False
             else:
-                logger.error(f"❌ Webhook failed with status {response.status_code}")
-                logger.error(f"📄 Response: {response.text}")
+                logger.error(f" Webhook failed with status {response.status_code}")
+                logger.error(f" Response: {response.text}")
                 logger.error("=" * 80)
                 return False
                 
         except requests.exceptions.Timeout:
-            logger.error(f"❌ Webhook timeout after 30 seconds")
-            logger.error(f"🌐 URL: {self.webhook_url}")
-            logger.error("⏰ Server may be slow or unresponsive")
+            logger.error(f" Webhook timeout after 30 seconds")
+            logger.error(f" URL: {self.webhook_url}")
+            logger.error(" Server may be slow or unresponsive")
             logger.error("=" * 80)
             return False
         except requests.exceptions.ConnectionError as e:
-            logger.error(f"❌ Webhook connection failed: {e}")
-            logger.error(f"🌐 URL: {self.webhook_url}")
-            logger.error("🔌 Check network connectivity to ops.fyelabs.com")
+            logger.error(f" Webhook connection failed: {e}")
+            logger.error(f" URL: {self.webhook_url}")
+            logger.error(" Check network connectivity to ops.fyelabs.com")
             logger.error("=" * 80)
             return False
         except Exception as e:
-            logger.error(f"❌ Webhook send failed: {e}")
-            logger.error(f"🌐 URL: {self.webhook_url}")
-            logger.error("🐛 Unexpected error during webhook delivery")
+            logger.error(f" Webhook send failed: {e}")
+            logger.error(f" URL: {self.webhook_url}")
+            logger.error(" Unexpected error during webhook delivery")
             logger.error("=" * 80)
             return False
     
@@ -799,17 +799,17 @@ class BackgroundUploader:
                     'discovered_at': recording_info.get('meeting_discovered_at'),
                     'is_linked_to_meeting': True
                 }
-                logger.info(f"📅 Including meeting info for recording {recording_info['id']}: {recording_info.get('meeting_subject')}")
+                logger.info(f" Including meeting info for recording {recording_info['id']}: {recording_info.get('meeting_subject')}")
             else:
                 metadata['meeting_info'] = {
                     'is_linked_to_meeting': False
                 }
-                logger.info(f"📹 Recording {recording_info['id']} is not linked to any meeting")
+                logger.info(f" Recording {recording_info['id']} is not linked to any meeting")
             
             return metadata
             
         except Exception as e:
-            logger.error(f"❌ Metadata creation failed: {e}")
+            logger.error(f" Metadata creation failed: {e}")
             return {
                 'recording_id': recording_info['id'],
                 'title': recording_info['title'],
@@ -843,5 +843,5 @@ def trigger_upload(recording_id):
         uploader = get_uploader()
         return uploader.upload_recording_async(recording_id)
     except Exception as e:
-        logger.error(f"❌ Failed to trigger upload for recording {recording_id}: {e}")
+        logger.error(f" Failed to trigger upload for recording {recording_id}: {e}")
         return False

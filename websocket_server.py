@@ -8,6 +8,10 @@ import asyncio
 import websockets
 import json
 from datetime import datetime
+from logging_config import setup_logging
+
+# Setup logging
+logger = setup_logging("websocket_server")
 
 class MeetingControlServer:
     def __init__(self, host="0.0.0.0", port=8769):
@@ -18,14 +22,14 @@ class MeetingControlServer:
     async def register_client(self, websocket):
         """Register a new client connection"""
         self.connected_clients.add(websocket)
-        print(f"✅ Client connected: {websocket.remote_address}")
-        print(f"📊 Total clients: {len(self.connected_clients)}")
+        logger.info(f"Client connected: {websocket.remote_address}")
+        logger.info(f"Total clients: {len(self.connected_clients)}")
     
     async def unregister_client(self, websocket):
         """Unregister a client connection"""
         self.connected_clients.discard(websocket)
-        print(f"❌ Client disconnected: {websocket.remote_address}")
-        print(f"📊 Total clients: {len(self.connected_clients)}")
+        logger.info(f"Client disconnected: {websocket.remote_address}")
+        logger.info(f"Total clients: {len(self.connected_clients)}")
     
     async def send_message(self, websocket, message_type, data):
         """Send message to a client"""
@@ -36,9 +40,9 @@ class MeetingControlServer:
                 "data": data
             }
             await websocket.send(json.dumps(message))
-            print(f"📤 Sent to {websocket.remote_address}: {message_type}")
+            logger.info(f"Sent to {websocket.remote_address}: {message_type}")
         except Exception as e:
-            print(f"❌ Error sending message: {e}")
+            logger.error(f"Error sending message: {e}")
     
     async def broadcast_message(self, message_type, data):
         """Broadcast message to all connected clients"""
@@ -55,7 +59,7 @@ class MeetingControlServer:
                 *[client.send(message_json) for client in self.connected_clients],
                 return_exceptions=True
             )
-            print(f"📢 Broadcast to {len(self.connected_clients)} clients: {message_type}")
+            logger.info(f"Broadcast to {len(self.connected_clients)} clients: {message_type}")
     
     async def handle_client_message(self, websocket, message):
         """Handle incoming message from client"""
@@ -64,47 +68,47 @@ class MeetingControlServer:
             msg_type = data.get('type')
             msg_data = data.get('data', {})
             
-            print(f"\n📥 Received from {websocket.remote_address}: {msg_type}")
-            print(f"   Data: {json.dumps(msg_data, indent=2)}")
+            logger.info(f"\nReceived from {websocket.remote_address}: {msg_type}")
+            logger.info(f"   Data: {json.dumps(msg_data, indent=2)}")
             
             # Log client responses
             if msg_type == 'client_connected':
                 hostname = msg_data.get('hostname', 'unknown')
                 user = msg_data.get('user', {})
                 
-                print(f"   ✅ Client ready: {hostname}")
+                logger.info(f"   Client ready: {hostname}")
                 
                 if user:
-                    print(f"      User: {user.get('username', 'N/A')} ({user.get('email', 'N/A')})")
-                    print(f"      User ID: {user.get('user_id', 'N/A')}")
+                    logger.info(f"      User: {user.get('username', 'N/A')} ({user.get('email', 'N/A')})")
+                    logger.info(f"      User ID: {user.get('user_id', 'N/A')}")
                 else:
-                    print(f"      User: Not logged in")
+                    logger.info(f"      User: Not logged in")
             
             elif msg_type == 'start_confirmed':
-                print(f"   ✅ Recording started successfully")
-                print(f"      Meeting: {msg_data.get('subject', 'N/A')}")
-                print(f"      Duration: {msg_data.get('duration', 0)} minutes")
+                logger.info(f"   Recording started successfully")
+                logger.info(f"      Meeting: {msg_data.get('subject', 'N/A')}")
+                logger.info(f"      Duration: {msg_data.get('duration', 0)} minutes")
             
             elif msg_type == 'start_failed':
-                print(f"   ❌ Recording start failed")
-                print(f"      Reason: {msg_data.get('reason', 'Unknown')}")
+                logger.error(f"   Recording start failed")
+                logger.error(f"      Reason: {msg_data.get('reason', 'Unknown')}")
             
             elif msg_type == 'stop_confirmed':
-                print(f"   ✅ Recording stopped successfully")
-                print(f"      Actual duration: {msg_data.get('duration_actual', 0)} seconds")
+                logger.info(f"   Recording stopped successfully")
+                logger.info(f"      Actual duration: {msg_data.get('duration_actual', 0)} seconds")
             
             elif msg_type == 'stop_failed':
-                print(f"   ❌ Recording stop failed")
-                print(f"      Reason: {msg_data.get('reason', 'Unknown')}")
+                logger.error(f"   Recording stop failed")
+                logger.error(f"      Reason: {msg_data.get('reason', 'Unknown')}")
             
             elif msg_type == 'recording_warning':
-                print(f"   ⚠️  Recording warning")
-                print(f"      Warning: {msg_data.get('warning', 'Unknown')}")
+                logger.warning(f"   Recording warning")
+                logger.warning(f"      Warning: {msg_data.get('warning', 'Unknown')}")
             
             elif msg_type == 'recording_status':
-                print(f"   📹 Recording in progress")
-                print(f"      Elapsed: {msg_data.get('elapsed', 0)}s")
-                print(f"      Remaining: {msg_data.get('remaining', 0)}s")
+                logger.info(f"   Recording in progress")
+                logger.info(f"      Elapsed: {msg_data.get('elapsed', 0)}s")
+                logger.info(f"      Remaining: {msg_data.get('remaining', 0)}s")
             
             elif msg_type == 'app_health':
                 alive = msg_data.get('alive', False)
@@ -117,31 +121,31 @@ class MeetingControlServer:
                             meeting = msg_data.get('meeting', {})
                             meeting_subject = meeting.get('subject', 'Unknown')
                             meeting_id = meeting.get('id', 'N/A')
-                            print(f"   💚 Flask app health: Recording MEETING")
-                            print(f"      Meeting: {meeting_subject}")
-                            print(f"      Meeting ID: {meeting_id}")
+                            logger.info(f"   Flask app health: Recording MEETING")
+                            logger.info(f"      Meeting: {meeting_subject}")
+                            logger.info(f"      Meeting ID: {meeting_id}")
                         elif recording_type == 'manual':
-                            print(f"   💚 Flask app health: Recording MANUAL (hotkey/button)")
+                            logger.info(f"   Flask app health: Recording MANUAL (hotkey/button)")
                         else:
-                            print(f"   💚 Flask app health: Recording")
+                            logger.info(f"   Flask app health: Recording")
                     else:
-                        print(f"   💛 Flask app health: Idle")
+                        logger.info(f"   Flask app health: Idle")
                 else:
-                    print(f"   ❤️‍🩹 Flask app health: DOWN")
+                    logger.warning(f"   Flask app health: DOWN")
                     if msg_data.get('error'):
-                        print(f"      Error: {msg_data.get('error')}")
+                        logger.error(f"      Error: {msg_data.get('error')}")
             
             elif msg_type == 'app_alert':
-                print(f"   🚨 ALERT: {msg_data.get('alert', 'Unknown alert')}")
-                print(f"      Error: {msg_data.get('error', 'Unknown')}")
+                logger.error(f"   ALERT: {msg_data.get('alert', 'Unknown alert')}")
+                logger.error(f"      Error: {msg_data.get('error', 'Unknown')}")
             
             elif msg_type == 'pong':
-                print(f"   🏓 Pong received")
+                logger.info(f"   Pong received")
         
         except json.JSONDecodeError as e:
-            print(f"❌ Invalid JSON from client: {e}")
+            logger.error(f"Invalid JSON from client: {e}")
         except Exception as e:
-            print(f"❌ Error handling client message: {e}")
+            logger.error(f"Error handling client message: {e}")
     
     async def handle_client(self, websocket, path):
         """Handle a client connection"""
@@ -152,36 +156,36 @@ class MeetingControlServer:
                 await self.handle_client_message(websocket, message)
         
         except websockets.exceptions.ConnectionClosed:
-            print(f"Connection closed normally: {websocket.remote_address}")
+            logger.info(f"Connection closed normally: {websocket.remote_address}")
         except Exception as e:
-            print(f"❌ Error in client handler: {e}")
+            logger.error(f"Error in client handler: {e}")
         finally:
             await self.unregister_client(websocket)
     
     async def send_test_start_command(self):
         """Send a test start recording command (for testing)"""
         # Wait for clients to connect
-        print("⏳ Waiting 5 seconds for clients to connect...")
+        logger.info("Waiting 5 seconds for clients to connect...")
         await asyncio.sleep(5)
         
         # Check if any clients connected
         if not self.connected_clients:
-            print("⚠️  No clients connected yet. Waiting longer...")
+            logger.warning("No clients connected yet. Waiting longer...")
             await asyncio.sleep(5)
         
         if not self.connected_clients:
-            print("❌ Still no clients connected. Test command aborted.")
+            logger.error("Still no clients connected. Test command aborted.")
             return
         
         # HARDCODED TEST VALUES - Replace these with actual event ID and duration
         test_meeting_id = "AAMkAGM2ZjJkMDJkLWE4ZDAtNGE4My1iNWYyLTJmYjJhZjJhNjFhNABGAAAAAACqGX5cOJWYRJtN9pPDpw4iBwCt0Z-jYRzCRoWPpJW4_HzrAAAADGqOAACt0Z-jYRzCRoWPpJW4_HzrAACJCOAAAA=="  # Replace with actual calendar_event_id
         test_duration = 2  # minutes
         
-        print("\n" + "="*60)
-        print("🧪 SENDING TEST START COMMAND")
-        print(f"   Meeting ID: {test_meeting_id}")
-        print(f"   Duration: {test_duration} minutes")
-        print("="*60 + "\n")
+        logger.info("\n" + "="*60)
+        logger.info("SENDING TEST START COMMAND")
+        logger.info(f"   Meeting ID: {test_meeting_id}")
+        logger.info(f"   Duration: {test_duration} minutes")
+        logger.info("="*60 + "\n")
         
         await self.broadcast_message("start_recording", {
             "meeting_id": test_meeting_id,
@@ -192,17 +196,17 @@ class MeetingControlServer:
         """Interactive console for sending commands"""
         await asyncio.sleep(3)  # Wait for initial connection
         
-        print("\n" + "="*60)
-        print("📋 INTERACTIVE CONSOLE")
-        print("="*60)
-        print("Commands:")
-        print("  start <meeting_id> <duration_minutes>  - Start recording")
-        print("  stop                                    - Stop current recording")
-        print("  ping                                    - Send ping to all clients")
-        print("  status                                  - Show connected clients")
-        print("  test                                    - Send test start command")
-        print("  quit                                    - Exit server")
-        print("="*60 + "\n")
+        logger.info("\n" + "="*60)
+        logger.info("INTERACTIVE CONSOLE")
+        logger.info("="*60)
+        logger.info("Commands:")
+        logger.info("  start <meeting_id> <duration_minutes>  - Start recording")
+        logger.info("  stop                                    - Stop current recording")
+        logger.info("  ping                                    - Send ping to all clients")
+        logger.info("  status                                  - Show connected clients")
+        logger.info("  test                                    - Send test start command")
+        logger.info("  quit                                    - Exit server")
+        logger.info("="*60 + "\n")
         
         while True:
             try:
@@ -214,16 +218,16 @@ class MeetingControlServer:
     
     async def start_server(self):
         """Start the WebSocket server"""
-        print("="*60)
-        print("🚀 Meeting Control Server Starting")
-        print(f"   Host: {self.host}")
-        print(f"   Port: {self.port}")
-        print("="*60 + "\n")
+        logger.info("="*60)
+        logger.info("Meeting Control Server Starting")
+        logger.info(f"   Host: {self.host}")
+        logger.info(f"   Port: {self.port}")
+        logger.info("="*60 + "\n")
         
         # Start WebSocket server
         async with websockets.serve(self.handle_client, self.host, self.port):
-            print(f"✅ Server listening on ws://{self.host}:{self.port}")
-            print("⏳ Waiting for client connections...\n")
+            logger.info(f"Server listening on ws://{self.host}:{self.port}")
+            logger.info("Waiting for client connections...\n")
             
             # Uncomment one of these for testing:
             
@@ -243,7 +247,7 @@ async def main():
     try:
         await server.start_server()
     except KeyboardInterrupt:
-        print("\n\n👋 Shutting down server...")
+        logger.info("\n\nShutting down server...")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -12,6 +12,10 @@ import json
 from datetime import datetime
 import sys
 import os
+from logging_config import setup_logging
+
+# Setup logging
+logger = setup_logging("hotkey_listener")
 
 # Windows Toast Notifications
 try:
@@ -19,25 +23,7 @@ try:
     NOTIFICATIONS_AVAILABLE = True
 except ImportError:
     NOTIFICATIONS_AVAILABLE = False
-    print("Install 'plyer' for toast notifications: pip install plyer")
-
-# Fix Windows console encoding issues
-if os.name == 'nt':  # Windows
-    import locale
-    # Try to set UTF-8 encoding for console output
-    try:
-        # For Python 3.7+
-        if hasattr(sys.stdout, 'reconfigure'):
-            sys.stdout.reconfigure(encoding='utf-8')
-            sys.stderr.reconfigure(encoding='utf-8')
-        else:
-            # Fallback for older Python versions
-            import codecs
-            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer)
-            sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer)
-    except:
-        # If UTF-8 fails, we'll use ASCII-safe messages
-        pass
+    logger.warning("Install 'plyer' for toast notifications: pip install plyer")
 
 # Flask app configuration
 FLASK_URL = "http://localhost:5000"
@@ -50,37 +36,6 @@ HOTKEYS = {
 last_hotkey_time = {'start': 0, 'stop': 0}
 DEBOUNCE_SECONDS = 2
 
-def safe_print(message, emoji="[INFO]"):
-    """Print message with safe encoding handling"""
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    try:
-        # Try to print with emoji
-        print(f"{timestamp} | {emoji} {message}")
-    except UnicodeEncodeError:
-        # Fallback to ASCII-safe version
-        emoji_map = {
-            "🎹": "[HOTKEY]",
-            "🎬": "[START]", 
-            "⏹️": "[STOP]",
-            "✅": "[OK]",
-            "❌": "[ERROR]",
-            "⚠️": "[WARN]",
-            "📤": "[SEND]",
-            "📥": "[RECV]",
-            "📝": "[DATA]",
-            "🔍": "[CHECK]",
-            "🔌": "[CONN]",
-            "⏰": "[TIME]",
-            "💥": "[CRASH]",
-            "🔐": "[AUTH]",
-            "💡": "[TIP]",
-            "🛑": "[STOP]",
-            "🧹": "[CLEAN]",
-            "🔥": "[READY]"
-        }
-        safe_emoji = emoji_map.get(emoji, "[INFO]")
-        print(f"{timestamp} | {safe_emoji} {message}")
-
 def show_notification(title, message, timeout=3):
     """Show discrete Windows toast notification"""
     if NOTIFICATIONS_AVAILABLE:
@@ -92,22 +47,14 @@ def show_notification(title, message, timeout=3):
                 app_name="Recording System"
             )
         except Exception as e:
-            print(f"Notification failed: {e}")
-    else:
-        # Fallback to console if notifications unavailable
-        safe_print(f"{title}: {message}")
-
-def print_status(message, emoji="🎹"):
-    """Print status with timestamp - safe encoding wrapper"""
-    safe_print(message, emoji)
+            logger.debug(f"Notification failed: {e}")
 
 def check_flask_connection():
     """Check if Flask app is running"""
     try:
         response = requests.get(f"{FLASK_URL}/", timeout=2)
         return response.status_code == 200
-    except Exception as e:
-        print_status(f"🔍 Flask check failed: {e}")
+    except Exception:
         return False
 
 def trigger_start_recording():
@@ -119,18 +66,18 @@ def trigger_start_recording():
             return
         last_hotkey_time['start'] = current_time
         
-        print_status("🎬 Hotkey pressed: Starting recording...")
+        logger.info(" Hotkey pressed: Starting recording...")
         
         # Check if Flask app is running
         if not check_flask_connection():
-            print_status("❌ Flask app not accessible", "⚠️")
+            logger.info(" Flask app not accessible")
             return
         
         # Generate recording title with timestamp
         title = f"Hotkey Recording {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         
         # Send start request with longer timeout for slow startup
-        print_status(f"📤 Sending POST request to {FLASK_URL}/start")
+        logger.info(f" Sending POST request to {FLASK_URL}/start")
         response = requests.post(
             f"{FLASK_URL}/start",
             json={'title': title},
@@ -138,8 +85,8 @@ def trigger_start_recording():
             timeout=10  # Increased from 5 to 10 seconds
         )
         
-        print_status(f"📥 Response: Status {response.status_code}, Headers: {dict(response.headers)}")
-        print_status(f"📝 Response text: {response.text[:200]}...")  # First 200 chars
+        logger.info(f" Response: Status {response.status_code}, Headers: {dict(response.headers)}")
+        logger.info(f" Response text: {response.text[:200]}...")  # First 200 chars
         
         if response.status_code == 200:
             try:
@@ -154,15 +101,15 @@ def trigger_start_recording():
                     timeout=4
                 )
                 
-                print_status(f"✅ Recording started: {monitor}")
-                print_status(f"📁 Recording ID: {recording_id}")
+                logger.info(f" Recording started: {monitor}")
+                logger.info(f" Recording ID: {recording_id}")
             except json.JSONDecodeError:
                 show_notification("Recording Started", "Successfully initiated")
-                print_status("✅ Recording started (no JSON response)")
+                logger.info(" Recording started (no JSON response)")
         elif response.status_code == 401 or response.status_code == 302:
             show_notification("Recording Failed", "Authentication required", timeout=5)
-            print_status("❌ Authentication required - Flask endpoint needs login", "🔐")
-            print_status("💡 Try accessing via web interface first to authenticate", "💡")
+            logger.info(" Authentication required - Flask endpoint needs login")
+            logger.info(" Try accessing via web interface first to authenticate")
         else:
             try:
                 error_data = response.json()
@@ -171,17 +118,17 @@ def trigger_start_recording():
                 error_msg = f'HTTP {response.status_code} (no JSON response)'
             
             show_notification("Recording Failed", error_msg, timeout=5)
-            print_status(f"❌ Failed to start recording: {error_msg}", "⚠️")
+            logger.info(f" Failed to start recording: {error_msg}")
             
     except requests.exceptions.Timeout:
         show_notification("Recording Failed", "Request timeout", timeout=5)
-        print_status("❌ Request timeout - Flask app may be busy", "⏰")
+        logger.info(" Request timeout - Flask app may be busy")
     except requests.exceptions.ConnectionError:
         show_notification("Recording Failed", "Connection failed", timeout=5)
-        print_status("❌ Connection failed - Is Flask app running?", "🔌")
+        logger.info(" Connection failed - Is Flask app running?")
     except Exception as e:
         show_notification("Recording Failed", f"Error: {str(e)[:50]}", timeout=5)
-        print_status(f"❌ Unexpected error: {e}", "💥")
+        logger.info(f" Unexpected error: {e}")
 
 def trigger_stop_recording():
     """Trigger recording stop via hotkey"""
@@ -192,23 +139,23 @@ def trigger_stop_recording():
             return
         last_hotkey_time['stop'] = current_time
         
-        print_status("⏹️ Hotkey pressed: Stopping recording...")
+        logger.info(" Hotkey pressed: Stopping recording...")
         
         # Check if Flask app is running
         if not check_flask_connection():
-            print_status("❌ Flask app not accessible", "⚠️")
+            logger.info(" Flask app not accessible")
             return
         
         # Send stop request with longer timeout
-        print_status(f"📤 Sending POST request to {FLASK_URL}/stop")
+        logger.info(f" Sending POST request to {FLASK_URL}/stop")
         response = requests.post(
             f"{FLASK_URL}/stop",
             headers={'Content-Type': 'application/json'},
             timeout=10  # Increased from 5 to 10 seconds
         )
         
-        print_status(f"📥 Response: Status {response.status_code}, Headers: {dict(response.headers)}")
-        print_status(f"📝 Response text: {response.text[:200]}...")  # First 200 chars
+        logger.info(f" Response: Status {response.status_code}, Headers: {dict(response.headers)}")
+        logger.info(f" Response text: {response.text[:200]}...")  # First 200 chars
         
         if response.status_code == 200:
             try:
@@ -222,14 +169,14 @@ def trigger_stop_recording():
                     timeout=4
                 )
                 
-                print_status(f"✅ Recording stopped: {status}")
+                logger.info(f" Recording stopped: {status}")
             except json.JSONDecodeError:
                 show_notification("Recording Stopped", "Successfully stopped")
-                print_status("✅ Recording stopped (no JSON response)")
+                logger.info(" Recording stopped (no JSON response)")
         elif response.status_code == 401 or response.status_code == 302:
             show_notification("Stop Failed", "Authentication required", timeout=5)
-            print_status("❌ Authentication required - Flask endpoint needs login", "🔐")
-            print_status("💡 Try accessing via web interface first to authenticate", "💡")
+            logger.info(" Authentication required - Flask endpoint needs login")
+            logger.info(" Try accessing via web interface first to authenticate")
         else:
             try:
                 error_data = response.json()
@@ -238,54 +185,56 @@ def trigger_stop_recording():
                 error_msg = f'HTTP {response.status_code} (no JSON response)'
             
             show_notification("Stop Failed", error_msg, timeout=5)
-            print_status(f"❌ Failed to stop recording: {error_msg}", "⚠️")
+            logger.info(f" Failed to stop recording: {error_msg}")
             
     except requests.exceptions.Timeout:
         show_notification("Stop Failed", "Request timeout", timeout=5)
-        print_status("❌ Request timeout - Flask app may be busy", "⏰")
+        logger.info(" Request timeout - Flask app may be busy")
     except requests.exceptions.ConnectionError:
         show_notification("Stop Failed", "Connection failed", timeout=5)
-        print_status("❌ Connection failed - Is Flask app running?", "🔌")
+        logger.info(" Connection failed - Is Flask app running?")
     except Exception as e:
         show_notification("Stop Failed", f"Error: {str(e)[:50]}", timeout=5)
-        print_status(f"❌ Unexpected error: {e}", "💥")
+        logger.info(f" Unexpected error: {e}")
 
 def main():
     """Main hotkey listener"""
-    safe_print("Global Recording Hotkeys", "🎹")
-    safe_print("=" * 50)
-    safe_print(f"Start Recording: {HOTKEYS['record'].title()}", "📹")
-    safe_print(f"Stop Recording:  {HOTKEYS['stop'].title()}", "⏹️")
-    safe_print("=" * 50)
+    logger.info("=" * 60)
+    logger.info("HOTKEY LISTENER STARTING")
+    logger.info("=" * 60)
+    logger.info(f"Flask URL: {FLASK_URL}")
+    logger.info(f"Start Recording: {HOTKEYS['record']}")
+    logger.info(f"Stop Recording:  {HOTKEYS['stop']}")
+    logger.info("=" * 60)
     
     # Check initial Flask connection
     if check_flask_connection():
-        print_status("Flask app detected on localhost:5000", "✅")
+        logger.info("Flask app detected on localhost:5000")
     else:
-        print_status("Flask app not detected - start your Flask app first", "⚠️")
+        logger.warning("Flask app not detected - start your Flask app first")
     
-    print_status("Listening for hotkeys... (Press Ctrl+C to exit)", "🎧")
+    logger.info("Listening for hotkeys... (Press Ctrl+C to exit)")
     
     try:
-        # Register hotkeys - removed suppress=True to avoid interfering with other apps
+        # Register hotkeys - suppress=False to avoid interfering with other apps
         keyboard.add_hotkey(HOTKEYS['record'], trigger_start_recording, suppress=False)
         keyboard.add_hotkey(HOTKEYS['stop'], trigger_stop_recording, suppress=False)
         
-        print_status("Hotkeys registered successfully", "🔥")
+        logger.info("Hotkeys registered successfully")
         
         # Keep the script running
         keyboard.wait()
         
     except KeyboardInterrupt:
-        print_status("Hotkey listener stopped by user", "👋")
+        logger.info("Hotkey listener stopped by user")
         # Clean up hotkeys
         keyboard.unhook_all_hotkeys()
-        print_status("Hotkeys cleaned up", "🧹")
+        logger.info("Hotkeys cleaned up")
     except Exception as e:
-        print_status(f"Fatal error: {e}", "💥")
+        logger.error(f"Fatal error: {e}", exc_info=True)
         # Clean up hotkeys on error
         keyboard.unhook_all_hotkeys()
-        print_status("Hotkeys cleaned up after error", "🧹")
+        logger.info("Hotkeys cleaned up after error")
         sys.exit(1)
 
 if __name__ == "__main__":

@@ -131,10 +131,10 @@ def upload_to_idrive():
     # Get latest recording
     recording = get_latest_recording()
     if not recording:
-        print("❌ No completed recordings found in database")
+        print(" No completed recordings found in database")
         return
     
-    print(f"📹 Found recording: {recording['title']} (ID: {recording['id']})")
+    print(f" Found recording: {recording['title']} (ID: {recording['id']})")
     
     # Find actual files in recordings folder
     video_path, transcript_path, thumbnail_path = find_recording_files(recording)
@@ -146,26 +146,26 @@ def upload_to_idrive():
         # Keep original extension (.mkv or .mp4)
         video_filename = f"video{os.path.splitext(video_path)[1]}"
         files_to_upload.append((video_filename, video_path))
-        print(f"✅ Video found: {video_path}")
+        print(f" Video found: {video_path}")
     else:
-        print(f"❌ Video not found in recordings folder")
+        print(f" Video not found in recordings folder")
     
     # Transcript file  
     if transcript_path and os.path.exists(transcript_path):
         files_to_upload.append(('transcript.txt', transcript_path))
-        print(f"✅ Transcript found: {transcript_path}")
+        print(f" Transcript found: {transcript_path}")
     else:
-        print(f"⚠️ No transcript found in recordings folder")
+        print(f" No transcript found in recordings folder")
     
     # Thumbnail file
     if thumbnail_path and os.path.exists(thumbnail_path):
         files_to_upload.append(('thumbnail.jpg', thumbnail_path))  
-        print(f"✅ Thumbnail found: {thumbnail_path}")
+        print(f" Thumbnail found: {thumbnail_path}")
     else:
-        print(f"⚠️ No thumbnail found in recordings folder")
+        print(f" No thumbnail found in recordings folder")
     
     if not files_to_upload:
-        print("❌ No files to upload!")
+        print(" No files to upload!")
         return
     
     # Upload files
@@ -178,7 +178,7 @@ def upload_to_idrive():
         s3_key = f"{folder_path}{filename}"
         
         try:
-            print(f"⬆️ Uploading {filename}...")
+            print(f" Uploading {filename}...")
             
             s3.upload_file(
                 local_path, 
@@ -191,10 +191,10 @@ def upload_to_idrive():
             url = f"{ENDPOINT_URL}/{s3_key}"
             uploaded_urls[filename] = url
             
-            print(f"✅ Uploaded: {url}")
+            print(f" Uploaded: {url}")
             
         except Exception as e:
-            print(f"❌ Failed to upload {filename}: {e}")
+            print(f" Failed to upload {filename}: {e}")
     
     # Get actual video duration and file sizes
     actual_duration = None
@@ -240,23 +240,23 @@ def upload_to_idrive():
             ContentType='application/json'
         )
         
-        print(f"✅ Metadata saved to: {folder_path}metadata.json")
+        print(f" Metadata saved to: {folder_path}metadata.json")
         
     except Exception as e:
-        print(f"❌ Failed to save metadata: {e}")
+        print(f" Failed to save metadata: {e}")
     
-    print(f"\n🎉 Upload completed! Files available at:")
+    print(f"\n Upload completed! Files available at:")
     for filename, url in uploaded_urls.items():
         print(f"   {filename}: {url}")
 
 if __name__ == "__main__":
-    print("🚀 IDrive E2 Upload Script")
-    print(f"📦 Bucket: {BUCKET_NAME}")
+    print(" IDrive E2 Upload Script")
+    print(f" Bucket: {BUCKET_NAME}")
     print("=" * 50)
     
     # Check if credentials are set
     if ACCESS_KEY == "your_access_key_here" or SECRET_KEY == "your_secret_key_here":
-        print("❌ Please set your IDrive E2 access credentials first!")
+        print(" Please set your IDrive E2 access credentials first!")
         print("   Get them from: https://www.idrive.com/e2/")
         print("   Update ACCESS_KEY and SECRET_KEY in this script")
         exit(1)

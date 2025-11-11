@@ -21,19 +21,19 @@ def fix_meeting_statuses():
             ).all()
         
         if not outdated_meetings:
-            print("✅ No meetings need status updates")
+            print(" No meetings need status updates")
             return
         
-        print(f"🔍 Found {len(outdated_meetings)} meetings with outdated status")
+        print(f" Found {len(outdated_meetings)} meetings with outdated status")
         
         for meeting in outdated_meetings:
             old_status = meeting.recording_status
             meeting.recording_status = 'recorded_synced'
             meeting.last_updated = datetime.utcnow()
-            print(f"📝 Updated meeting '{meeting.subject}' from '{old_status}' to 'recorded_synced'")
+            print(f" Updated meeting '{meeting.subject}' from '{old_status}' to 'recorded_synced'")
         
         db.session.commit()
-        print(f"✅ Successfully updated {len(outdated_meetings)} meeting statuses")
+        print(f" Successfully updated {len(outdated_meetings)} meeting statuses")
 
 if __name__ == "__main__":
     fix_meeting_statuses()

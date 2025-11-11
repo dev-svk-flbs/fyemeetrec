@@ -27,22 +27,22 @@ def add_meeting_id_column():
                     connection.execute(text('ALTER TABLE recording ADD COLUMN meeting_id INTEGER REFERENCES meeting(id)'))
                     connection.commit()
                 
-                print("✅ Successfully added meeting_id column to Recording table")
+                print(" Successfully added meeting_id column to Recording table")
             else:
-                print("✅ meeting_id column already exists in Recording table")
+                print(" meeting_id column already exists in Recording table")
     
     except Exception as e:
-        print(f"❌ Error adding meeting_id column: {e}")
+        print(f" Error adding meeting_id column: {e}")
         return False
     
     return True
 
 if __name__ == '__main__':
-    print("🔄 Starting Recording table migration...")
+    print(" Starting Recording table migration...")
     success = add_meeting_id_column()
     
     if success:
-        print("✅ Migration completed successfully!")
+        print(" Migration completed successfully!")
     else:
-        print("❌ Migration failed!")
+        print(" Migration failed!")
         sys.exit(1)

@@ -20,23 +20,23 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 print("="*60)
-print("🗄️  Initializing Database for WebSocket Client")
+print("  Initializing Database for WebSocket Client")
 print("="*60)
-print(f"📂 Database path: {db_path}")
+print(f" Database path: {db_path}")
 
 # Initialize database
 init_db(app)
 
-print("✅ Database initialized successfully!")
-print(f"📊 Database file created at: {db_path}")
+print(" Database initialized successfully!")
+print(f" Database file created at: {db_path}")
 
 # Check tables
 with app.app_context():
     from sqlalchemy import inspect
     inspector = inspect(db.engine)
     tables = inspector.get_table_names()
-    print(f"\n📋 Tables created:")
+    print(f"\n Tables created:")
     for table in tables:
-        print(f"   ✓ {table}")
+        print(f"    {table}")
 
-print("\n✅ Ready for WebSocket client!")
+print("\n Ready for WebSocket client!")

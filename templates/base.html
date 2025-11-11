@@ -437,6 +437,7 @@
                 <a href="{{ url_for('record') }}" class="nav-link {% if request.endpoint == 'record' %}active{% endif %}">Record</a>
                 <a href="{{ url_for('recordings') }}" class="nav-link {% if request.endpoint == 'recordings' %}active{% endif %}">Recordings</a>
                 <a href="{{ url_for('admin_dashboard') }}" class="nav-link {% if request.endpoint.startswith('admin_') %}active{% endif %}">Advanced</a>
+                <a href="{{ url_for('view_logs') }}" class="nav-link {% if request.endpoint == 'view_logs' %}active{% endif %}">Logs</a>
                 <a href="{{ url_for('settings') }}" class="nav-link {% if request.endpoint == 'settings' %}active{% endif %}">Settings</a>
             </nav>
             <div class="user-menu">

@@ -7,6 +7,10 @@ Detects actual connection/disconnection of Bluetooth headsets
 import subprocess
 import time
 import json
+from logging_config import setup_logging
+
+# Setup logging
+logger = setup_logging("bluetooth_monitor")
 
 def get_bluetooth_headset_endpoints():
     """Get Bluetooth headset AudioEndpoint devices"""
@@ -29,7 +33,7 @@ def get_bluetooth_headset_endpoints():
             return devices
         
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error getting Bluetooth endpoints: {e}")
     
     return []
 
@@ -53,54 +57,57 @@ def get_simple_bluetooth_status():
             return count > 0
         
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error checking Bluetooth status: {e}")
     
     return False
 
 def main():
-    """Monitor Bluetooth headset connection/disconnection"""
-    print("🎧 Reliable Bluetooth Headset Monitor")
-    print("Uses AudioEndpoint detection for accurate results")
-    print("Press Ctrl+C to stop")
-    print("-" * 50)
+    """Main monitoring loop"""
+    logger.info(" Reliable Bluetooth Headset Monitor")
+    logger.info("Uses AudioEndpoint detection for accurate results")
+    logger.info("Press Ctrl+C to stop")
+    logger.info("-" * 50)
     
-    last_connected = None
+    last_connected = False
+    
     while True:
         try:
-            bluetooth_connected = get_simple_bluetooth_status()
             endpoints = get_bluetooth_headset_endpoints()
-            # Detect state changes
-            if last_connected is not None and bluetooth_connected != last_connected:
-                print(f"\n⚡ BLUETOOTH STATE CHANGE at {time.strftime('%H:%M:%S')}")
+            bluetooth_connected = len(endpoints) > 0
+            
+            if bluetooth_connected != last_connected:
+                logger.info(f"\n BLUETOOTH STATE CHANGE at {time.strftime('%H:%M:%S')}")
                 if bluetooth_connected:
-                    print("🎧 BLUETOOTH HEADSET CONNECTED!")
+                    logger.info(" BLUETOOTH HEADSET CONNECTED!")
                 else:
-                    print("🔌 BLUETOOTH HEADSET DISCONNECTED!")
+                    logger.info(" BLUETOOTH HEADSET DISCONNECTED!")
                 
-                # Configure Virtual Input routing based on Bluetooth state
-                configure_virtual_inputs_for_bluetooth(bluetooth_connected)
+                # VoiceMeeter integration
+                try:
+                    # Restart VoiceMeeter audio engine
+                    logger.info("   Restarting VoiceMeeter audio engine...")
+                    send_ctrl_r_to_voicemeeter()
+                    logger.info("    VoiceMeeter audio engine restarted")
+                    configure_virtual_inputs_for_bluetooth(bluetooth_connected)
+                except:
+                    pass  # VoiceMeeter may not be installed
                 
-                # Restart audio engine to apply changes
-                print("   Restarting VoiceMeeter audio engine...")
-                send_ctrl_r_to_voicemeeter()
-                print("   ✅ VoiceMeeter audio engine restarted")
-            # Show current status
-            if bluetooth_connected:
-                print(f"✅ {time.strftime('%H:%M:%S')} - Bluetooth headset CONNECTED")
-                print(f"   Found {len(endpoints)} AudioEndpoint(s):")
-                for endpoint in endpoints:
-                    print(f"   • {endpoint['FriendlyName']}")
-            else:
-                print(f"❌ {time.strftime('%H:%M:%S')} - Bluetooth headset DISCONNECTED")
+                if bluetooth_connected:
+                    logger.info(f" {time.strftime('%H:%M:%S')} - Bluetooth headset CONNECTED")
+                    logger.info(f"   Found {len(endpoints)} AudioEndpoint(s):")
+                    for endpoint in endpoints:
+                        logger.info(f"   • {endpoint['FriendlyName']}")
+                else:
+                    logger.info(f" {time.strftime('%H:%M:%S')} - Bluetooth headset DISCONNECTED")
             last_connected = bluetooth_connected
             time.sleep(3)
         except KeyboardInterrupt:
-            print("\n🛑 Stopping monitor...")
+            logger.info("\n Stopping monitor...")
             break
         except Exception as e:
-            print(f"❌ Error: {e}")
+            logger.error(f" Error in monitoring loop: {e}", exc_info=True)
             time.sleep(1)
-    print("✅ Monitor stopped")
+    logger.info(" Monitor stopped")
 
 def send_ctrl_r_to_voicemeeter():
     """Restart VoiceMeeter audio engine using API"""
@@ -109,7 +116,7 @@ def send_ctrl_r_to_voicemeeter():
         with voicemeeterlib.api('banana') as vmr:
             vmr.command.restart()
     except Exception as e:
-        print(f"   ⚠️ Error restarting VoiceMeeter: {e}")
+        logger.warning(f"    Error restarting VoiceMeeter: {e}")
 
 def configure_virtual_inputs_for_bluetooth(bluetooth_connected):
     """Configure Virtual Input routing based on Bluetooth headset status"""
@@ -122,21 +129,21 @@ def configure_virtual_inputs_for_bluetooth(bluetooth_connected):
             
             if bluetooth_connected:
                 # Bluetooth headset connected: Route Virtual Inputs to B1
-                print("   🎧 Routing Virtual Inputs to B1 (for headphones)")
+                logger.info("    Routing Virtual Inputs to B1 (for headphones)")
                 virtual_input_1.B1 = True
                 virtual_input_1.A1 = False
                 virtual_input_2.B1 = True
             else:
                 # Bluetooth headset disconnected: Turn off Virtual Inputs to B1
-                print("   🔊 Turning off Virtual Inputs to B1 (for speakers)")
+                logger.info("    Turning off Virtual Inputs to B1 (for speakers)")
                 virtual_input_1.B1 = False
                 virtual_input_2.B1 = False
                 virtual_input_1.A1 = True
             
-            print(f"   ✅ Virtual Input → B1 routing: {bluetooth_connected}")
+            logger.info(f"    Virtual Input → B1 routing: {bluetooth_connected}")
             
     except Exception as e:
-        print(f"   ⚠️ Error configuring Virtual Inputs: {e}")
+        logger.warning(f"    Error configuring Virtual Inputs: {e}")
 
 if __name__ == "__main__":
     main()

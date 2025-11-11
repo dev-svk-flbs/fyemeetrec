@@ -26,7 +26,7 @@ with app.app_context():
     # Filter for today
     today_meetings = [m for m in meetings if m.start_time.date() == today]
     
-    print(f"📅 Meetings for {today.strftime('%A, %B %d, %Y')}:\n")
+    print(f" Meetings for {today.strftime('%A, %B %d, %Y')}:\n")
     
     if today_meetings:
         for m in today_meetings:

@@ -139,7 +139,7 @@ class SettingsManager:
         primary_monitor = next((m for m in monitors_data if m.get('Primary')), monitors_data[0])
         scaling_factor = native_width / primary_monitor['Width'] if primary_monitor['Width'] > 0 else 1.0
         
-        logger.info(f"🔍 Scaling detection: Native={native_width}x{native_height}, Reported={primary_monitor['Width']}x{primary_monitor['Height']}, Factor={scaling_factor:.2f}x")
+        logger.info(f" Scaling detection: Native={native_width}x{native_height}, Reported={primary_monitor['Width']}x{primary_monitor['Height']}, Factor={scaling_factor:.2f}x")
         
         # Apply correction to all monitors
         corrected_monitors = []
@@ -158,7 +158,7 @@ class SettingsManager:
 
     def detect_monitors(self):
         """Detect available monitors using PowerShell with Windows' actual numbering"""
-        logger.info("🔍 Detecting monitors with Windows numbering...")
+        logger.info(" Detecting monitors with Windows numbering...")
         try:
             # Get manufacturer info first
             manufacturer_list = self.get_monitor_manufacturers()
@@ -219,7 +219,7 @@ class SettingsManager:
                 
                 # Get native resolution and apply scaling correction
                 native_width, native_height = self.get_native_resolution()
-                logger.info(f"🔍 Native resolution from GPU: {native_width}x{native_height}")
+                logger.info(f" Native resolution from GPU: {native_width}x{native_height}")
                 
                 # Apply per-monitor scaling correction
                 if monitors_data:
@@ -236,19 +236,19 @@ class SettingsManager:
                             if reported_width == 1536 and reported_height == 864:
                                 # 125% scaling: 1920/1.25 = 1536, 1080/1.25 = 864
                                 scaling_factor = 1.25
-                                logger.info(f"🔧 Monitor {monitor['DeviceName']}: Detected 125% scaling (1536x864 → 1920x1080)")
+                                logger.info(f" Monitor {monitor['DeviceName']}: Detected 125% scaling (1536x864 → 1920x1080)")
                             elif reported_width == 1280 and reported_height == 720:
                                 # 150% scaling: 1920/1.5 = 1280, 1080/1.5 = 720  
                                 scaling_factor = 1.5
-                                logger.info(f"🔧 Monitor {monitor['DeviceName']}: Detected 150% scaling (1280x720 → 1920x1080)")
+                                logger.info(f" Monitor {monitor['DeviceName']}: Detected 150% scaling (1280x720 → 1920x1080)")
                             elif reported_width == 960 and reported_height == 540:
                                 # 200% scaling: 1920/2 = 960, 1080/2 = 540
                                 scaling_factor = 2.0
-                                logger.info(f"🔧 Monitor {monitor['DeviceName']}: Detected 200% scaling (960x540 → 1920x1080)")
+                                logger.info(f" Monitor {monitor['DeviceName']}: Detected 200% scaling (960x540 → 1920x1080)")
                             elif reported_width == 1920 and reported_height == 1080:
                                 # No scaling detected
                                 scaling_factor = 1.0
-                                logger.info(f"✅ Monitor {monitor['DeviceName']}: No scaling detected (1920x1080)")
+                                logger.info(f" Monitor {monitor['DeviceName']}: No scaling detected (1920x1080)")
                             else:
                                 # Try to calculate scaling factor dynamically
                                 if native_width > 0 and native_height > 0:
@@ -258,9 +258,9 @@ class SettingsManager:
                                     # Use width ratio if both ratios are similar (within 5%)
                                     if abs(width_ratio - height_ratio) / width_ratio < 0.05:
                                         scaling_factor = width_ratio
-                                        logger.info(f"🔧 Monitor {monitor['DeviceName']}: Calculated {scaling_factor:.2f}x scaling ({reported_width}x{reported_height} → {native_width}x{native_height})")
+                                        logger.info(f" Monitor {monitor['DeviceName']}: Calculated {scaling_factor:.2f}x scaling ({reported_width}x{reported_height} → {native_width}x{native_height})")
                                     else:
-                                        logger.warning(f"⚠️ Monitor {monitor['DeviceName']}: Inconsistent scaling ratios (W:{width_ratio:.2f}, H:{height_ratio:.2f}), using 1.0x")
+                                        logger.warning(f" Monitor {monitor['DeviceName']}: Inconsistent scaling ratios (W:{width_ratio:.2f}, H:{height_ratio:.2f}), using 1.0x")
                                         scaling_factor = 1.0
                             
                             # Apply scaling correction to this monitor
@@ -271,13 +271,13 @@ class SettingsManager:
                                 monitor['Width'] = int(monitor['Width'] * scaling_factor)
                                 monitor['Height'] = int(monitor['Height'] * scaling_factor)
                                 
-                                logger.info(f"✅ Applied {scaling_factor:.2f}x scaling to {monitor['DeviceName']}: "
+                                logger.info(f" Applied {scaling_factor:.2f}x scaling to {monitor['DeviceName']}: "
                                           f"Position ({original_x},{original_y}) → ({monitor['X']},{monitor['Y']}), "
                                           f"Size {reported_width}x{reported_height} → {monitor['Width']}x{monitor['Height']}")
                             else:
-                                logger.info(f"✅ No scaling correction needed for {monitor['DeviceName']}: {monitor['Width']}x{monitor['Height']}")
+                                logger.info(f" No scaling correction needed for {monitor['DeviceName']}: {monitor['Width']}x{monitor['Height']}")
                 
-                logger.info(f"🎯 Final corrected monitor data: {monitors_data}")
+                logger.info(f" Final corrected monitor data: {monitors_data}")
                 
                 # Format monitor info with manufacturer names using Windows numbers
                 monitors = []
@@ -316,7 +316,7 @@ class SettingsManager:
                         'manufacturer': mfg_data
                     })
                 
-                logger.info(f"✅ Detected {len(monitors)} monitors with Windows numbering")
+                logger.info(f" Detected {len(monitors)} monitors with Windows numbering")
                 for monitor in monitors:
                     logger.debug(f"   Monitor {monitor['id']}: {monitor['name']}")
                 
@@ -346,7 +346,7 @@ class SettingsManager:
         """Load settings from config file, return empty structure if doesn't exist"""
         if not self.config_file.exists():
             # Return minimal settings structure - user needs to click "Detect Monitors"
-            logger.info("🔧 No settings file found - user needs to detect monitors")
+            logger.info(" No settings file found - user needs to detect monitors")
             return {
                 "version": "1.0",
                 "created_at": None,
@@ -380,12 +380,12 @@ class SettingsManager:
                 should_refresh_monitors = True
             
                 if should_refresh_monitors:
-                    logger.info("🔄 Refreshing monitor configuration (24+ hours since last update)...")
-                    print("🔄 Refreshing monitor configuration (24+ hours since last update)...")
+                    logger.info(" Refreshing monitor configuration (24+ hours since last update)...")
+                    print(" Refreshing monitor configuration (24+ hours since last update)...")
                     current_monitors = self.detect_monitors()
                     if current_monitors != settings.get("monitors", []):
-                        logger.info("🔄 Monitor configuration changed - updating...")
-                        print("🔄 Monitor configuration changed - updating...")
+                        logger.info(" Monitor configuration changed - updating...")
+                        print(" Monitor configuration changed - updating...")
                         settings["monitors"] = current_monitors
                         
                         # Validate default monitor still exists
@@ -394,15 +394,15 @@ class SettingsManager:
                             # Default monitor no longer exists, reset to primary
                             primary_monitor = next((m for m in current_monitors if m.get('primary')), current_monitors[0])
                             settings["user_preferences"]["default_monitor_id"] = primary_monitor['id']
-                            logger.warning(f"⚠️ Default monitor reset to: {primary_monitor['name']} (Windows #{primary_monitor['id']})")
-                            print(f"⚠️ Default monitor reset to: {primary_monitor['name']} (Windows #{primary_monitor['id']})")
+                            logger.warning(f" Default monitor reset to: {primary_monitor['name']} (Windows #{primary_monitor['id']})")
+                            print(f" Default monitor reset to: {primary_monitor['name']} (Windows #{primary_monitor['id']})")
                         
                         self.save_settings(settings)
             
             return settings
             
         except Exception as e:
-            print(f"⚠️ Error loading settings: {e}")
+            print(f" Error loading settings: {e}")
             # Fallback to default settings
             return self.load_settings()  # This will create new settings
     
@@ -417,7 +417,7 @@ class SettingsManager:
             return True
             
         except Exception as e:
-            print(f"❌ Error saving settings: {e}")
+            print(f" Error saving settings: {e}")
             return False
     
     def get_default_monitor(self):
@@ -438,24 +438,24 @@ class SettingsManager:
     
     def set_default_monitor(self, monitor_id):
         """Set the default monitor by ID"""
-        logger.info(f"🔧 Setting default monitor to ID: {monitor_id}")
+        logger.info(f" Setting default monitor to ID: {monitor_id}")
         
         settings = self.load_settings()
         
         # Log current state
         current_default_id = settings["user_preferences"]["default_monitor_id"]
-        logger.info(f"📺 Current default monitor ID: {current_default_id}")
+        logger.info(f" Current default monitor ID: {current_default_id}")
         
         # Validate monitor ID exists
         valid_monitor_ids = [m['id'] for m in settings["monitors"]]
-        logger.debug(f"📺 Valid monitor IDs: {valid_monitor_ids}")
+        logger.debug(f" Valid monitor IDs: {valid_monitor_ids}")
         
         if any(m['id'] == monitor_id for m in settings["monitors"]):
             settings["user_preferences"]["default_monitor_id"] = monitor_id
             
             # Get monitor details for logging
             selected_monitor = next(m for m in settings["monitors"] if m['id'] == monitor_id)
-            logger.info(f"📺 Selected monitor details:")
+            logger.info(f" Selected monitor details:")
             logger.info(f"   ID: {selected_monitor['id']}")
             logger.info(f"   Name: {selected_monitor['name']}")
             logger.info(f"   Position: ({selected_monitor['x']}, {selected_monitor['y']})")
@@ -464,17 +464,17 @@ class SettingsManager:
             success = self.save_settings(settings)
             
             if success:
-                logger.info(f"✅ Default monitor updated to: {selected_monitor['name']}")
-                print(f"✅ Default monitor updated to: {selected_monitor['name']}")
+                logger.info(f" Default monitor updated to: {selected_monitor['name']}")
+                print(f" Default monitor updated to: {selected_monitor['name']}")
                 return True
             else:
-                logger.error("❌ Failed to save settings")
-                print("❌ Failed to save settings")
+                logger.error(" Failed to save settings")
+                print(" Failed to save settings")
                 return False
         else:
-            logger.error(f"❌ Invalid monitor ID: {monitor_id}")
+            logger.error(f" Invalid monitor ID: {monitor_id}")
             logger.error(f"   Available IDs: {valid_monitor_ids}")
-            print(f"❌ Invalid monitor ID: {monitor_id}")
+            print(f" Invalid monitor ID: {monitor_id}")
             return False
     
     def get_all_monitors(self):
@@ -484,7 +484,7 @@ class SettingsManager:
     
     def detect_and_save_monitors(self):
         """Detect monitors and save to settings (for manual detection button)"""
-        logger.info("🔄 Manual monitor detection triggered...")
+        logger.info(" Manual monitor detection triggered...")
         
         # Detect current monitors
         detected_monitors = self.detect_monitors()
@@ -501,20 +501,20 @@ class SettingsManager:
         if not settings["user_preferences"]["default_monitor_id"]:
             primary_monitor = next((m for m in detected_monitors if m.get('primary')), detected_monitors[0])
             settings["user_preferences"]["default_monitor_id"] = primary_monitor['id']
-            logger.info(f"📍 Set default to primary monitor: {primary_monitor['name']} (Windows #{primary_monitor['id']})")
+            logger.info(f" Set default to primary monitor: {primary_monitor['name']} (Windows #{primary_monitor['id']})")
         
         # Save settings
         success = self.save_settings(settings)
         
         if success:
-            logger.info(f"✅ Monitor detection completed - {len(detected_monitors)} monitors saved")
+            logger.info(f" Monitor detection completed - {len(detected_monitors)} monitors saved")
             return {
                 'success': True,
                 'monitors': detected_monitors,
                 'message': f'Detected {len(detected_monitors)} monitors successfully'
             }
         else:
-            logger.error("❌ Failed to save monitor settings")
+            logger.error(" Failed to save monitor settings")
             return {
                 'success': False,
                 'monitors': [],
@@ -523,8 +523,8 @@ class SettingsManager:
 
     def update_monitor_arrangement(self, monitor_order, primary_monitor_id=None):
         """Update the physical arrangement order of monitors and recalculate positions"""
-        logger.info(f"🔄 Updating monitor arrangement: {monitor_order}")
-        logger.info(f"🔝 Primary monitor ID: {primary_monitor_id}")
+        logger.info(f" Updating monitor arrangement: {monitor_order}")
+        logger.info(f" Primary monitor ID: {primary_monitor_id}")
         
         settings = self.load_settings()
         
@@ -550,7 +550,7 @@ class SettingsManager:
             primary_monitor = next((m for m in reordered_monitors if m['id'] == primary_monitor_id), None)
             
             if primary_monitor:
-                logger.info(f"🔝 Setting {primary_monitor['name']} as primary monitor")
+                logger.info(f" Setting {primary_monitor['name']} as primary monitor")
                 
                 # Update primary flags
                 for monitor in reordered_monitors:
@@ -564,7 +564,7 @@ class SettingsManager:
                         # Primary monitor is always at (0,0)
                         monitor['x'] = 0
                         monitor['y'] = 0
-                        logger.info(f"📍 Primary monitor {monitor['name']}: (0, 0)")
+                        logger.info(f" Primary monitor {monitor['name']}: (0, 0)")
                         
                         # Update primary monitor name
                         name_parts = monitor['name'].split(' - ')
@@ -577,7 +577,7 @@ class SettingsManager:
                         relative_position = i - primary_index
                         monitor['x'] = relative_position * 1920
                         monitor['y'] = 0
-                        logger.info(f"📍 Monitor {monitor['name']}: ({monitor['x']}, {monitor['y']})")
+                        logger.info(f" Monitor {monitor['name']}: ({monitor['x']}, {monitor['y']})")
                         
                         # Update the display name to reflect new position
                         name_parts = monitor['name'].split(' - ')
@@ -599,13 +599,13 @@ class SettingsManager:
         success = self.save_settings(settings)
         
         if success:
-            logger.info(f"✅ Monitor arrangement updated successfully")
+            logger.info(f" Monitor arrangement updated successfully")
             return {
                 'success': True,
                 'message': 'Monitor arrangement saved successfully'
             }
         else:
-            logger.error("❌ Failed to save monitor arrangement")
+            logger.error(" Failed to save monitor arrangement")
             return {
                 'success': False,
                 'message': 'Failed to save monitor arrangement'
@@ -613,7 +613,7 @@ class SettingsManager:
 
     def refresh_monitors(self):
         """Force refresh monitor detection and update settings (legacy method)"""
-        logger.info("🔄 Force refreshing monitor configuration...")
+        logger.info(" Force refreshing monitor configuration...")
         return self.detect_and_save_monitors()
     
     def get_auto_delete_days(self):

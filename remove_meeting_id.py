@@ -25,23 +25,23 @@ def remove_meeting_id_column():
                 
                 # Note: SQLite doesn't support DROP COLUMN, so we'll need to recreate the table
                 # For now, let's just leave it but update our code to not use it
-                print("⚠️  SQLite doesn't support DROP COLUMN. Column will remain but is unused.")
-                print("✅ Application updated to not use meeting_id column")
+                print("  SQLite doesn't support DROP COLUMN. Column will remain but is unused.")
+                print(" Application updated to not use meeting_id column")
             else:
-                print("✅ meeting_id column doesn't exist in Recording table")
+                print(" meeting_id column doesn't exist in Recording table")
     
     except Exception as e:
-        print(f"❌ Error checking meeting_id column: {e}")
+        print(f" Error checking meeting_id column: {e}")
         return False
     
     return True
 
 if __name__ == '__main__':
-    print("🔄 Starting Recording table cleanup...")
+    print(" Starting Recording table cleanup...")
     success = remove_meeting_id_column()
     
     if success:
-        print("✅ Migration completed successfully!")
+        print(" Migration completed successfully!")
     else:
-        print("❌ Migration failed!")
+        print(" Migration failed!")
         sys.exit(1)

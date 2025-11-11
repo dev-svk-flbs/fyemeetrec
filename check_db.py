@@ -54,7 +54,7 @@ def check_all_databases():
                     
                     duplicates = cursor.fetchall()
                     if duplicates:
-                        print(f"\n🚨 DUPLICATES from 00:13 timeframe in {db_file}:")
+                        print(f"\n DUPLICATES from 00:13 timeframe in {db_file}:")
                         for dup in duplicates:
                             print(f"   ID: {dup[0]} | {dup[1]} | {dup[2]} | {dup[3] or 0} bytes")
                 else:
@@ -62,7 +62,7 @@ def check_all_databases():
             
             conn.close()
         else:
-            print(f"❌ Database not found: {db_file}")
+            print(f" Database not found: {db_file}")
 
 if __name__ == "__main__":
     check_all_databases()

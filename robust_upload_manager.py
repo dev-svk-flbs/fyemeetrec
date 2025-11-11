@@ -64,17 +64,17 @@ class RobustUploadManager:
                 timezone='UTC'
             )
             
-            logger.info("✅ APScheduler configured with persistent storage")
+            logger.info(" APScheduler configured with persistent storage")
             
         except Exception as e:
-            logger.error(f"❌ Failed to setup scheduler: {e}")
+            logger.error(f" Failed to setup scheduler: {e}")
             raise
     
     def start(self):
         """Start the robust upload manager"""
         try:
             if self.scheduler.running:
-                logger.warning("⚠️ Upload manager already running")
+                logger.warning(" Upload manager already running")
                 return
             
             self.scheduler.start()
@@ -101,13 +101,13 @@ class RobustUploadManager:
             # Register cleanup on app exit
             atexit.register(self.stop)
             
-            logger.info("🚀 Robust upload manager started with APScheduler")
+            logger.info(" Robust upload manager started with APScheduler")
             logger.info("   - Periodic failed upload checks: every 5 minutes")
             logger.info("   - Jobs persist across app restarts")
             logger.info("   - Built-in retry logic with exponential backoff")
             
         except Exception as e:
-            logger.error(f"❌ Failed to start upload manager: {e}")
+            logger.error(f" Failed to start upload manager: {e}")
             raise
     
     def stop(self):
@@ -115,9 +115,9 @@ class RobustUploadManager:
         try:
             if self.scheduler and self.scheduler.running:
                 self.scheduler.shutdown(wait=False)
-                logger.info("⏹️ Robust upload manager stopped")
+                logger.info(" Robust upload manager stopped")
         except Exception as e:
-            logger.error(f"❌ Error stopping upload manager: {e}")
+            logger.error(f" Error stopping upload manager: {e}")
     
     def _get_db_connection(self):
         """Get database connection"""
@@ -128,25 +128,25 @@ class RobustUploadManager:
     def _check_and_retry_failed_uploads(self):
         """Main job function: check for failed uploads and retry them"""
         try:
-            logger.info("🔍 Checking for failed uploads to retry...")
+            logger.info(" Checking for failed uploads to retry...")
             
             # Get failed recordings eligible for retry
             failed_recordings = self._get_failed_recordings()
             
             if not failed_recordings:
-                logger.debug("✅ No failed uploads found")
+                logger.debug(" No failed uploads found")
                 return
             
-            logger.info(f"🔄 Found {len(failed_recordings)} recordings to retry")
+            logger.info(f" Found {len(failed_recordings)} recordings to retry")
             
             for recording in failed_recordings:
                 try:
                     self._schedule_upload_retry(recording)
                 except Exception as e:
-                    logger.error(f"❌ Failed to schedule retry for recording {recording['id']}: {e}")
+                    logger.error(f" Failed to schedule retry for recording {recording['id']}: {e}")
             
         except Exception as e:
-            logger.error(f"❌ Error checking failed uploads: {e}")
+            logger.error(f" Error checking failed uploads: {e}")
     
     def _get_failed_recordings(self):
         """Get recordings that failed upload and are eligible for retry"""
@@ -191,14 +191,14 @@ class RobustUploadManager:
                         eligible_recordings.append(recording)
                     
                 except Exception as e:
-                    logger.error(f"❌ Error parsing retry time for recording {recording['id']}: {e}")
+                    logger.error(f" Error parsing retry time for recording {recording['id']}: {e}")
                     # If parsing fails, allow retry
                     eligible_recordings.append(recording)
             
             return eligible_recordings
             
         except Exception as e:
-            logger.error(f"❌ Failed to get failed recordings: {e}")
+            logger.error(f" Failed to get failed recordings: {e}")
             return []
     
     def _schedule_upload_retry(self, recording):
@@ -206,7 +206,7 @@ class RobustUploadManager:
         recording_id = recording['id']
         retry_count = (recording.get('retry_count') or 0) + 1
         
-        logger.info(f"📅 Scheduling upload retry for recording {recording_id} (attempt #{retry_count})")
+        logger.info(f" Scheduling upload retry for recording {recording_id} (attempt #{retry_count})")
         
         # Schedule the actual retry job
         job_id = f"retry_upload_{recording_id}_{retry_count}"
@@ -222,14 +222,14 @@ class RobustUploadManager:
             max_instances=1
         )
         
-        logger.info(f"✅ Retry job scheduled: {job_id}")
+        logger.info(f" Retry job scheduled: {job_id}")
     
     def _perform_upload_retry(self, recording):
         """Perform the actual upload retry"""
         recording_id = recording['id']
         retry_count = (recording.get('retry_count') or 0) + 1
         
-        logger.info(f"🚀 Starting upload retry for recording {recording_id} (attempt #{retry_count})")
+        logger.info(f" Starting upload retry for recording {recording_id} (attempt #{retry_count})")
         logger.info(f"   Title: {recording['title']}")
         
         # Update retry tracking
@@ -243,16 +243,16 @@ class RobustUploadManager:
             success = trigger_upload(recording_id)
             
             if success:
-                logger.info(f"✅ Upload retry successful for recording {recording_id}")
+                logger.info(f" Upload retry successful for recording {recording_id}")
                 # Reset retry count on success
                 self._reset_retry_count(recording_id)
                 return True
             else:
-                logger.warning(f"⚠️ Upload retry failed for recording {recording_id}")
+                logger.warning(f" Upload retry failed for recording {recording_id}")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Upload retry attempt failed for recording {recording_id}: {e}")
+            logger.error(f" Upload retry attempt failed for recording {recording_id}: {e}")
             return False
     
     def _update_retry_attempt(self, recording_id):
@@ -275,7 +275,7 @@ class RobustUploadManager:
             conn.close()
             
         except Exception as e:
-            logger.error(f"❌ Failed to update retry attempt for recording {recording_id}: {e}")
+            logger.error(f" Failed to update retry attempt for recording {recording_id}: {e}")
     
     def _reset_retry_count(self, recording_id):
         """Reset retry count on successful upload"""
@@ -293,7 +293,7 @@ class RobustUploadManager:
             conn.close()
             
         except Exception as e:
-            logger.error(f"❌ Failed to reset retry count for recording {recording_id}: {e}")
+            logger.error(f" Failed to reset retry count for recording {recording_id}: {e}")
     
     def trigger_immediate_retry_all(self):
         """Manually trigger immediate retry for all failed uploads"""
@@ -301,10 +301,10 @@ class RobustUploadManager:
             failed_recordings = self._get_failed_recordings()
             
             if not failed_recordings:
-                logger.info("✅ No failed uploads found")
+                logger.info(" No failed uploads found")
                 return 0
             
-            logger.info(f"🚀 Scheduling immediate retry for {len(failed_recordings)} failed uploads")
+            logger.info(f" Scheduling immediate retry for {len(failed_recordings)} failed uploads")
             
             for recording in failed_recordings:
                 recording_id = recording['id']
@@ -320,16 +320,16 @@ class RobustUploadManager:
                     max_instances=1
                 )
             
-            logger.info(f"✅ {len(failed_recordings)} retry jobs scheduled")
+            logger.info(f" {len(failed_recordings)} retry jobs scheduled")
             return len(failed_recordings)
             
         except Exception as e:
-            logger.error(f"❌ Manual retry scheduling failed: {e}")
+            logger.error(f" Manual retry scheduling failed: {e}")
             return 0
     
     def trigger_retry_on_event(self, event_name):
         """Trigger retry check based on app events"""
-        logger.info(f"📢 Event triggered retry check: {event_name}")
+        logger.info(f" Event triggered retry check: {event_name}")
         
         # Schedule immediate check
         job_id = f"event_retry_{event_name}_{datetime.now().timestamp()}"
@@ -364,7 +364,7 @@ class RobustUploadManager:
             }
             
         except Exception as e:
-            logger.error(f"❌ Failed to get job status: {e}")
+            logger.error(f" Failed to get job status: {e}")
             return {'error': str(e)}
 
 # Global instance

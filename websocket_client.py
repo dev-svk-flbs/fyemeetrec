@@ -12,6 +12,10 @@ import subprocess
 import time
 from datetime import datetime
 import os
+from logging_config import setup_logging
+
+# Setup logging
+logger = setup_logging("websocket_client")
 
 class MeetingRecorderClient:
     def __init__(self, server_url="ws://ops.fyelabs.com:8769", app_base_url="http://localhost:5000"):
@@ -37,7 +41,7 @@ class MeetingRecorderClient:
                 return response.json()
             return {'logged_in': False}
         except Exception as e:
-            print(f"❌ Error getting user info: {e}")
+            logger.error(f" Error getting user info: {e}")
             return {'logged_in': False}
     
     def is_remote_recording_enabled(self):
@@ -49,696 +53,481 @@ class MeetingRecorderClient:
             response = requests.get(url, timeout=2)
             
             if response.status_code == 200:
-                # The actual check needs to be done differently since localStorage is browser-only
-                # We'll implement a file-based approach as a fallback
-                return self.check_remote_recording_file_status()
-            return True  # Default to enabled if can't check
+                data = response.json()
+                return data.get('enabled', False)
+            return False
         except Exception as e:
-            print(f"❌ Error checking remote recording status: {e}")
-            return True  # Default to enabled on error
-    
-    def check_remote_recording_file_status(self):
-        """Check remote recording status via file-based storage (fallback method)"""
-        try:
-            # Create a status file approach for cross-process communication
-            status_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'remote_recording_status.json')
-            
-            if os.path.exists(status_file):
-                with open(status_file, 'r') as f:
-                    status_data = json.loads(f.read())
-                    return status_data.get('enabled', True)
-            else:
-                # File doesn't exist, default to enabled
-                return True
-        except Exception as e:
-            print(f"❌ Error reading remote recording status file: {e}")
-            return True  # Default to enabled on error
-        
-    async def connect(self):
-        """Connect to WebSocket server"""
-        try:
-            print(f"🔌 Connecting to {self.server_url}...")
-            self.websocket = await websockets.connect(self.server_url)
-            print("✅ Connected to remote control server")
-            return True
-        except Exception as e:
-            print(f"❌ Connection failed: {e}")
+            logger.error(f" Error checking remote recording status: {e}")
             return False
     
-    def find_meeting_by_details(self, subject, organizer, start_time):
-        """Find meeting in local database by subject, organizer, and start_time via Flask API"""
+    def check_remote_status_file(self):
+        """Check remote recording status from JSON file"""
         try:
-            print(f"🔍 Searching for meeting:")
-            print(f"   Subject: {subject}")
-            print(f"   Organizer: {organizer}")
-            print(f"   Start Time: {start_time}")
-            
-            # Use Flask API to find meeting by matching fields
-            url = f"{self.app_base_url}/api/find_meeting_by_details"
-            payload = {
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time
+            json_file = 'remote_recording_status.json'
+            if os.path.exists(json_file):
+                with open(json_file, 'r') as f:
+                    data = json.load(f)
+                    return data.get('enabled', False)
+            return False
+        except Exception as e:
+            logger.error(f" Error reading remote recording status file: {e}")
+            return False
+    
+    def save_weekly_meetings_to_file(self):
+        """Save received weekly meetings to a JSON file for persistence"""
+        try:
+            meetings_file = 'weekly_meetings.json'
+            meetings_data = {
+                'last_updated': datetime.now().isoformat(),
+                'timestamp': self.weekly_meetings_last_updated,
+                'count': len(self.weekly_meetings),
+                'meetings': self.weekly_meetings
             }
             
-            response = requests.post(url, json=payload, timeout=5)
+            with open(meetings_file, 'w') as f:
+                json.dump(meetings_data, f, indent=2, default=str)
+            
+            logger.info(f" Saved {len(self.weekly_meetings)} meetings to {meetings_file}")
+            
+        except Exception as e:
+            logger.error(f" Error saving meetings to file: {e}")
+    
+    def load_weekly_meetings_from_file(self):
+        """Load previously saved weekly meetings from file"""
+        try:
+            meetings_file = 'weekly_meetings.json'
+            if os.path.exists(meetings_file):
+                with open(meetings_file, 'r') as f:
+                    data = json.load(f)
+                    
+                self.weekly_meetings = data.get('meetings', [])
+                self.weekly_meetings_last_updated = data.get('timestamp', time.time())
+                
+                logger.info(f" Loaded {len(self.weekly_meetings)} meetings from {meetings_file}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f" Error loading meetings from file: {e}")
+            return False
+    
+    def _is_today(self, date_str):
+        """Check if a date string is today"""
+        try:
+            from datetime import datetime, date
+            # Try to parse the date string (assuming ISO format)
+            meeting_date = datetime.fromisoformat(date_str.replace('Z', '+00:00')).date()
+            return meeting_date == date.today()
+        except:
+            return False
+    
+    async def connect(self):
+        """Connect to the WebSocket server"""
+        try:
+            logger.info(f" Connecting to {self.server_url}...")
+            self.websocket = await websockets.connect(self.server_url)
+            logger.info(" Connected to remote control server")
+            return True
+        except Exception as e:
+            logger.error(f" Connection failed: {e}")
+            return False
+    
+    async def search_meeting_by_details(self, subject, organizer, start_time):
+        """Search for a meeting in the local database by details"""
+        try:
+            logger.info(f" Searching for meeting:")
+            logger.info(f"   Subject: {subject}")
+            logger.info(f"   Organizer: {organizer}")
+            logger.info(f"   Start Time: {start_time}")
+            
+            # Call Flask API to search meetings
+            url = f"{self.app_base_url}/api/meetings/search"
+            response = requests.post(
+                url,
+                json={
+                    'subject': subject,
+                    'organizer_email': organizer,
+                    'start_time': start_time
+                },
+                timeout=5
+            )
             
             if response.status_code == 200:
-                data = response.json()
-                if data.get('found'):
-                    meeting = data.get('meeting')
-                    print(f"✅ Found meeting: {meeting.get('subject')}")
-                    print(f"   Start: {meeting.get('start_time')}")
-                    print(f"   Meeting DB ID: {meeting.get('id')}")
-                    return meeting
+                meetings = response.json().get('meetings', [])
+                if meetings:
+                    meeting = meetings[0]  # Take first match
+                    logger.info(f" Found meeting: {meeting.get('subject')}")
+                    logger.info(f"   Start: {meeting.get('start_time')}")
+                    logger.info(f"   Meeting DB ID: {meeting.get('id')}")
+                    return meeting.get('id')
                 else:
-                    print(f"❌ No meeting found matching:")
-                    print(f"   Subject: {subject}")
-                    print(f"   Organizer: {organizer}")
-                    print(f"   Start Time: {start_time}")
+                    logger.warning(f" No meeting found matching:")
+                    logger.warning(f"   Subject: {subject}")
+                    logger.warning(f"   Organizer: {organizer}")
+                    logger.warning(f"   Start: {start_time}")
                     return None
             else:
-                print(f"❌ API error: {response.status_code} - {response.text}")
+                logger.error(f" Meeting search failed: HTTP {response.status_code}")
                 return None
                 
         except Exception as e:
-            print(f"❌ Error finding meeting: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f" Error searching for meeting: {e}", exc_info=True)
             return None
     
-    def start_recording(self, meeting_id):
-        """Send start recording request to Flask app"""
-        try:
-            url = f"{self.app_base_url}/api/start_recording"
-            payload = {"meeting_id": meeting_id}
-            
-            print(f"🎥 Starting recording for meeting ID: {meeting_id}")
-            response = requests.post(url, json=payload, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                print(f"✅ Recording started: {data.get('message', 'Success')}")
-                return True
-            else:
-                print(f"❌ Failed to start recording: {response.text}")
-                return False
-        except Exception as e:
-            print(f"❌ Error starting recording: {e}")
-            return False
-    
-    def stop_recording(self):
-        """Send stop recording request to Flask app"""
-        try:
-            url = f"{self.app_base_url}/api/stop_recording"
-            
-            print("🛑 Stopping recording...")
-            response = requests.post(url, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                print(f"✅ Recording stopped: {data.get('message', 'Success')}")
-                return True
-            else:
-                print(f"❌ Failed to stop recording: {response.text}")
-                return False
-        except Exception as e:
-            print(f"❌ Error stopping recording: {e}")
-            return False
-    
-    def check_ffmpeg_running(self):
-        """Check if ffmpeg process is actually running"""
-        try:
-            # Windows: tasklist
-            result = subprocess.run(
-                ['tasklist', '/FI', 'IMAGENAME eq ffmpeg.exe'],
-                capture_output=True,
-                text=True,
-                shell=True
-            )
-            
-            is_running = 'ffmpeg.exe' in result.stdout
-            
-            if is_running:
-                print("✅ FFmpeg is running")
-            else:
-                print("⚠️  FFmpeg is NOT running")
-            
-            return is_running
-        except Exception as e:
-            print(f"❌ Error checking FFmpeg: {e}")
-            return False
-    
-    def check_app_health(self):
-        """Check if Flask app is alive"""
-        try:
-            url = f"{self.app_base_url}/api/health"
-            response = requests.get(url, timeout=2)
-            
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'alive': data.get('alive', False),
-                    'recording_active': data.get('recording_active', False),
-                    'recording_type': data.get('recording_type', 'none'),
-                    'meeting': data.get('meeting'),
-                    'timestamp': data.get('timestamp')
-                }
-            else:
-                return {'alive': False, 'error': f'Status {response.status_code}'}
-        except requests.exceptions.RequestException as e:
-            return {'alive': False, 'error': str(e)}
-    
-    async def health_monitor(self):
-        """Monitor Flask app health and report to server"""
-        print("\n💓 Starting health monitor...")
+    async def send_message(self, message_type, data=None):
+        """Send a message to the WebSocket server"""
+        if not self.websocket:
+            logger.warning(" Cannot send message - not connected")
+            return
         
-        user_info_refresh_count = 0
-        sync_check_count = 0
-        previous_app_alive = None
-        
-        while True:
-            try:
-                # Refresh user info every 5 seconds (5 iterations) instead of 30
-                if user_info_refresh_count % 5 == 0:
-                    old_user_info = self.user_info
-                    self.user_info = self.get_current_user()
-                    
-                    # Check if user login status changed
-                    old_logged_in = old_user_info.get('logged_in', False) if old_user_info else False
-                    new_logged_in = self.user_info.get('logged_in', False)
-                    
-                    if not old_logged_in and new_logged_in:
-                        print(f"🔑 User just logged in: {self.user_info.get('username')} ({self.user_info.get('email')})")
-                    elif old_logged_in and not new_logged_in:
-                        print("� User just logged out")
-                    elif new_logged_in:
-                        print(f"�👤 User: {self.user_info.get('username')} ({self.user_info.get('email')})")
-                    else:
-                        print("👤 No user logged in")
-                
-                user_info_refresh_count += 1
-                
-                # Check for sync requests every 5 seconds (5 iterations)
-                if sync_check_count % 5 == 0:
-                    await self.check_for_sync_requests()
-                
-                sync_check_count += 1
-                
-                # Check app health
-                health = self.check_app_health()
-                is_alive = health.get('alive', False)
-                
-                # If app just came alive, refresh user info immediately
-                if is_alive and previous_app_alive is False:
-                    print("🔄 App just came online - refreshing user info immediately")
-                    self.user_info = self.get_current_user()
-                    if self.user_info.get('logged_in'):
-                        print(f"👤 Detected user after app startup: {self.user_info.get('username')} ({self.user_info.get('email')})")
-                
-                # Update status
-                if is_alive != self.app_is_alive:
-                    self.app_is_alive = is_alive
-                    if is_alive:
-                        print("✅ Flask app is alive")
-                    else:
-                        print("❌ Flask app is NOT responding")
-                
-                previous_app_alive = is_alive
-                
-                # Build health report
-                health_report = {
-                    "alive": is_alive,
-                    "recording_active": health.get('recording_active', False),
-                    "recording_type": health.get('recording_type', 'none'),
-                    "error": health.get('error'),
-                    "hostname": os.environ.get('COMPUTERNAME', 'unknown')
-                }
-                
-                # Add user info to health report
-                if self.user_info and self.user_info.get('logged_in'):
-                    health_report['user'] = {
-                        'username': self.user_info.get('username'),
-                        'email': self.user_info.get('email'),
-                        'user_id': self.user_info.get('user_id')
-                    }
-                    # Debug: Show what user info we're sending (only every 10th time to avoid spam)
-                    if user_info_refresh_count % 10 == 0:
-                        print(f"📤 Sending health with user: {self.user_info.get('email')}")
-                else:
-                    health_report['user'] = None
-                    # Debug: Show why no user info (only every 10th time to avoid spam)
-                    if user_info_refresh_count % 10 == 0:
-                        if not self.user_info:
-                            print("📤 Sending health: No user info available")
-                        elif not self.user_info.get('logged_in'):
-                            print("📤 Sending health: User not logged in")
-                        else:
-                            print("📤 Sending health: Unknown user state")
-                
-                # Add meeting info if recording a meeting
-                if health.get('meeting'):
-                    health_report['meeting'] = health.get('meeting')
-                
-                # Report to server
-                await self.send_message("app_health", health_report)
-                
-                # If app is dead, send alert
-                if not is_alive:
-                    await self.send_message("app_alert", {
-                        "alert": "Flask application is not responding",
-                        "error": health.get('error', 'Unknown error')
-                    })
-                
-            except Exception as e:
-                print(f"❌ Error in health monitor: {e}")
-            
-            # Wait 1 second before next check
-            await asyncio.sleep(1)
-    
-    async def send_message(self, message_type, data):
-        """Send message to server"""
         try:
             message = {
                 "type": message_type,
                 "timestamp": datetime.now().isoformat(),
-                "data": data
+                "data": data or {}
             }
             await self.websocket.send(json.dumps(message))
-            print(f"📤 Sent: {message_type}")
+            logger.debug(f" Sent: {message_type}")
         except Exception as e:
-            print(f"❌ Error sending message: {e}")
+            logger.error(f" Error sending message: {e}")
     
-    async def handle_start_command(self, data):
-        """Handle start recording command from server"""
-        # Step 0: Check if remote recording is enabled locally
-        if not self.is_remote_recording_enabled():
-            print(f"\n🚫 REMOTE RECORDING DISABLED LOCALLY")
-            print(f"   Remote recording command ignored")
-            print(f"   User has disabled remote recording on this client")
+    async def handle_start_recording(self, data):
+        """Handle remote start recording command"""
+        try:
+            logger.info(" Remote START command received")
+            logger.info(f"   Data: {json.dumps(data, indent=2)}")
             
-            await self.send_message("start_failed", {
-                "subject": data.get('subject', 'Unknown'),
-                "organizer": data.get('organizer', 'Unknown'),
-                "start_time": data.get('start_time', 'Unknown'),
-                "reason": "Remote recording is disabled on this client"
-            })
-            return
-        
-        # Extract matching fields from command
-        subject = data.get('subject')
-        organizer = data.get('organizer')
-        start_time = data.get('start_time')
-        duration_minutes = data.get('duration', 60)
-        
-        print(f"\n{'='*60}")
-        print(f"📋 START COMMAND RECEIVED")
-        print(f"   ✅ Remote recording is enabled locally")
-        print(f"   Subject: {subject}")
-        print(f"   Organizer: {organizer}")
-        print(f"   Start Time: {start_time}")
-        print(f"   Duration: {duration_minutes} minutes")
-        print(f"{'='*60}\n")
-        
-        # Step 1: Find meeting in database using matching fields
-        meeting = self.find_meeting_by_details(subject, organizer, start_time)
-        
-        if not meeting:
-            await self.send_message("start_failed", {
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time,
-                "reason": "Meeting not found in local database"
-            })
-            return
-        
-        # Step 2: Start recording
-        success = self.start_recording(meeting.get('id'))
-        
-        if success:
-            self.current_recording = {
-                "meeting_id": meeting.get('id'),
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time
+            # Extract meeting details
+            meeting_id = data.get('meeting_id')
+            subject = data.get('subject', 'Remote Recording')
+            organizer = data.get('organizer', '')
+            start_time = data.get('start_time', '')
+            
+            # Check if remote recording is enabled
+            if not self.check_remote_status_file():
+                logger.warning(" Remote recording is DISABLED - ignoring command")
+                await self.send_message("recording_rejected", {
+                    "reason": "Remote recording disabled on this client",
+                    "meeting_id": meeting_id
+                })
+                return
+            
+            logger.info(" Remote recording is ENABLED - processing command")
+            
+            # Search for meeting in local database
+            local_meeting_id = await self.search_meeting_by_details(subject, organizer, start_time)
+            
+            if not local_meeting_id:
+                logger.warning(f" Meeting not found in local database - creating manual recording")
+            
+            # Start recording via Flask API
+            logger.info(f" Starting recording via Flask API...")
+            url = f"{self.app_base_url}/start"
+            
+            payload = {
+                'title': subject,
+                'meeting_id': local_meeting_id,
+                'remote_trigger': True,
+                'remote_meeting_id': meeting_id  # Original meeting ID from server
             }
-            self.recording_start_time = time.time()
-            self.recording_duration = duration_minutes * 60  # Convert to seconds
             
-            await self.send_message("start_confirmed", {
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time,
-                "duration": duration_minutes
-            })
+            logger.info(f"   Payload: {json.dumps(payload, indent=2)}")
             
-            # Start monitoring task
-            asyncio.create_task(self.monitor_recording())
-        else:
-            await self.send_message("start_failed", {
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time,
-                "reason": "Failed to start recording"
-            })
-    
-    async def monitor_recording(self):
-        """Monitor recording progress and FFmpeg status"""
-        if not self.current_recording:
-            return
-        
-        print("\n🔍 Starting recording monitor...")
-        
-        # Wait for FFmpeg to start (give it 10 seconds before first check)
-        print("⏳ Waiting 10 seconds for FFmpeg to initialize...")
-        await asyncio.sleep(10)
-        
-        check_interval = 5  # Check every 5 seconds to detect premature stops faster
-        
-        while self.current_recording:
-            # Check elapsed time
-            elapsed = time.time() - self.recording_start_time
-            remaining = self.recording_duration - elapsed
+            response = requests.post(url, json=payload, timeout=10)
             
-            print(f"\n⏱️  Elapsed: {int(elapsed)}s / {self.recording_duration}s (Remaining: {int(remaining)}s)")
-            
-            # Check Flask app health to detect if recording stopped
-            health = self.check_app_health()
-            recording_active = health.get('recording_active', False)
-            
-            # If recording is no longer active in Flask but we think it should be
-            if not recording_active and elapsed < self.recording_duration:
-                print("⚠️  Recording stopped prematurely on Flask side!")
-                await self.send_message("recording_stopped_premature", {
-                    "subject": self.current_recording["subject"],
-                    "organizer": self.current_recording["organizer"],
-                    "start_time": self.current_recording["start_time"],
-                    "duration_actual": int(elapsed),
-                    "duration_expected": self.recording_duration,
-                    "reason": "User stopped recording manually or error occurred"
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f" Recording started successfully")
+                logger.info(f"   Status: {result.get('status')}")
+                logger.info(f"   Monitor: {result.get('monitor')}")
+                logger.info(f"   Recording ID: {result.get('recording_id')}")
+                
+                # Store recording info
+                self.current_recording = {
+                    'recording_id': result.get('recording_id'),
+                    'meeting_id': meeting_id,
+                    'local_meeting_id': local_meeting_id,
+                    'subject': subject
+                }
+                self.recording_start_time = time.time()
+                
+                # Notify server of success
+                await self.send_message("recording_started", {
+                    "recording_id": result.get('recording_id'),
+                    "meeting_id": meeting_id,
+                    "local_meeting_id": local_meeting_id,
+                    "monitor": result.get('monitor'),
+                    "status": "started"
+                })
+            else:
+                error_msg = response.json().get('error', 'Unknown error') if response.headers.get('content-type') == 'application/json' else response.text
+                logger.error(f" Failed to start recording: {error_msg}")
+                
+                # Notify server of failure
+                await self.send_message("recording_failed", {
+                    "meeting_id": meeting_id,
+                    "error": error_msg,
+                    "status_code": response.status_code
                 })
                 
-                # Clear tracking state
+        except Exception as e:
+            logger.error(f" Error handling start command: {e}", exc_info=True)
+            await self.send_message("recording_failed", {
+                "meeting_id": data.get('meeting_id'),
+                "error": str(e)
+            })
+    
+    async def handle_stop_recording(self, data):
+        """Handle remote stop recording command"""
+        try:
+            logger.info(" Remote STOP command received")
+            logger.info(f"   Data: {json.dumps(data, indent=2)}")
+            
+            meeting_id = data.get('meeting_id')
+            
+            # Stop recording via Flask API
+            logger.info(f" Stopping recording via Flask API...")
+            url = f"{self.app_base_url}/stop"
+            
+            response = requests.post(url, json={'remote_trigger': True}, timeout=10)
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f" Recording stopped successfully")
+                logger.info(f"   Status: {result.get('status')}")
+                
+                # Calculate duration if we have start time
+                duration = None
+                if self.recording_start_time:
+                    duration = int(time.time() - self.recording_start_time)
+                    logger.info(f"   Duration: {duration}s")
+                
+                # Notify server of success
+                await self.send_message("recording_stopped", {
+                    "meeting_id": meeting_id,
+                    "recording_id": self.current_recording.get('recording_id') if self.current_recording else None,
+                    "duration": duration,
+                    "status": "stopped"
+                })
+                
+                # Clear recording state
                 self.current_recording = None
                 self.recording_start_time = None
-                self.recording_duration = None
-                break
-            
-            # Check if FFmpeg is running
-            ffmpeg_ok = self.check_ffmpeg_running()
-            
-            if not ffmpeg_ok and recording_active:
-                print("⚠️  FFmpeg not detected but Flask reports recording active")
-                await self.send_message("recording_warning", {
-                    "subject": self.current_recording["subject"],
-                    "organizer": self.current_recording["organizer"],
-                    "start_time": self.current_recording["start_time"],
-                    "warning": "FFmpeg process not detected"
+            else:
+                error_msg = response.json().get('error', 'Unknown error') if response.headers.get('content-type') == 'application/json' else response.text
+                logger.error(f" Failed to stop recording: {error_msg}")
+                
+                # Notify server of failure
+                await self.send_message("stop_failed", {
+                    "meeting_id": meeting_id,
+                    "error": error_msg,
+                    "status_code": response.status_code
                 })
-            elif recording_active:
-                # Send positive confirmation that recording is ongoing
-                await self.send_message("recording_status", {
-                    "subject": self.current_recording["subject"],
-                    "organizer": self.current_recording["organizer"],
-                    "start_time": self.current_recording["start_time"],
-                    "status": "recording",
-                    "elapsed": int(elapsed),
-                    "remaining": int(remaining)
-                })
-            
-            # Check if duration elapsed
-            if elapsed >= self.recording_duration:
-                print("\n⏰ Duration elapsed - stopping recording")
-                await self.stop_recording_and_confirm(reason="completed")
-                break
-            
-            # Wait before next check
-            await asyncio.sleep(check_interval)
-    
-    async def stop_recording_and_confirm(self, reason="completed"):
-        """Stop recording and send confirmation
-        
-        Args:
-            reason: Why recording stopped - "completed", "manual", "premature", "error"
-        """
-        if not self.current_recording:
-            return
-        
-        subject = self.current_recording["subject"]
-        organizer = self.current_recording["organizer"]
-        start_time = self.current_recording["start_time"]
-        
-        # Calculate actual duration
-        actual_duration = int(time.time() - self.recording_start_time) if self.recording_start_time else 0
-        expected_duration = self.recording_duration if self.recording_duration else 0
-        
-        # Stop the recording
-        success = self.stop_recording()
-        
-        if success:
-            await self.send_message("stop_confirmed", {
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time,
-                "duration_actual": actual_duration,
-                "duration_expected": expected_duration,
-                "reason": reason,
-                "status": "success"
-            })
-        else:
+                
+        except Exception as e:
+            logger.error(f" Error handling stop command: {e}", exc_info=True)
             await self.send_message("stop_failed", {
-                "subject": subject,
-                "organizer": organizer,
-                "start_time": start_time,
-                "reason": f"Failed to stop recording: {reason}",
-                "duration_actual": actual_duration
+                "meeting_id": data.get('meeting_id'),
+                "error": str(e)
             })
-        
-        # Clear current recording
-        self.current_recording = None
-        self.recording_start_time = None
-        self.recording_duration = None
     
-    async def handle_stop_command(self, data):
-        """Handle manual stop command from server"""
-        # Check if remote recording is enabled locally
-        if not self.is_remote_recording_enabled():
-            print(f"\n� REMOTE RECORDING DISABLED LOCALLY")
-            print(f"   Remote stop command ignored")
-            print(f"   User has disabled remote recording on this client")
-            
-            await self.send_message("stop_failed", {
-                "subject": data.get('subject', 'Unknown'),
-                "organizer": data.get('organizer', 'Unknown'),
-                "start_time": data.get('start_time', 'Unknown'),
-                "reason": "Remote recording is disabled on this client"
-            })
-            return
-        
-        print("\n�🛑 STOP COMMAND RECEIVED")
-        print(f"   ✅ Remote recording is enabled locally")
-        print(f"   Subject: {data.get('subject', 'N/A')}")
-        print(f"   Organizer: {data.get('organizer', 'N/A')}")
-        print(f"   Start Time: {data.get('start_time', 'N/A')}")
-        await self.stop_recording_and_confirm(reason="manual")
-    
-    async def handle_weekly_meetings(self, data):
-        """Handle weekly meetings data from server"""
-        user_email = data.get('user_email')
-        meetings = data.get('meetings', [])
-        total_count = data.get('total_count', 0)
-        date_range = data.get('date_range', {})
-        is_requested = data.get('requested', False)
-        
-        if is_requested:
-            print(f"\n📅 Weekly meetings received (requested): {total_count} meetings for {user_email}")
-        else:
-            print(f"\n📅 Weekly meetings received (scheduled): {total_count} meetings for {user_email}")
-        
-        print(f"   Date range: {date_range.get('start')} to {date_range.get('end')}")
-        
-        # Process each meeting
-        for meeting in meetings:
-            start_time = meeting.get('start_time')
-            subject = meeting.get('subject')
-            status = meeting.get('recording_status')
-            auto_record = meeting.get('auto_record')
-            
-            # Show the UTC time being received
-            print(f"   📋 {start_time} UTC - {subject} (Status: {status}, Auto: {auto_record})")
-        
-        print(f"   💡 Times will be converted from UTC to Eastern before saving to database")
-        
-        # Store meetings for application use
-        self.weekly_meetings = meetings
-        self.weekly_meetings_last_updated = datetime.now()
-        
-        # Save meetings to local database via Flask API
-        await self.save_meetings_to_database(user_email, meetings)
-    
-    async def save_meetings_to_database(self, user_email, meetings):
-        """Save meetings to local database via Flask API"""
+    async def handle_message(self, message):
+        """Handle incoming WebSocket message"""
         try:
-            print(f"\n💾 Saving {len(meetings)} meetings to local database...")
+            data = json.loads(message)
+            msg_type = data.get('type')
+            msg_data = data.get('data', {})
+            
+            logger.debug(f" Received message: {msg_type}")
+            
+            if msg_type == 'start_recording':
+                await self.handle_start_recording(msg_data)
+            elif msg_type == 'stop_recording':
+                await self.handle_stop_recording(msg_data)
+            elif msg_type == 'ping':
+                await self.send_message('pong')
+            elif msg_type == 'weekly_meetings':
+                self.weekly_meetings = msg_data.get('meetings', [])
+                self.weekly_meetings_last_updated = time.time()
+                
+                if self.weekly_meetings:
+                    # Log summary only
+                    today_meetings = [m for m in self.weekly_meetings if self._is_today(m.get('start_time', ''))]
+                    excluded_meetings = [m for m in self.weekly_meetings if m.get('user_excluded') or m.get('exclude_all_series')]
+                    recurring_meetings = [m for m in self.weekly_meetings if m.get('is_recurring')]
+                    
+                    logger.info(f" Received {len(self.weekly_meetings)} weekly meetings - Today: {len(today_meetings)}, Recurring: {len(recurring_meetings)}, Excluded: {len(excluded_meetings)}")
+                    
+                    # Save meetings to local file for persistence
+                    self.save_weekly_meetings_to_file()
+                    
+                    # Sync to database if Flask app is available
+                    if self.app_is_alive:
+                        await self.sync_meetings_to_database()
+                else:
+                    logger.info(" No meetings in the current week")
+            else:
+                logger.debug(f"ℹ Unknown message type: {msg_type}")
+                
+        except json.JSONDecodeError as e:
+            logger.error(f" Invalid JSON received: {e}")
+        except Exception as e:
+            logger.error(f" Error handling message: {e}", exc_info=True)
+    
+    async def health_monitor(self):
+        """Monitor Flask app health and send periodic updates"""
+        while True:
+            try:
+                # Check Flask app health
+                response = requests.get(f"{self.app_base_url}/api/status", timeout=2)
+                self.app_is_alive = response.status_code == 200
+                
+                if self.app_is_alive:
+                    status_data = response.json() if response.headers.get('content-type') == 'application/json' else {}
+                    
+                    # Send health update to server (using app_health so server updates heartbeat)
+                    await self.send_message("app_health", {
+                        "alive": True,
+                        "recording_active": status_data.get('recording', False),
+                        "recording_type": "meeting" if status_data.get('recording') else "none",
+                        "remote_enabled": self.check_remote_status_file(),
+                        "user": self.user_info if self.user_info and self.user_info.get('logged_in') else None,
+                        "error": None
+                    })
+                else:
+                    await self.send_message("app_health", {
+                        "alive": False,
+                        "recording_active": False,
+                        "recording_type": "none",
+                        "remote_enabled": self.check_remote_status_file(),
+                        "user": self.user_info if self.user_info and self.user_info.get('logged_in') else None,
+                        "error": "Flask app not responding"
+                    })
+                
+            except Exception as e:
+                logger.debug(f"Health check failed: {e}")
+                self.app_is_alive = False
+            
+            await asyncio.sleep(30)  # Check every 30 seconds
+    
+    async def sync_meetings_to_database(self):
+        """Sync received meetings to local Flask database"""
+        try:
+            if not self.weekly_meetings:
+                logger.info(" No meetings to sync to database")
+                return
+                
+            # Get user email for the API call
+            user_email = None
+            if self.user_info and self.user_info.get('logged_in'):
+                user_email = self.user_info.get('email')
+            
+            if not user_email:
+                logger.warning(" Cannot sync meetings - no user email available")
+                return
+                
+            logger.info(f" Syncing {len(self.weekly_meetings)} meetings to database for {user_email}...")
             
             url = f"{self.app_base_url}/api/save_weekly_meetings"
             payload = {
-                "user_email": user_email,
-                "meetings": meetings
+                'user_email': user_email,
+                'meetings': self.weekly_meetings
             }
             
-            # Use asyncio to run the synchronous request in a thread pool
-            import asyncio
-            loop = asyncio.get_event_loop()
-            
-            response = await loop.run_in_executor(
-                None,
-                lambda: requests.post(url, json=payload, timeout=10)
-            )
+            response = requests.post(url, json=payload, timeout=15)
             
             if response.status_code == 200:
-                data = response.json()
-                added = data.get('added', 0)
-                updated = data.get('updated', 0)
-                skipped = data.get('skipped', 0)
-                
-                print(f"✅ Meetings saved successfully:")
-                print(f"   Added: {added}")
-                print(f"   Updated: {updated}")
-                print(f"   Skipped: {skipped}")
+                result = response.json()
+                logger.info(f" Meeting sync completed:")
+                logger.info(f"    Total processed: {result.get('total_processed', 0)}")
+                logger.info(f"    New meetings: {result.get('added', 0)}")
+                logger.info(f"    Updated meetings: {result.get('updated', 0)}")
+                logger.info(f"     Skipped meetings: {result.get('skipped', 0)}")
             else:
-                print(f"❌ Failed to save meetings: {response.status_code} - {response.text}")
-        
+                logger.error(f" Meeting sync failed: HTTP {response.status_code}")
+                if response.headers.get('content-type') == 'application/json':
+                    error_data = response.json()
+                    logger.error(f"   Error: {error_data.get('error', 'Unknown error')}")
+                
         except Exception as e:
-            print(f"❌ Error saving meetings to database: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    async def request_weekly_meetings(self):
-        """Request weekly meetings from server immediately"""
-        print("\n📅 Requesting weekly meetings from server...")
-        await self.send_message("request_weekly_meetings", {})
-    
-    async def check_for_sync_requests(self):
-        """Check for sync request flag files from Flask admin interface"""
-        try:
-            sync_request_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sync_request.flag')
-            
-            if os.path.exists(sync_request_file):
-                try:
-                    # Read the sync request
-                    with open(sync_request_file, 'r') as f:
-                        request_data = json.loads(f.read())
-                    
-                    print(f"\n🔄 Sync request detected from {request_data.get('requested_by', 'unknown')}")
-                    print(f"   Timestamp: {request_data.get('timestamp')}")
-                    print(f"   User: {request_data.get('user_email', 'system')}")
-                    
-                    # Request weekly meetings from server
-                    await self.request_weekly_meetings()
-                    
-                    # Remove the flag file
-                    os.remove(sync_request_file)
-                    print("✅ Sync request processed and flag file removed")
-                    
-                except Exception as e:
-                    print(f"❌ Error processing sync request: {e}")
-                    # Remove the corrupted flag file
-                    try:
-                        os.remove(sync_request_file)
-                    except:
-                        pass
-        
-        except Exception as e:
-            # Silently continue - file monitoring errors shouldn't crash the health monitor
-            pass
+            logger.error(f" Error syncing meetings to database: {e}", exc_info=True)
     
     async def listen(self):
-        """Listen for messages from server"""
+        """Listen for incoming messages"""
         try:
             async for message in self.websocket:
-                try:
-                    data = json.loads(message)
-                    msg_type = data.get('type')
-                    msg_data = data.get('data', {})
-                    
-                    print(f"\n📥 Received: {msg_type}")
-                    
-                    if msg_type == 'start_recording':
-                        await self.handle_start_command(msg_data)
-                    elif msg_type == 'stop_recording':
-                        await self.handle_stop_command(msg_data)
-                    elif msg_type == 'weekly_meetings':
-                        await self.handle_weekly_meetings(msg_data)
-                    elif msg_type == 'ping':
-                        await self.send_message('pong', {'status': 'ok'})
-                    else:
-                        print(f"⚠️  Unknown message type: {msg_type}")
-                
-                except json.JSONDecodeError as e:
-                    print(f"❌ Invalid JSON: {e}")
-                except Exception as e:
-                    print(f"❌ Error handling message: {e}")
-        
+                await self.handle_message(message)
         except websockets.exceptions.ConnectionClosed:
-            print("\n❌ Connection closed by server")
+            logger.warning(" Connection closed by server")
         except Exception as e:
-            print(f"\n❌ Error in listen loop: {e}")
+            logger.error(f" Error in listen loop: {e}", exc_info=True)
     
     async def run(self):
-        """Main run loop"""
+        """Main run loop with auto-reconnect"""
+        # Load existing meetings on startup
+        self.load_weekly_meetings_from_file()
+        
         while True:
-            if await self.connect():
-                # Get user information
+            try:
+                # Get user info before connecting
                 self.user_info = self.get_current_user()
                 
-                # Build connection message
-                connection_data = {
-                    "hostname": os.environ.get('COMPUTERNAME', 'unknown'),
-                    "status": "ready"
-                }
-                
-                # Add user info if available
-                if self.user_info.get('logged_in'):
-                    connection_data['user'] = {
-                        'username': self.user_info.get('username'),
-                        'email': self.user_info.get('email'),
-                        'user_id': self.user_info.get('user_id')
+                if await self.connect():
+                    # Send connection info
+                    connection_data = {
+                        "client_type": "meeting_recorder",
+                        "remote_enabled": self.check_remote_status_file()
                     }
+                    
+                    # Add user info if available
+                    if self.user_info.get('logged_in'):
+                        connection_data['user'] = {
+                            'username': self.user_info.get('username'),
+                            'email': self.user_info.get('email'),
+                            'user_id': self.user_info.get('user_id')
+                        }
+                    
+                    await self.send_message("client_connected", connection_data)
+                    
+                    # Start health monitor
+                    if not self.health_check_task or self.health_check_task.done():
+                        self.health_check_task = asyncio.create_task(self.health_monitor())
+                        logger.info(" Health monitor started")
+                    
+                    await self.listen()
+                    
+                    # Cancel health monitor if connection lost
+                    if self.health_check_task and not self.health_check_task.done():
+                        self.health_check_task.cancel()
                 
-                await self.send_message("client_connected", connection_data)
-                
-                # Start health monitor
-                if not self.health_check_task or self.health_check_task.done():
-                    self.health_check_task = asyncio.create_task(self.health_monitor())
-                    print("💓 Health monitor started")
-                
-                await self.listen()
-                
-                # Cancel health monitor if connection lost
-                if self.health_check_task and not self.health_check_task.done():
-                    self.health_check_task.cancel()
+                # Reconnect after delay
+                logger.info("\n Reconnecting in 5 seconds...")
+                await asyncio.sleep(5)
             
-            # Reconnect after delay
-            print("\n⏳ Reconnecting in 5 seconds...")
-            await asyncio.sleep(5)
+            except KeyboardInterrupt:
+                logger.info("\n Shutting down...")
+                break
+            except Exception as e:
+                logger.error(f" Error in run loop: {e}", exc_info=True)
+                await asyncio.sleep(5)
     
     def close(self):
         """Clean up resources"""
-        pass  # No database session to close anymore
+        if self.health_check_task and not self.health_check_task.done():
+            self.health_check_task.cancel()
+        logger.info(" Client closed")
 
 async def main():
     """Main entry point"""
-    print("="*60)
-    print("🎥 Meeting Recorder WebSocket Client")
-    print("="*60)
+    logger.info("="*60)
+    logger.info(" Meeting Recorder WebSocket Client")
+    logger.info("="*60)
     
     client = MeetingRecorderClient()
     
     try:
         await client.run()
     except KeyboardInterrupt:
-        print("\n\n👋 Shutting down...")
+        logger.info("\n\n Shutting down...")
     finally:
         client.close()
 

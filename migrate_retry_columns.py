@@ -31,23 +31,23 @@ def migrate_add_retry_columns():
             migrations_needed.append("ALTER TABLE recording ADD COLUMN last_retry_at TEXT")
         
         if not migrations_needed:
-            logger.info("✅ Database already has retry tracking columns")
+            logger.info(" Database already has retry tracking columns")
             conn.close()
             return True
         
         # Execute migrations
         for migration in migrations_needed:
-            logger.info(f"🔄 Executing: {migration}")
+            logger.info(f" Executing: {migration}")
             cursor.execute(migration)
         
         conn.commit()
         conn.close()
         
-        logger.info(f"✅ Database migration completed: {len(migrations_needed)} columns added")
+        logger.info(f" Database migration completed: {len(migrations_needed)} columns added")
         return True
         
     except Exception as e:
-        logger.error(f"❌ Database migration failed: {e}")
+        logger.error(f" Database migration failed: {e}")
         return False
 
 if __name__ == "__main__":

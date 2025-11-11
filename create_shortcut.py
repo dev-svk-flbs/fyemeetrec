@@ -28,15 +28,15 @@ def create_windows_shortcut():
         shortcut.IconLocation = str(batch_file) + ",0"
         shortcut.save()
         
-        print(f"✅ Desktop shortcut created: {shortcut_path}")
+        print(f" Desktop shortcut created: {shortcut_path}")
         return True
         
     except ImportError:
-        print("⚠️ winshell or pywin32 not installed. Install with:")
+        print(" winshell or pywin32 not installed. Install with:")
         print("   pip install winshell pywin32")
         return False
     except Exception as e:
-        print(f"❌ Failed to create shortcut: {e}")
+        print(f" Failed to create shortcut: {e}")
         return False
 
 def create_batch_shortcut():
@@ -49,7 +49,7 @@ def create_batch_shortcut():
             desktop = Path.home() / "OneDrive" / "Desktop"
         
         if not desktop.exists():
-            print("❌ Could not find Desktop folder")
+            print(" Could not find Desktop folder")
             return False
         
         # Create shortcut that launches the dual system
@@ -63,17 +63,17 @@ start "" "{script_dir}\\start_recording_system.bat"
         with open(shortcut_path, 'w') as f:
             f.write(shortcut_content)
         
-        print(f"✅ Desktop shortcut created: {shortcut_path}")
+        print(f" Desktop shortcut created: {shortcut_path}")
         print("   This will start Flask + Hotkey Listener automatically")
         return True
         
     except Exception as e:
-        print(f"❌ Failed to create batch shortcut: {e}")
+        print(f" Failed to create batch shortcut: {e}")
         return False
 
 def main():
     """Main shortcut creation function"""
-    print("🔗 Desktop Shortcut Creator")
+    print(" Desktop Shortcut Creator")
     print("=" * 40)
     
     if os.name == 'nt':  # Windows
@@ -84,10 +84,10 @@ def main():
             print("Falling back to simple batch shortcut...")
             create_batch_shortcut()
     else:
-        print("❌ Desktop shortcut creation only supported on Windows")
-        print("💡 On Linux/Mac, create a launcher script manually")
+        print(" Desktop shortcut creation only supported on Windows")
+        print(" On Linux/Mac, create a launcher script manually")
     
-    print("\n🎬 You can now launch the Audio Recording System from your desktop!")
+    print("\n You can now launch the Audio Recording System from your desktop!")
     print("   • Double-click the desktop shortcut")
     print("   • Or run: python app.py")
     print("   • Or run: start_recording_system.bat")

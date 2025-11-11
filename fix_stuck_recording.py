@@ -23,7 +23,7 @@ def fix_stuck_recording():
         ''', (datetime.utcnow().isoformat(),))
         
         conn.commit()
-        print("✅ Fixed stuck recording - marked as failed")
+        print(" Fixed stuck recording - marked as failed")
         
         # Verify the fix
         cursor.execute('SELECT id, title, status, ended_at FROM recording WHERE id = 6')

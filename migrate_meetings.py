@@ -20,12 +20,12 @@ from models import db, Meeting, Recording, User
 def migrate_database():
     """Add Meeting table to existing database"""
     
-    print("🔄 Starting database migration...")
+    print(" Starting database migration...")
     
     with app.app_context():
         try:
             # Create the meetings table
-            print("📋 Creating Meeting table...")
+            print(" Creating Meeting table...")
             db.create_all()
             
             # Check if the table was created successfully
@@ -33,15 +33,15 @@ def migrate_database():
             tables = inspector.get_table_names()
             
             if 'meeting' in tables:
-                print("✅ Meeting table created successfully!")
+                print(" Meeting table created successfully!")
                 
                 # Check table structure
                 columns = inspector.get_columns('meeting')
-                print(f"📊 Meeting table has {len(columns)} columns:")
+                print(f" Meeting table has {len(columns)} columns:")
                 for col in columns:
                     print(f"   - {col['name']} ({col['type']})")
                 
-                print("\n🔗 Meeting model features:")
+                print("\n Meeting model features:")
                 print("   - One-to-one relationship with Recording")
                 print("   - Calendar event tracking")
                 print("   - Recording status management")
@@ -50,11 +50,11 @@ def migrate_database():
                 
                 return True
             else:
-                print("❌ Failed to create Meeting table")
+                print(" Failed to create Meeting table")
                 return False
                 
         except Exception as e:
-            print(f"💥 Migration failed: {str(e)}")
+            print(f" Migration failed: {str(e)}")
             return False
 
 def verify_migration():
@@ -72,15 +72,15 @@ def verify_migration():
             )
             
             # Don't commit, just test the model works
-            print("✅ Meeting model is working correctly!")
+            print(" Meeting model is working correctly!")
             return True
             
         except Exception as e:
-            print(f"❌ Migration verification failed: {str(e)}")
+            print(f" Migration verification failed: {str(e)}")
             return False
 
 if __name__ == "__main__":
-    print("🎯 Meeting Model Migration Script")
+    print(" Meeting Model Migration Script")
     print("=" * 50)
     
     # Run migration
@@ -89,11 +89,11 @@ if __name__ == "__main__":
     if success:
         # Verify migration
         verify_migration()
-        print("\n🎉 Migration completed successfully!")
-        print("\n📝 Next steps:")
+        print("\n Migration completed successfully!")
+        print("\n Next steps:")
         print("   1. Restart your Flask app")
         print("   2. Visit /admin to see the meetings interface")
         print("   3. AutoRecorder will start populating meetings from calendar events")
     else:
-        print("\n💥 Migration failed!")
+        print("\n Migration failed!")
         sys.exit(1)

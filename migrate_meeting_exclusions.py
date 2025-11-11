@@ -14,10 +14,10 @@ def migrate_add_exclusion_fields():
         db_path = current_dir / 'instance' / 'recordings.db'
         
         if not db_path.exists():
-            print(f"❌ Database not found at {db_path}")
+            print(f" Database not found at {db_path}")
             return False
         
-        print(f"🗄️ Connecting to database: {db_path}")
+        print(f" Connecting to database: {db_path}")
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
@@ -37,18 +37,18 @@ def migrate_add_exclusion_fields():
             migrations_needed.append(('series_id', 'VARCHAR(255)'))
         
         if not migrations_needed:
-            print("✅ All exclusion columns already exist. No migration needed.")
+            print(" All exclusion columns already exist. No migration needed.")
             conn.close()
             return True
         
         # Add missing columns
         for column_name, column_type in migrations_needed:
-            print(f"➕ Adding column: {column_name} ({column_type})")
+            print(f" Adding column: {column_name} ({column_type})")
             cursor.execute(f"ALTER TABLE meeting ADD COLUMN {column_name} {column_type}")
         
         conn.commit()
         
-        print(f"✅ Migration completed! Added {len(migrations_needed)} column(s):")
+        print(f" Migration completed! Added {len(migrations_needed)} column(s):")
         for column_name, _ in migrations_needed:
             print(f"   - {column_name}")
         
@@ -56,7 +56,7 @@ def migrate_add_exclusion_fields():
         return True
         
     except Exception as e:
-        print(f"❌ Migration failed: {e}")
+        print(f" Migration failed: {e}")
         import traceback
         traceback.print_exc()
         return False

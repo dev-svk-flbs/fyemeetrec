@@ -24,6 +24,16 @@ import re
 import os
 import mimetypes
 from pathlib import Path
+
+def sanitize_error_message(error):
+    """Remove non-ASCII characters (like emojis) from error messages to prevent encoding issues"""
+    try:
+        error_str = str(error)
+        # Remove any non-ASCII characters
+        return error_str.encode('ascii', 'ignore').decode('ascii').strip()
+    except:
+        return "An error occurred"
+
 #test
 def get_ffmpeg_path():
     """Get the path to the local FFmpeg executable"""
@@ -96,7 +106,7 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 # Log Flask app initialization
-logger.info("🌐 Flask app initializing...")
+logger.info(" Flask app initializing...")
 
 # Initialize extensions
 login_manager = LoginManager()
@@ -107,7 +117,7 @@ login_manager.login_message_category = 'info'
 
 # Initialize database
 init_db(app)
-logger.info("🗄️ Database initialized")
+logger.info(" Database initialized")
 
 # Jinja2 template filters for timezone handling
 @app.template_filter('to_eastern')
@@ -140,7 +150,7 @@ try:
     from migrate_retry_columns import migrate_add_retry_columns
     migrate_add_retry_columns()
 except Exception as e:
-    logger.warning(f"⚠️ Database migration check failed: {e}")
+    logger.warning(f" Database migration check failed: {e}")
 
 # Utility functions for both Python code and templates
 def format_file_size(size_bytes):
@@ -206,7 +216,7 @@ def get_single_user():
         return user
         
     except Exception as e:
-        logger.error(f"❌ Error getting single user: {e}")
+        logger.error(f" Error getting single user: {e}")
         return None
 
 # Global state
@@ -229,7 +239,7 @@ MAX_RECORDING_DURATION = 3 * 60  * 60  # 10800 seconds
 
 def monitor_recording_duration():
     """Background thread that monitors recording duration and auto-stops after 3 hours"""
-    logger.info("🕐 Recording duration monitor started")
+    logger.info(" Recording duration monitor started")
     
     while True:
         try:
@@ -240,7 +250,7 @@ def monitor_recording_duration():
                     elapsed = time.time() - recording_state['start_time']
                     
                     if elapsed >= MAX_RECORDING_DURATION:
-                        logger.warning(f"⚠️ Recording exceeded 3-hour limit ({int(elapsed)}s) - auto-stopping!")
+                        logger.warning(f" Recording exceeded 3-hour limit ({int(elapsed)}s) - auto-stopping!")
                         
                         # Store info before stopping
                         is_remote = recording_state.get('is_remote_triggered', False)
@@ -265,15 +275,15 @@ def monitor_recording_duration():
                                 pass
                         
                         recording_state['active'] = False
-                        logger.info(f"✅ Recording auto-stopped (3-hour limit)")
+                        logger.info(f" Recording auto-stopped (3-hour limit)")
                         
                         # If this was a remote-triggered recording, notify via websocket
                         # The websocket client monitor will detect the premature stop
                         if is_remote:
-                            logger.info("📡 Recording was remote-triggered - websocket client will notify server")
+                            logger.info(" Recording was remote-triggered - websocket client will notify server")
                         
         except Exception as e:
-            logger.error(f"❌ Error in recording duration monitor: {e}")
+            logger.error(f" Error in recording duration monitor: {e}")
     
 # Start the duration monitor thread
 duration_monitor_thread = threading.Thread(target=monitor_recording_duration, daemon=True)
@@ -357,7 +367,7 @@ def get_monitor_manufacturers():
             return manufacturers
         
     except Exception as e:
-        print(f"WMI lookup failed: {e}")
+        logger.error(f"WMI lookup failed: {e}")
     
     return []
 
@@ -508,17 +518,17 @@ def list_monitors():
 def start_recording():
     # Handle both authenticated and hotkey requests
     user_info = current_user.username if current_user.is_authenticated else "hotkey"
-    logger.info(f"🎬 Recording start requested by: {user_info}")
+    logger.info(f" Recording start requested by: {user_info}")
     
     # Use lock to prevent race conditions
     with recording_lock:
         if recording_state['active']:
-            logger.warning(f"⚠️ Recording already active - rejecting request from {user_info}")
+            logger.warning(f" Recording already active - rejecting request from {user_info}")
             return jsonify({'error': 'Already recording'}), 400
         
         # Immediately set active flag to prevent duplicate requests
         recording_state['active'] = True
-        logger.info(f"🔒 Recording state locked for {user_info}")
+        logger.info(f" Recording state locked for {user_info}")
     
     try:
         # Get monitor selection and title from request
@@ -532,18 +542,18 @@ def start_recording():
             try:
                 meeting = Meeting.query.filter_by(id=meeting_id, user_id=current_user.id if current_user.is_authenticated else None).first()
                 if meeting and meeting.recording_id:
-                    logger.warning(f"⚠️ Meeting {meeting_id} already has a recording linked")
+                    logger.warning(f" Meeting {meeting_id} already has a recording linked")
                     recording_state['active'] = False  # Reset flag on error
                     return jsonify({'error': 'This meeting already has a recording'}), 400
                 
                 # Check if meeting is excluded
                 if meeting and (meeting.user_excluded or meeting.exclude_all_series):
-                    logger.warning(f"⚠️ Meeting {meeting_id} is excluded from recording")
+                    logger.warning(f" Meeting {meeting_id} is excluded from recording")
                     recording_state['active'] = False  # Reset flag on error
                     return jsonify({'error': 'This meeting is excluded from recording'}), 403
                     
             except Exception as e:
-                logger.error(f"❌ Error checking meeting: {str(e)}")
+                logger.error(f" Error checking meeting: {sanitize_error_message(e)}")
                 # Continue with recording anyway
         
         # Use default monitor from settings if no monitor specified
@@ -560,7 +570,7 @@ def start_recording():
                 break
         
         if not selected_monitor:
-            logger.error(f"❌ Invalid monitor selection: ID={monitor_id}, Available: {[m['id'] for m in monitors]}")
+            logger.error(f" Invalid monitor selection: ID={monitor_id}, Available: {[m['id'] for m in monitors]}")
             recording_state['active'] = False  # Reset flag on error
             return jsonify({'error': 'Invalid monitor selection'}), 400
         
@@ -584,7 +594,7 @@ def start_recording():
         )
         db.session.add(recording)
         db.session.commit()
-        logger.info(f"✅ Database record created with ID: {recording.id}")
+        logger.info(f" Database record created with ID: {recording.id}")
         
         # If meeting_id provided, link the recording to the meeting
         if meeting_id:
@@ -595,11 +605,11 @@ def start_recording():
                     meeting.recording_status = 'recording'
                     meeting.last_updated = datetime.utcnow()
                     db.session.commit()
-                    logger.info(f"🔗 Linked recording {recording.id} to meeting {meeting_id}")
+                    logger.info(f" Linked recording {recording.id} to meeting {meeting_id}")
                 else:
-                    logger.warning(f"⚠️ Meeting {meeting_id} not found or doesn't belong to user")
+                    logger.warning(f" Meeting {meeting_id} not found or doesn't belong to user")
             except Exception as e:
-                logger.error(f"❌ Error linking recording to meeting: {str(e)}")
+                logger.error(f" Error linking recording to meeting: {sanitize_error_message(e)}")
                 # Continue with recording anyway
         
         # Store selected monitor and recording ID
@@ -610,34 +620,43 @@ def start_recording():
         recording_state['is_remote_triggered'] = False  # Default to manual/local
         
         # Create streamer instance with monitor config
-        logger.info("🚀 Creating DualModeStreamer instance...")
+        logger.info(" Creating DualModeStreamer instance...")
         recording_state['streamer'] = DualModeStreamer(
             monitor_config=selected_monitor
         )
         # Note: active flag already set at the beginning with lock
         recording_state['transcriptions'] = []
         
-        logger.info("✅ Recording state updated and streamer created")
+        logger.info(" Recording state updated and streamer created")
         
     except Exception as e:
         # Reset flag on any error during setup
-        logger.error(f"❌ Error during recording setup: {str(e)}")
+        logger.error(f" Error during recording setup: {sanitize_error_message(e)}")
         recording_state['active'] = False
-        return jsonify({'error': f'Recording setup failed: {str(e)}'}), 500
+        return jsonify({'error': f'Recording setup failed: {sanitize_error_message(e)}'}), 500
     
     # Start recording in background thread
     def record_thread():
-        logger.info("🎬 Starting recording thread...")
-        success = recording_state['streamer'].dual_mode_record()
-        recording_state['active'] = False
-        logger.info(f"🔄 Recording thread completed with success: {success}")
-        
-        # Update database record when recording completes
-        if 'recording_id' in recording_state:
-            with app.app_context():  # Ensure we have application context
-                rec = Recording.query.get(recording_state['recording_id'])
-                if rec:
-                    logger.info(f"💾 Updating database record {rec.id} after recording completion...")
+        try:
+            logger.info(" Starting recording thread...")
+            success = recording_state['streamer'].dual_mode_record()
+            recording_state['active'] = False
+            logger.info(f" Recording thread completed with success: {success}")
+            
+            # Update database record when recording completes
+            if 'recording_id' not in recording_state:
+                logger.warning(" No recording_id in recording_state, skipping database update")
+                return
+                
+            try:
+                with app.app_context():  # Ensure we have application context
+                    logger.info(f" Looking up recording {recording_state['recording_id']} in database...")
+                    rec = Recording.query.get(recording_state['recording_id'])
+                    if not rec:
+                        logger.warning(f" Recording {recording_state['recording_id']} not found in database")
+                        return
+                    
+                    logger.info(f" Updating database record {rec.id} after recording completion...")
                     rec.ended_at = datetime.utcnow()
                     rec.status = 'completed' if success else 'failed'
                     
@@ -649,7 +668,7 @@ def start_recording():
                             # This fixes corrupted duration metadata in MKV files
                             try:
                                 import subprocess
-                                logger.info(f"🔧 Remuxing video to repair metadata: {file_path}")
+                                logger.info(f" Remuxing video to repair metadata: {file_path}")
                                 
                                 # Create temporary output filename
                                 temp_file = file_path + '.temp.mkv'
@@ -667,14 +686,14 @@ def start_recording():
                                     # Replace original file with remuxed version
                                     os.remove(file_path)
                                     os.rename(temp_file, file_path)
-                                    logger.info(f"✅ Video metadata repaired successfully")
+                                    logger.info(f" Video metadata repaired successfully")
                                 else:
-                                    logger.warning(f"⚠️ FFmpeg remux failed: {result.stderr}")
+                                    logger.warning(f" FFmpeg remux failed: {result.stderr}")
                                     # Clean up temp file if it exists
                                     if os.path.exists(temp_file):
                                         os.remove(temp_file)
                             except Exception as remux_error:
-                                logger.error(f"❌ Video metadata repair failed: {remux_error}")
+                                logger.error(f" Video metadata repair failed: {remux_error}")
                                 # Continue anyway - video is still playable even with broken metadata
                             
                             # Store only the filename, not the full path to avoid cross-machine issues
@@ -682,13 +701,13 @@ def start_recording():
                             rec.filename = os.path.basename(file_path)
                             rec.file_size = os.path.getsize(file_path)
                             
-                            logger.info(f"📁 File info updated: {rec.filename} ({rec.file_size} bytes)")
+                            logger.info(f" File info updated: {rec.filename} ({rec.file_size} bytes)")
                             
                             # Calculate duration from start/end times
                             if rec.started_at and rec.ended_at:
                                 duration = (rec.ended_at - rec.started_at).total_seconds()
                                 rec.duration = int(duration)
-                                logger.info(f"⏱️ Duration calculated: {rec.duration} seconds")
+                                logger.info(f" Duration calculated: {rec.duration} seconds")
                             
                             # Try to get actual video duration using ffprobe if available
                             try:
@@ -701,13 +720,13 @@ def start_recording():
                                 if result.returncode == 0 and result.stdout.strip():
                                     video_duration = float(result.stdout.strip())
                                     rec.duration = int(video_duration)
-                                    logger.info(f"⏱️ Duration from ffprobe: {rec.duration} seconds")
+                                    logger.info(f" Duration from ffprobe: {rec.duration} seconds")
                             except Exception as e:
                                 logger.debug(f"ffprobe duration check failed: {e}")
                                 pass  # Fall back to calculated duration
                     
                     db.session.commit()
-                    logger.info(f"✅ Database record {rec.id} updated successfully")
+                    logger.info(f" Database record {rec.id} updated successfully")
                     
                     # Update associated meeting status if exists
                     if 'meeting_id' in recording_state and recording_state['meeting_id']:
@@ -717,34 +736,41 @@ def start_recording():
                                 meeting.recording_status = 'recorded_local' if success else 'failed'
                                 meeting.last_updated = datetime.utcnow()
                                 db.session.commit()
-                                logger.info(f"✅ Updated meeting {meeting.id} status to {meeting.recording_status}")
+                                logger.info(f" Updated meeting {meeting.id} status to {meeting.recording_status}")
                         except Exception as e:
-                            logger.error(f"❌ Error updating meeting status: {str(e)}")
+                            logger.error(f" Error updating meeting status: {sanitize_error_message(e)}")
                     
                     # Trigger background upload to IDrive E2
                     if success:
                         try:
                             from background_uploader import trigger_upload
-                            logger.info(f"🚀 Triggering background upload for recording {rec.id}")
+                            logger.info(f" Triggering background upload for recording {rec.id}")
                             upload_started = trigger_upload(rec.id)
                             if upload_started:
-                                logger.info(f"✅ Background upload started for recording {rec.id}")
+                                logger.info(f" Background upload started for recording {rec.id}")
                             else:
-                                logger.warning(f"⚠️ Failed to start background upload for recording {rec.id}")
+                                logger.warning(f" Failed to start background upload for recording {rec.id}")
                         except Exception as upload_error:
-                            logger.error(f"❌ Background upload trigger failed: {upload_error}")
+                            logger.error(f" Background upload trigger failed: {upload_error}")
                             # Don't fail the recording if upload fails - it can be retried later
+            except Exception as db_error:
+                logger.error(f" CRITICAL: Database update failed in record_thread: {db_error}")
+                logger.exception("Full traceback:")
+        except Exception as thread_error:
+            logger.error(f" CRITICAL: record_thread crashed: {thread_error}")
+            logger.exception("Full traceback:")
+            recording_state['active'] = False
     
-    recording_state['thread'] = threading.Thread(target=record_thread, daemon=True)
+    recording_state['thread'] = threading.Thread(target=record_thread, daemon=False)
     recording_state['thread'].start()
-    logger.info("🎬 Recording thread started")
+    logger.info(" Recording thread started (non-daemon for reliable cleanup)")
     
     response_data = {
         'status': 'started',
         'monitor': selected_monitor['name'],
         'recording_id': recording.id
     }
-    logger.info(f"✅ Recording started successfully: {response_data}")
+    logger.info(f" Recording started successfully: {response_data}")
     
     return jsonify(response_data)
 
@@ -776,7 +802,7 @@ def stop_recording():
         recording_state['active'] = False
         recording_state['start_time'] = None  # Reset start time
         recording_state['is_remote_triggered'] = False  # Reset remote flag
-        logger.info("🛑 Recording stopped via API request")
+        logger.info(" Recording stopped via API request")
         
     return jsonify({'status': 'stopped'})
 
@@ -786,6 +812,16 @@ def get_status():
     return jsonify({
         'active': recording_state['active'],
         'transcription_count': len(recording_state['transcriptions'])
+    })
+
+@app.route('/api/status')
+def api_get_status():
+    """API status endpoint for websocket client health checks"""
+    return jsonify({
+        'status': 'online',
+        'recording': recording_state['active'],
+        'transcription_count': len(recording_state['transcriptions']),
+        'timestamp': datetime.now().isoformat()
     })
 
 @app.route('/transcriptions')
@@ -827,7 +863,7 @@ def patched_send(self, text):
                             f.write(f"[{transcription_entry['timestamp']}] {text}\n")
                         
             except Exception as e:
-                logger.error(f"⚠️ Transcript save error: {e}")
+                logger.error(f" Transcript save error: {e}")
         
         # Run in background thread (no latency impact)
         threading.Thread(target=save_transcript, daemon=True).start()
@@ -1226,12 +1262,105 @@ def api_save_weekly_meetings():
         }), 500
 
 
+@app.route('/api/meetings/search', methods=['POST'])
+def api_meetings_search():
+    """Search for meetings by details (used by websocket client)"""
+    try:
+        data = request.get_json()
+        subject = data.get('subject')
+        organizer_email = data.get('organizer_email')
+        start_time_str = data.get('start_time')
+        
+        if not subject or not start_time_str:
+            return jsonify({
+                'success': False,
+                'error': 'subject and start_time are required'
+            }), 400
+        
+        # Parse the start time
+        try:
+            # Handle various datetime formats
+            if 'T' in start_time_str:
+                # ISO format
+                start_time_utc = datetime.fromisoformat(start_time_str.replace('Z', ''))
+            else:
+                # Simple date format
+                start_time_utc = datetime.fromisoformat(start_time_str)
+            
+            # Convert to Eastern time for database search
+            import pytz
+            utc = pytz.UTC
+            eastern = pytz.timezone('US/Eastern')
+            
+            if start_time_utc.tzinfo is None:
+                start_time_utc = start_time_utc.replace(tzinfo=utc)
+            
+            start_time_local = start_time_utc.astimezone(eastern).replace(tzinfo=None)
+            
+        except Exception as e:
+            logger.error(f"Error parsing start_time '{start_time_str}': {e}")
+            return jsonify({
+                'success': False,
+                'error': f'Invalid start_time format: {sanitize_error_message(e)}'
+            }), 400
+        
+        # Search for meetings (within 5 minute window to account for small time differences)
+        from sqlalchemy import and_, or_
+        
+        time_window = timedelta(minutes=5)
+        
+        query = Meeting.query.filter(
+            and_(
+                Meeting.subject.ilike(f'%{subject}%'),
+                Meeting.start_time >= start_time_local - time_window,
+                Meeting.start_time <= start_time_local + time_window
+            )
+        )
+        
+        # Add organizer filter if provided
+        if organizer_email:
+            query = query.filter(Meeting.organizer.ilike(f'%{organizer_email}%'))
+        
+        meetings = query.order_by(Meeting.start_time.desc()).limit(10).all()
+        
+        # Convert to JSON format
+        meeting_list = []
+        for meeting in meetings:
+            meeting_list.append({
+                'id': meeting.id,
+                'subject': meeting.subject,
+                'organizer': meeting.organizer,
+                'start_time': meeting.start_time.isoformat() if meeting.start_time else None,
+                'end_time': meeting.end_time.isoformat() if meeting.end_time else None,
+                'location': meeting.location,
+                'is_recurring': meeting.is_recurring,
+                'is_excluded': meeting.is_excluded,
+                'auto_record': meeting.auto_record
+            })
+        
+        logger.debug(f"Meeting search found {len(meetings)} results for '{subject}' at {start_time_str}")
+        
+        return jsonify({
+            'success': True,
+            'meetings': meeting_list,
+            'count': len(meetings)
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error searching meetings: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/request_calendar_sync', methods=['POST'])
 def api_request_calendar_sync():
     """Request calendar sync from WebSocket server via local WebSocket client"""
     try:
         # Try to contact the local WebSocket client to trigger a meeting request
-        logger.info("📅 Requesting calendar sync from WebSocket server...")
+        logger.info(" Requesting calendar sync from WebSocket server...")
         
         # Send request to local WebSocket client (if it's running)
         # The WebSocket client should be running and listening for requests
@@ -1257,11 +1386,11 @@ def api_request_calendar_sync():
                         'user_email': current_user.email if current_user and current_user.is_authenticated else 'system'
                     }))
                 
-                logger.info(f"✅ Sync request flag created: {sync_request_file}")
+                logger.info(f" Sync request flag created: {sync_request_file}")
                 return True
                 
             except Exception as e:
-                logger.error(f"❌ Error requesting sync: {e}")
+                logger.error(f" Error requesting sync: {e}")
                 return False
         
         # Run the async function
@@ -1483,7 +1612,7 @@ def update_sync_status(recording_id):
 @login_required
 def delete_recording(recording_id):
     """Delete a recording from database and optionally from filesystem"""
-    logger.info(f"🗑️ DELETE REQUEST: User {current_user.username} attempting to delete recording ID {recording_id}")
+    logger.info(f" DELETE REQUEST: User {current_user.username} attempting to delete recording ID {recording_id}")
     
     recording = Recording.query.filter_by(id=recording_id).first_or_404()
     
@@ -1498,63 +1627,63 @@ def delete_recording(recording_id):
         # Delete physical files if requested
         resolved_path = recording.resolved_file_path
         transcript_path = recording.transcript_path
-        print(f"🗑️ RESOLVED PATHS: video={resolved_path}, transcript={transcript_path}")
+        logger.info(f"RESOLVED PATHS: video={resolved_path}, transcript={transcript_path}")
         
         if delete_file:
             # Delete video file
             if resolved_path and os.path.exists(resolved_path):
-                print(f"🗑️ DELETING VIDEO FILE: {resolved_path}")
+                logger.info(f"DELETING VIDEO FILE: {resolved_path}")
                 try:
                     os.remove(resolved_path)
                     deleted_items.append('video_file')
-                    print(f"✅ VIDEO FILE DELETED: {resolved_path}")
+                    logger.info(f"VIDEO FILE DELETED: {resolved_path}")
                 except Exception as e:
-                    error_msg = f"Failed to delete video file: {str(e)}"
+                    error_msg = f"Failed to delete video file: {sanitize_error_message(e)}"
                     errors.append(error_msg)
-                    print(f"❌ VIDEO FILE DELETE ERROR: {error_msg}")
+                    logger.error(f"VIDEO FILE DELETE ERROR: {error_msg}")
             elif resolved_path:
-                print(f"⚠️ VIDEO FILE NOT FOUND: {resolved_path}")
+                logger.warning(f"VIDEO FILE NOT FOUND: {resolved_path}")
             
             # Delete thumbnail file
             if resolved_path:
                 base_name = os.path.splitext(resolved_path)[0]
                 thumbnail_path = f"{base_name}_thumb.jpg"
                 if os.path.exists(thumbnail_path):
-                    print(f"🗑️ DELETING THUMBNAIL: {thumbnail_path}")
+                    logger.info(f"DELETING THUMBNAIL: {thumbnail_path}")
                     try:
                         os.remove(thumbnail_path)
                         deleted_items.append('thumbnail')
-                        print(f"✅ THUMBNAIL DELETED: {thumbnail_path}")
+                        logger.info(f"THUMBNAIL DELETED: {thumbnail_path}")
                     except Exception as e:
-                        error_msg = f"Failed to delete thumbnail: {str(e)}"
+                        error_msg = f"Failed to delete thumbnail: {sanitize_error_message(e)}"
                         errors.append(error_msg)
-                        print(f"❌ THUMBNAIL DELETE ERROR: {error_msg}")
+                        logger.error(f"THUMBNAIL DELETE ERROR: {error_msg}")
             
             # Delete transcript file
             if transcript_path and os.path.exists(transcript_path):
-                print(f"🗑️ DELETING TRANSCRIPT: {transcript_path}")
+                logger.info(f"DELETING TRANSCRIPT: {transcript_path}")
                 try:
                     os.remove(transcript_path)
                     deleted_items.append('transcript_file')
-                    print(f"✅ TRANSCRIPT DELETED: {transcript_path}")
+                    logger.info(f"TRANSCRIPT DELETED: {transcript_path}")
                 except Exception as e:
-                    error_msg = f"Failed to delete transcript: {str(e)}"
+                    error_msg = f"Failed to delete transcript: {sanitize_error_message(e)}"
                     errors.append(error_msg)
-                    print(f"❌ TRANSCRIPT DELETE ERROR: {error_msg}")
+                    logger.error(f"TRANSCRIPT DELETE ERROR: {error_msg}")
             elif transcript_path:
-                print(f"⚠️ TRANSCRIPT NOT FOUND: {transcript_path}")
+                logger.warning(f"TRANSCRIPT NOT FOUND: {transcript_path}")
         else:
-            print(f"🗑️ SKIPPING FILE DELETION: delete_file={delete_file}")
+            logger.info(f"SKIPPING FILE DELETION: delete_file={delete_file}")
         
         # Delete database record
         title = recording.title
-        print(f"🗑️ DELETING DATABASE RECORD: {title}")
+        logger.info(f"DELETING DATABASE RECORD: {title}")
         db.session.delete(recording)
         db.session.commit()
         deleted_items.append('database_record')
-        print(f"✅ DATABASE RECORD DELETED: {title}")
+        logger.info(f"DATABASE RECORD DELETED: {title}")
         
-        print(f"🗑️ DELETE COMPLETED: deleted_items={deleted_items}, errors={errors}")
+        logger.info(f"DELETE COMPLETED: deleted_items={deleted_items}, errors={errors}")
         return jsonify({
             'success': True,
             'message': f'Recording "{title}" deleted successfully',
@@ -1564,8 +1693,8 @@ def delete_recording(recording_id):
         
     except Exception as e:
         db.session.rollback()
-        error_msg = f'Failed to delete recording: {str(e)}'
-        print(f"❌ DELETE FAILED: {error_msg}")
+        error_msg = f'Failed to delete recording: {sanitize_error_message(e)}'
+        logger.error(f"DELETE FAILED: {error_msg}")
         return jsonify({
             'success': False,
             'message': error_msg,
@@ -1601,7 +1730,7 @@ def cleanup_orphaned_recordings():
     
     try:
         db.session.commit()
-        print(f"🧹 Cleanup completed: {deleted_count} orphaned recordings deleted")
+        logger.info(f"Cleanup completed: {deleted_count} orphaned recordings deleted")
         return jsonify({
             'success': True,
             'cleaned': deleted_count,
@@ -1610,10 +1739,10 @@ def cleanup_orphaned_recordings():
         })
     except Exception as e:
         db.session.rollback()
-        print(f"⚠️ Cleanup failed: {e}")
+        logger.warning(f"Cleanup failed: {e}")
         return jsonify({
             'success': False,
-            'message': f'Failed to cleanup orphaned recordings: {str(e)}'
+            'message': f'Failed to cleanup orphaned recordings: {sanitize_error_message(e)}'
         }), 500
 
 def cleanup_old_recordings():
@@ -1658,22 +1787,22 @@ def cleanup_old_recordings():
                         # Update database - clear file path but keep record
                         recording.file_path = None
                         
-                        print(f"Auto-deleted: {recording.title} ({recording.file_size_formatted})")
+                        logger.info(f"Auto-deleted: {recording.title} ({recording.file_size_formatted})")
                         
                 except Exception as e:
-                    print(f"Failed to delete file {recording.file_path}: {e}")
+                    logger.error(f"Failed to delete file {recording.file_path}: {e}")
                     continue
             
             if user_deleted > 0:
                 total_deleted += user_deleted
                 total_freed_space += user_freed_space
-                print(f"User {user.username}: Deleted {user_deleted} files, freed {user_freed_space / (1024*1024):.1f} MB")
+                logger.info(f"User {user.username}: Deleted {user_deleted} files, freed {user_freed_space / (1024*1024):.1f} MB")
         
         # Commit all changes
         db.session.commit()
         
         if total_deleted > 0:
-            print(f"Auto-cleanup completed: {total_deleted} files deleted, {total_freed_space / (1024*1024):.1f} MB freed")
+            logger.info(f"Auto-cleanup completed: {total_deleted} files deleted, {total_freed_space / (1024*1024):.1f} MB freed")
         
         return {
             'deleted_files': total_deleted,
@@ -1683,7 +1812,7 @@ def cleanup_old_recordings():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Auto-cleanup error: {e}")
+        logger.error(f"Auto-cleanup error: {e}")
         return {
             'success': False,
             'error': str(e)
@@ -1703,17 +1832,17 @@ def detect_monitors():
                 'monitors': result['monitors']
             })
         else:
-            logger.error(f"❌ Monitor detection failed: {result['message']}")
+            logger.error(f" Monitor detection failed: {result['message']}")
             return jsonify({
                 'success': False,
                 'message': result['message']
             }), 500
             
     except Exception as e:
-        logger.error(f"❌ Monitor detection error: {e}")
+        logger.error(f" Monitor detection error: {e}")
         return jsonify({
             'success': False,
-            'message': f'Monitor detection failed: {str(e)}'
+            'message': f'Monitor detection failed: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/update-monitor-arrangement', methods=['POST'])
@@ -1733,17 +1862,17 @@ def update_monitor_arrangement():
                 'message': result['message']
             })
         else:
-            logger.error(f"❌ Monitor arrangement update failed: {result['message']}")
+            logger.error(f" Monitor arrangement update failed: {result['message']}")
             return jsonify({
                 'success': False,
                 'message': result['message']
             }), 500
             
     except Exception as e:
-        logger.error(f"❌ Monitor arrangement update error: {e}")
+        logger.error(f" Monitor arrangement update error: {e}")
         return jsonify({
             'success': False,
-            'message': f'Failed to update monitor arrangement: {str(e)}'
+            'message': f'Failed to update monitor arrangement: {sanitize_error_message(e)}'
         }), 500
 
 # @app.route('/autorecorder')
@@ -1770,7 +1899,7 @@ def update_monitor_arrangement():
     error_message = None
     
     try:
-        logger.info(f"🗓️ AutoRecorder: Fetching calendar events for {current_user.email}")
+        logger.info(f" AutoRecorder: Fetching calendar events for {current_user.email}")
         
         # Send request to Power Automate
         response = requests.post(
@@ -1783,7 +1912,7 @@ def update_monitor_arrangement():
         if response.status_code in [200, 201, 202]:
             events = response.json()
             if isinstance(events, list):
-                logger.info(f"✅ AutoRecorder: Found {len(events)} raw events")
+                logger.info(f" AutoRecorder: Found {len(events)} raw events")
                 
                 # Filter out all-day events and non-Teams meetings
                 filtered_events = []
@@ -1824,7 +1953,7 @@ def update_monitor_arrangement():
                     
                     if is_all_day:
                         all_day_count += 1
-                        logger.debug(f"🚫 Filtering out all-day event: {event.get('subject', 'No title')}")
+                        logger.debug(f" Filtering out all-day event: {event.get('subject', 'No title')}")
                         continue
                     
                     # Check if event is a Teams meeting
@@ -1870,13 +1999,13 @@ def update_monitor_arrangement():
                     
                     if not is_teams_meeting:
                         non_teams_count += 1
-                        logger.debug(f"🚫 Filtering out non-Teams event: {event.get('subject', 'No title')}")
+                        logger.debug(f" Filtering out non-Teams event: {event.get('subject', 'No title')}")
                         continue
                     
                     filtered_events.append(event)
                 
                 events = filtered_events
-                logger.info(f"✅ AutoRecorder: After filtering - {len(events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams events removed)")
+                logger.info(f" AutoRecorder: After filtering - {len(events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams events removed)")
                 
                 # Process events for better display
                 for event in events:
@@ -1927,15 +2056,15 @@ def update_monitor_arrangement():
                         event['category'] = 'other'
                         event['category_color'] = '#6b7280'
             else:
-                logger.warning(f"⚠️ AutoRecorder: Unexpected response format")
+                logger.warning(f" AutoRecorder: Unexpected response format")
                 error_message = "Unexpected response format from calendar service"
         else:
-            logger.error(f"❌ AutoRecorder: API error {response.status_code}: {response.text}")
+            logger.error(f" AutoRecorder: API error {response.status_code}: {response.text}")
             error_message = f"Calendar service error: {response.status_code}"
             
     except Exception as e:
-        logger.error(f"💥 AutoRecorder: Error fetching events: {str(e)}")
-        error_message = f"Failed to fetch calendar events: {str(e)}"
+        logger.error(f" AutoRecorder: Error fetching events: {sanitize_error_message(e)}")
+        error_message = f"Failed to fetch calendar events: {sanitize_error_message(e)}"
     
     # Generate day grid for the week
     week_days = []
@@ -1967,8 +2096,8 @@ def settings():
     """Settings page for user preferences"""
     if request.method == 'POST':
         try:
-            logger.info(f"🔧 Settings update request from user: {current_user.username}")
-            logger.debug(f"📝 Form data: {dict(request.form)}")
+            logger.info(f" Settings update request from user: {current_user.username}")
+            logger.debug(f" Form data: {dict(request.form)}")
             
             # Update monitor settings using settings manager
             default_monitor = request.form.get('default_monitor', '')
@@ -1977,7 +2106,7 @@ def settings():
                 monitor_id = int(default_monitor)
                 
                 if not settings_manager.set_default_monitor(monitor_id):
-                    logger.error(f"❌ Failed to set monitor ID: {monitor_id}")
+                    logger.error(f" Failed to set monitor ID: {monitor_id}")
                     flash('Failed to update default monitor.', 'error')
                     return redirect(url_for('settings'))
             
@@ -1986,33 +2115,33 @@ def settings():
             try:
                 auto_delete_days = int(auto_delete_days)
                 if auto_delete_days < 0 or auto_delete_days > 365:
-                    logger.error(f"❌ Invalid auto delete days range: {auto_delete_days}")
+                    logger.error(f" Invalid auto delete days range: {auto_delete_days}")
                     flash('Auto-delete days must be between 0 and 365.', 'error')
                     return redirect(url_for('settings'))
                 
                 if not settings_manager.set_auto_delete_days(auto_delete_days):
-                    logger.error(f"❌ Failed to set auto delete days: {auto_delete_days}")
+                    logger.error(f" Failed to set auto delete days: {auto_delete_days}")
                     flash('Failed to update auto-delete setting.', 'error')
                     return redirect(url_for('settings'))
                 else:
-                    logger.info(f"✅ Auto delete days updated to: {auto_delete_days}")
+                    logger.info(f" Auto delete days updated to: {auto_delete_days}")
                     
             except ValueError:
-                logger.error(f"❌ Invalid auto delete days value: '{auto_delete_days}'")
+                logger.error(f" Invalid auto delete days value: '{auto_delete_days}'")
                 flash('Invalid auto-delete days value.', 'error')
                 return redirect(url_for('settings'))
             
-            logger.info("✅ Settings update completed successfully")
+            logger.info(" Settings update completed successfully")
             flash('Settings updated successfully!', 'success')
             return redirect(url_for('settings'))
             
         except Exception as e:
-            logger.error(f"❌ Settings update error: {e}")
-            flash(f'Failed to update settings: {str(e)}', 'error')
+            logger.error(f" Settings update error: {e}")
+            flash(f'Failed to update settings: {sanitize_error_message(e)}', 'error')
             return redirect(url_for('settings'))
     
     # GET request - load settings for display
-    logger.debug(f"🔍 Loading settings page for user: {current_user.username}")
+    logger.debug(f" Loading settings page for user: {current_user.username}")
     
     # Get current settings state
     settings_data = settings_manager.load_settings()
@@ -2024,10 +2153,10 @@ def settings():
     default_monitor_id = default_monitor['id'] if default_monitor else None
     auto_delete_days = settings_manager.get_auto_delete_days()
     
-    logger.debug(f"📺 Monitors detected: {monitors_detected}")
-    logger.debug(f"📺 Available monitors: {len(monitors)}")
-    logger.debug(f"📺 Default monitor ID: {default_monitor_id}")
-    logger.debug(f"📅 Auto delete days: {auto_delete_days}")
+    logger.debug(f" Monitors detected: {monitors_detected}")
+    logger.debug(f" Available monitors: {len(monitors)}")
+    logger.debug(f" Default monitor ID: {default_monitor_id}")
+    logger.debug(f" Auto delete days: {auto_delete_days}")
     
     # Create a user-like object for template compatibility
     settings_user = {
@@ -2035,7 +2164,7 @@ def settings():
         'auto_delete_days': auto_delete_days
     }
     
-    logger.debug("✅ Settings page data prepared")
+    logger.debug(" Settings page data prepared")
     
     # Get statistics for the information cards
     try:
@@ -2092,7 +2221,7 @@ def trigger_auto_cleanup():
     except Exception as e:
         return jsonify({
             'success': False,
-            'message': f'Error during cleanup: {str(e)}'
+            'message': f'Error during cleanup: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/clear-local-data', methods=['POST'])
@@ -2103,7 +2232,7 @@ def clear_local_data():
         import os
         import shutil
         
-        logger.info(f"🗑️ Clear local data request from user: {current_user.username}")
+        logger.info(f" Clear local data request from user: {current_user.username}")
         
         # Count files before deletion
         recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
@@ -2127,9 +2256,9 @@ def clear_local_data():
                     file_path = os.path.join(root, file)
                     try:
                         os.remove(file_path)
-                        logger.info(f"🗑️ Deleted file: {file}")
+                        logger.info(f" Deleted file: {file}")
                     except OSError as e:
-                        logger.error(f"❌ Failed to delete {file}: {e}")
+                        logger.error(f" Failed to delete {file}: {e}")
             
             # Remove empty subdirectories
             for root, dirs, files in os.walk(recordings_path, topdown=False):
@@ -2138,9 +2267,9 @@ def clear_local_data():
                     try:
                         if not os.listdir(dir_path):  # Only remove if empty
                             os.rmdir(dir_path)
-                            logger.info(f"🗑️ Removed empty directory: {dir_name}")
+                            logger.info(f" Removed empty directory: {dir_name}")
                     except OSError as e:
-                        logger.error(f"❌ Failed to remove directory {dir_name}: {e}")
+                        logger.error(f" Failed to remove directory {dir_name}: {e}")
         
         # Update database records to mark files as locally deleted
         # but keep the records for cloud backup reference
@@ -2154,10 +2283,10 @@ def clear_local_data():
                     updated_count += 1
             
             db.session.commit()
-            logger.info(f"📝 Updated {updated_count} database records to cloud_only status")
+            logger.info(f" Updated {updated_count} database records to cloud_only status")
             
         except Exception as e:
-            logger.error(f"❌ Database update error: {e}")
+            logger.error(f" Database update error: {e}")
             db.session.rollback()
         
         # Convert space to human readable format
@@ -2166,7 +2295,7 @@ def clear_local_data():
         else:
             space_str = f"{space_freed / (1024**3):.1f} GB"
         
-        logger.info(f"✅ Local data cleared: {files_deleted} files, {space_str} freed")
+        logger.info(f" Local data cleared: {files_deleted} files, {space_str} freed")
         
         return jsonify({
             'success': True,
@@ -2176,10 +2305,10 @@ def clear_local_data():
         })
         
     except Exception as e:
-        logger.error(f"❌ Clear local data error: {e}")
+        logger.error(f" Clear local data error: {e}")
         return jsonify({
             'success': False,
-            'message': f'Failed to clear local data: {str(e)}'
+            'message': f'Failed to clear local data: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/factory-reset', methods=['POST'])
@@ -2190,7 +2319,7 @@ def factory_reset():
         import os
         import shutil
         
-        logger.warning(f"🏭 FACTORY RESET initiated by user: {current_user.username}")
+        logger.warning(f" FACTORY RESET initiated by user: {current_user.username}")
         
         # Step 1: Clear all recordings files
         recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
@@ -2211,13 +2340,13 @@ def factory_reset():
             # Remove entire recordings directory
             try:
                 shutil.rmtree(recordings_path)
-                logger.warning(f"🗑️ Deleted recordings directory: {files_deleted} files")
+                logger.warning(f" Deleted recordings directory: {files_deleted} files")
             except Exception as e:
-                logger.error(f"❌ Failed to remove recordings directory: {e}")
+                logger.error(f" Failed to remove recordings directory: {e}")
             
             # Recreate empty recordings directory
             os.makedirs(recordings_path, exist_ok=True)
-            logger.info(f"📁 Recreated empty recordings directory")
+            logger.info(f" Recreated empty recordings directory")
         
         # Step 2: Clear logs directory
         logs_path = os.path.join(os.path.dirname(__file__), 'logs')
@@ -2230,28 +2359,28 @@ def factory_reset():
                     try:
                         os.remove(file_path)
                         logs_deleted += 1
-                        logger.info(f"🗑️ Deleted log file: {file}")
+                        logger.info(f" Deleted log file: {file}")
                     except OSError as e:
-                        logger.error(f"❌ Failed to delete log {file}: {e}")
+                        logger.error(f" Failed to delete log {file}: {e}")
         
         # Step 3: Reset settings to defaults
         try:
             settings_config_path = os.path.join(os.path.dirname(__file__), 'settings.config')
             if os.path.exists(settings_config_path):
                 os.remove(settings_config_path)
-                logger.warning(f"🔧 Deleted settings configuration")
+                logger.warning(f" Deleted settings configuration")
         except Exception as e:
-            logger.error(f"❌ Failed to delete settings: {e}")
+            logger.error(f" Failed to delete settings: {e}")
         
         # Step 4: Clear database completely
         try:
             # Drop all tables
             db.drop_all()
-            logger.warning(f"🗄️ Dropped all database tables")
+            logger.warning(f" Dropped all database tables")
             
             # Recreate tables
             db.create_all()
-            logger.info(f"🗄️ Recreated database schema")
+            logger.info(f" Recreated database schema")
             
             # Remove database file entirely for complete reset
             db_path = os.path.join(os.path.dirname(__file__), 'recordings.db')
@@ -2263,28 +2392,28 @@ def factory_reset():
                 # Remove database file
                 try:
                     os.remove(db_path)
-                    logger.warning(f"🗄️ Deleted database file completely")
+                    logger.warning(f" Deleted database file completely")
                 except Exception as e:
-                    logger.error(f"❌ Failed to delete database file: {e}")
+                    logger.error(f" Failed to delete database file: {e}")
             
         except Exception as e:
-            logger.error(f"❌ Database reset error: {e}")
+            logger.error(f" Database reset error: {e}")
         
         # Step 5: Clear Flask session and cache
         try:
             session.clear()
-            logger.info(f"🔐 Cleared Flask session")
+            logger.info(f" Cleared Flask session")
         except Exception as e:
-            logger.error(f"❌ Session clear error: {e}")
+            logger.error(f" Session clear error: {e}")
         
         # Step 6: Clear Python cache
         try:
             pycache_path = os.path.join(os.path.dirname(__file__), '__pycache__')
             if os.path.exists(pycache_path):
                 shutil.rmtree(pycache_path)
-                logger.info(f"🐍 Cleared Python cache")
+                logger.info(f" Cleared Python cache")
         except Exception as e:
-            logger.error(f"❌ Cache clear error: {e}")
+            logger.error(f" Cache clear error: {e}")
         
         # Convert space to human readable format
         if space_freed < 1024**3:  # Less than 1GB
@@ -2292,7 +2421,7 @@ def factory_reset():
         else:
             space_str = f"{space_freed / (1024**3):.1f} GB"
         
-        logger.warning(f"🏭 FACTORY RESET COMPLETED: {files_deleted} files deleted, {logs_deleted} logs cleared, {space_str} freed")
+        logger.warning(f" FACTORY RESET COMPLETED: {files_deleted} files deleted, {logs_deleted} logs cleared, {space_str} freed")
         
         return jsonify({
             'success': True,
@@ -2304,10 +2433,10 @@ def factory_reset():
         })
         
     except Exception as e:
-        logger.error(f"❌ Factory reset error: {e}")
+        logger.error(f" Factory reset error: {e}")
         return jsonify({
             'success': False,
-            'message': f'Factory reset failed: {str(e)}'
+            'message': f'Factory reset failed: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/upload/<int:recording_id>', methods=['POST'])
@@ -2318,7 +2447,7 @@ def trigger_manual_upload(recording_id):
     
     try:
         from background_uploader import trigger_upload
-        logger.info(f"🚀 Manual upload triggered by user {current_user.username} for recording {recording_id}")
+        logger.info(f" Manual upload triggered by user {current_user.username} for recording {recording_id}")
         
         upload_started = trigger_upload(recording_id)
         if upload_started:
@@ -2333,10 +2462,10 @@ def trigger_manual_upload(recording_id):
             }), 500
             
     except Exception as e:
-        logger.error(f"❌ Manual upload trigger failed: {e}")
+        logger.error(f" Manual upload trigger failed: {e}")
         return jsonify({
             'success': False,
-            'message': f'Upload failed: {str(e)}'
+            'message': f'Upload failed: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/upload-status/<int:recording_id>')
@@ -2366,10 +2495,10 @@ def get_upload_status(recording_id):
         })
         
     except Exception as e:
-        logger.error(f"❌ Upload status check failed: {e}")
+        logger.error(f" Upload status check failed: {e}")
         return jsonify({
             'success': False,
-            'message': f'Status check failed: {str(e)}'
+            'message': f'Status check failed: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/retry-failed-uploads', methods=['POST'])
@@ -2387,10 +2516,10 @@ def retry_failed_uploads():
         })
         
     except Exception as e:
-        logger.error(f"❌ Manual retry trigger failed: {e}")
+        logger.error(f" Manual retry trigger failed: {e}")
         return jsonify({
             'success': False,
-            'message': f'Retry failed: {str(e)}'
+            'message': f'Retry failed: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/retry-stats')
@@ -2407,10 +2536,10 @@ def get_retry_stats():
         })
         
     except Exception as e:
-        logger.error(f"❌ Retry stats failed: {e}")
+        logger.error(f" Retry stats failed: {e}")
         return jsonify({
             'success': False,
-            'message': f'Stats failed: {str(e)}'
+            'message': f'Stats failed: {sanitize_error_message(e)}'
         }), 500
 
 @app.route('/upload-status')
@@ -2438,10 +2567,183 @@ def get_all_upload_status():
         })
         
     except Exception as e:
-        logger.error(f"❌ Upload status check failed: {e}")
+        logger.error(f" Upload status check failed: {e}")
         return jsonify({
             'success': False,
-            'message': f'Status check failed: {str(e)}'
+            'message': f'Status check failed: {sanitize_error_message(e)}'
+        }), 500
+
+# =============================================
+# LOG VIEWER ROUTES
+# =============================================
+
+@app.route('/logs')
+@login_required
+def view_logs():
+    """Show log viewer page"""
+    return render_template('logs.html')
+
+@app.route('/api/logs/<service>')
+@login_required
+def get_service_logs(service):
+    """
+    Get logs for a specific service
+    Args:
+        service: Service name (app, dual_stream, hotkey_listener, websocket_client, bluetooth_monitor, launcher)
+    Query params:
+        lines: Number of lines to return (default: 100, max: 1000)
+        level: Filter by log level (DEBUG, INFO, WARNING, ERROR)
+    """
+    try:
+        # Validate service name
+        valid_services = ['app', 'dual_stream', 'settings', 'ffmpeg', 
+                         'hotkey_listener', 'websocket_client', 'bluetooth_monitor', 'launcher']
+        
+        if service not in valid_services:
+            return jsonify({'error': 'Invalid service name'}), 400
+        
+        # Get parameters
+        num_lines = min(int(request.args.get('lines', 100)), 1000)
+        level_filter = request.args.get('level', '').upper()
+        
+        # Find log file
+        log_dir = Path(__file__).parent / "logs"
+        log_file = log_dir / f"{service}.log"
+        
+        if not log_file.exists():
+            return jsonify({
+                'service': service,
+                'logs': [],
+                'message': f'No log file found for {service}'
+            })
+        
+        # Read last N lines
+        logs = []
+        with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+            # Read all lines and take last N
+            all_lines = f.readlines()
+            recent_lines = all_lines[-num_lines:]
+            
+            for line in recent_lines:
+                line = line.rstrip()
+                if not line:
+                    continue
+                
+                # Apply level filter if specified
+                if level_filter:
+                    if f'| {level_filter}' not in line:
+                        continue
+                
+                # Parse log level for coloring
+                level = 'INFO'
+                if '| ERROR' in line:
+                    level = 'ERROR'
+                elif '| WARNING' in line:
+                    level = 'WARNING'
+                elif '| DEBUG' in line:
+                    level = 'DEBUG'
+                
+                logs.append({
+                    'text': line,
+                    'level': level
+                })
+        
+        return jsonify({
+            'service': service,
+            'logs': logs,
+            'total_lines': len(logs)
+        })
+        
+    except Exception as e:
+        logger.error(f" Error reading logs: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/logs/all')
+@login_required
+def get_all_logs():
+    """Get aggregated logs from all services"""
+    try:
+        num_lines = min(int(request.args.get('lines', 50)), 500)
+        
+        log_dir = Path(__file__).parent / "logs"
+        all_logs = []
+        
+        services = ['app', 'dual_stream', 'hotkey_listener', 'websocket_client', 
+                   'bluetooth_monitor', 'launcher']
+        
+        for service in services:
+            log_file = log_dir / f"{service}.log"
+            if log_file.exists():
+                with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = f.readlines()
+                    for line in lines[-num_lines:]:
+                        line = line.rstrip()
+                        if line:
+                            # Determine level
+                            level = 'INFO'
+                            if '| ERROR' in line:
+                                level = 'ERROR'
+                            elif '| WARNING' in line:
+                                level = 'WARNING'
+                            elif '| DEBUG' in line:
+                                level = 'DEBUG'
+                            
+                            all_logs.append({
+                                'service': service,
+                                'text': line,
+                                'level': level
+                            })
+        
+        # Sort by timestamp (first part of log line)
+        all_logs.sort(key=lambda x: x['text'][:19] if len(x['text']) >= 19 else x['text'])
+        
+        return jsonify({
+            'logs': all_logs[-num_lines:],  # Return last N after sorting
+            'total_lines': len(all_logs)
+        })
+        
+    except Exception as e:
+        logger.error(f" Error reading aggregated logs: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/logs/clear', methods=['POST'])
+@login_required
+def clear_logs():
+    """Clear all log files"""
+    try:
+        data = request.get_json() or {}
+        service = data.get('service', 'all')
+        
+        log_dir = Path(__file__).parent / "logs"
+        cleared_files = []
+        
+        if service == 'all':
+            # Clear all log files
+            services = ['app', 'dual_stream', 'hotkey_listener', 'websocket_client', 
+                       'bluetooth_monitor', 'launcher', 'settings', 'ffmpeg']
+        else:
+            services = [service]
+        
+        for svc in services:
+            log_file = log_dir / f"{svc}.log"
+            if log_file.exists():
+                # Clear the file by opening in write mode
+                with open(log_file, 'w', encoding='utf-8') as f:
+                    f.write(f"# Log cleared at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                cleared_files.append(svc)
+                logger.info(f" Log file cleared: {svc}.log")
+        
+        return jsonify({
+            'success': True,
+            'cleared_files': cleared_files,
+            'message': f"Cleared {len(cleared_files)} log file(s)"
+        })
+        
+    except Exception as e:
+        logger.error(f" Error clearing logs: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 # =============================================
@@ -2513,7 +2815,7 @@ def admin_dashboard():
                              recent_meetings=recent_meetings)
         
     except Exception as e:
-        logger.error(f"❌ Advanced dashboard error: {e}")
+        logger.error(f" Advanced dashboard error: {e}")
         return f"Database error: {e}", 500
 
 @app.route('/admin/recordings')
@@ -2589,7 +2891,7 @@ def admin_recordings():
                              sort_order=sort_order)
         
     except Exception as e:
-        logger.error(f"❌ Advanced recordings error: {e}")
+        logger.error(f" Advanced recordings error: {e}")
         return f"Database error: {e}", 500
 
 @app.route('/admin/recording/<int:recording_id>')
@@ -2613,7 +2915,7 @@ def admin_recording_detail(recording_id):
                              upload_metadata=upload_metadata)
         
     except Exception as e:
-        logger.error(f"❌ Admin recording detail error: {e}")
+        logger.error(f" Admin recording detail error: {e}")
         return f"Database error: {e}", 500
 
 @app.route('/admin/recordings/<int:recording_id>/serve')
@@ -2635,7 +2937,7 @@ def serve_recording(recording_id):
                 return "Recording file not found", 404
                 
     except Exception as e:
-        logger.error(f"❌ Error serving recording {recording_id}: {e}")
+        logger.error(f" Error serving recording {recording_id}: {e}")
         return "Error serving recording", 500
 
 @app.route('/admin/recordings/<int:recording_id>/transcript')
@@ -2659,7 +2961,7 @@ def serve_transcript(recording_id):
                 return "Transcript not found", 404
                 
     except Exception as e:
-        logger.error(f"❌ Error serving transcript {recording_id}: {e}")
+        logger.error(f" Error serving transcript {recording_id}: {e}")
         return "Error serving transcript", 500
 
 @app.route('/admin/users')
@@ -2695,7 +2997,7 @@ def admin_users():
                              recent_users=recent_users)
         
     except Exception as e:
-        logger.error(f"❌ Admin users error: {e}")
+        logger.error(f" Admin users error: {e}")
         return f"Database error: {e}", 500
 
 @app.route('/admin/api/stats')
@@ -2726,15 +3028,15 @@ def check_and_retry_failed():
         try:
             failed = Recording.query.filter_by(upload_status='failed').all()
             if failed:
-                logger.info(f"🔄 Found {len(failed)} failed uploads, retrying...")
+                logger.info(f" Found {len(failed)} failed uploads, retrying...")
                 for recording in failed:
                     from background_uploader import trigger_upload
                     trigger_upload(recording.id)
                     # Removed time.sleep(1) - let background_uploader handle timing
             else:
-                logger.debug("✅ No failed uploads found")
+                logger.debug(" No failed uploads found")
         except Exception as e:
-            logger.error(f"❌ Retry check failed: {e}")
+            logger.error(f" Retry check failed: {e}")
 
 @app.route('/admin')
 @login_required
@@ -2764,8 +3066,8 @@ def admin():
                              recordings=recordings[:10],  # Show last 10 recordings
                              stats=stats)
     except Exception as e:
-        logger.error(f"❌ Admin dashboard error: {str(e)}")
-        flash(f"Error loading admin dashboard: {str(e)}", "error")
+        logger.error(f" Admin dashboard error: {sanitize_error_message(e)}")
+        flash(f"Error loading admin dashboard: {sanitize_error_message(e)}", "error")
         return redirect(url_for('dashboard'))
 
 @app.route('/admin/meetings')
@@ -2783,26 +3085,40 @@ def admin_meetings():
         sort_by = request.args.get('sort', 'date')  # 'date' or 'subject'
         sort_order = request.args.get('order', 'desc')  # 'asc' or 'desc'
         
-        # Calculate statistics for all meetings
-        total_meetings = Meeting.query.count()
-        recorded_meetings = Meeting.query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local'])).count()
-        scheduled_meetings = Meeting.query.filter_by(recording_status='scheduled').count()
-        upcoming_meetings = Meeting.query.filter(Meeting.start_time > datetime.utcnow()).count()
-        no_recording_meetings = Meeting.query.filter(Meeting.recording_id.is_(None)).count()
+        # Define date range: today to next 7 days
+        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        next_7_days = today + timedelta(days=7)
         
-        # Calculate total attendees (sum of attendee_count for all meetings)
-        total_attendees = db.session.query(db.func.sum(Meeting.attendee_count)).scalar() or 0
+        # Calculate statistics for meetings in next 7 days only
+        base_query = Meeting.query.filter(
+            Meeting.start_time >= today,
+            Meeting.start_time < next_7_days
+        )
         
-        # Build query based on filter
-        query = Meeting.query
+        total_meetings = base_query.count()
+        recorded_meetings = base_query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local'])).count()
+        scheduled_meetings = base_query.filter_by(recording_status='scheduled').count()
+        upcoming_meetings = base_query.filter(Meeting.start_time > datetime.now()).count()
+        no_recording_meetings = base_query.filter(Meeting.recording_id.is_(None)).count()
         
-        # Apply filters
+        # Calculate total attendees (sum of attendee_count for meetings in next 7 days)
+        total_attendees = db.session.query(db.func.sum(Meeting.attendee_count))\
+            .filter(Meeting.start_time >= today, Meeting.start_time < next_7_days)\
+            .scalar() or 0
+        
+        # Build query with date filter (show only meetings from today to next 7 days)
+        query = Meeting.query.filter(
+            Meeting.start_time >= today,
+            Meeting.start_time < next_7_days
+        )
+        
+        # Apply additional filters
         if filter_status == 'recorded':
             query = query.filter(Meeting.recording_status.in_(['recorded_synced', 'recorded_local']))
         elif filter_status == 'scheduled':
             query = query.filter_by(recording_status='scheduled')
         elif filter_status == 'upcoming':
-            query = query.filter(Meeting.start_time > datetime.utcnow())
+            query = query.filter(Meeting.start_time > datetime.now())
         elif filter_status == 'orphaned':
             query = query.filter(Meeting.recording_id.is_(None))
         
@@ -2847,8 +3163,8 @@ def admin_meetings():
                              sort_by=sort_by,
                              sort_order=sort_order)
     except Exception as e:
-        logger.error(f"❌ Admin meetings error: {str(e)}")
-        flash(f"Error loading meetings: {str(e)}", "error")
+        logger.error(f" Admin meetings error: {sanitize_error_message(e)}")
+        flash(f"Error loading meetings: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/meetings/<int:meeting_id>/exclude', methods=['POST'])
@@ -2886,7 +3202,7 @@ def toggle_meeting_exclusion(meeting_id):
             'excluded': excluded
         })
     except Exception as e:
-        logger.error(f"❌ Error updating meeting exclusion: {str(e)}")
+        logger.error(f" Error updating meeting exclusion: {sanitize_error_message(e)}")
         db.session.rollback()
         return jsonify({
             'success': False,
@@ -2952,7 +3268,7 @@ def toggle_series_exclusion():
             'updated_count': updated_count
         })
     except Exception as e:
-        logger.error(f"❌ Error updating series exclusion: {str(e)}")
+        logger.error(f" Error updating series exclusion: {sanitize_error_message(e)}")
         db.session.rollback()
         return jsonify({
             'success': False,
@@ -2975,8 +3291,8 @@ def admin_meeting_detail(meeting_id):
                              meeting=meeting,
                              available_recordings=available_recordings)
     except Exception as e:
-        logger.error(f"❌ Admin meeting detail error: {str(e)}")
-        flash(f"Error loading meeting details: {str(e)}", "error")
+        logger.error(f" Admin meeting detail error: {sanitize_error_message(e)}")
+        flash(f"Error loading meeting details: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_meetings'))
 
 @app.route('/admin/meetings/<int:meeting_id>/link_recording', methods=['POST'])
@@ -3001,8 +3317,8 @@ def admin_link_recording(meeting_id):
         
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
     except Exception as e:
-        logger.error(f"❌ Admin link recording error: {str(e)}")
-        flash(f"Error linking recording: {str(e)}", "error")
+        logger.error(f" Admin link recording error: {sanitize_error_message(e)}")
+        flash(f"Error linking recording: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
 
 @app.route('/admin/meetings/<int:meeting_id>/unlink_recording', methods=['POST'])
@@ -3022,8 +3338,8 @@ def admin_unlink_recording(meeting_id):
         
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
     except Exception as e:
-        logger.error(f"❌ Admin unlink recording error: {str(e)}")
-        flash(f"Error unlinking recording: {str(e)}", "error")
+        logger.error(f" Admin unlink recording error: {sanitize_error_message(e)}")
+        flash(f"Error unlinking recording: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
 
 @app.route('/admin/meetings/<int:meeting_id>/sync', methods=['POST'])
@@ -3041,8 +3357,8 @@ def admin_sync_single_meeting(meeting_id):
         flash("Meeting data refreshed successfully!", "success")
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
     except Exception as e:
-        logger.error(f"❌ Admin sync single meeting error: {str(e)}")
-        flash(f"Error syncing meeting: {str(e)}", "error")
+        logger.error(f" Admin sync single meeting error: {sanitize_error_message(e)}")
+        flash(f"Error syncing meeting: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
 
 @app.route('/admin/meetings/<int:meeting_id>/delete', methods=['POST'])
@@ -3062,14 +3378,14 @@ def admin_delete_meeting(meeting_id):
         flash("Meeting deleted successfully!", "success")
         return redirect(url_for('admin_meetings'))
     except Exception as e:
-        logger.error(f"❌ Admin delete meeting error: {str(e)}")
-        flash(f"Error deleting meeting: {str(e)}", "error")
+        logger.error(f" Admin delete meeting error: {sanitize_error_message(e)}")
+        flash(f"Error deleting meeting: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
 
 def fetch_and_sync_calendar_events(user):
     """Fetch calendar events and create/update Meeting records"""
     try:
-        logger.info(f"🗓️ Syncing calendar events for {user.email}")
+        logger.info(f" Syncing calendar events for {user.email}")
         
         # Power Automate data (same format as AutoRecorder)
         # Sync only 1 week: today + 6 days forward for daily sync operations
@@ -3098,7 +3414,7 @@ def fetch_and_sync_calendar_events(user):
         if not isinstance(events, list):
             raise Exception("Unexpected response format from calendar service")
             
-        logger.info(f"✅ Found {len(events)} raw events")
+        logger.info(f" Found {len(events)} raw events")
         
         # Filter out all-day events and non-Teams meetings
         filtered_events = []
@@ -3187,12 +3503,12 @@ def fetch_and_sync_calendar_events(user):
                 
                 if is_internal_only:
                     internal_only_count += 1
-                    logger.debug(f"🔒 Skipping internal-only meeting: {event.get('subject', 'No Title')} - All {len(all_emails)} participants are @fyelabs.com")
+                    logger.debug(f" Skipping internal-only meeting: {event.get('subject', 'No Title')} - All {len(all_emails)} participants are @fyelabs.com")
                     continue
                 
             filtered_events.append(event)
         
-        logger.info(f"✅ After filtering - {len(filtered_events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams, {internal_only_count} internal-only removed)")
+        logger.info(f" After filtering - {len(filtered_events)} events remaining ({all_day_count} all-day, {non_teams_count} non-Teams, {internal_only_count} internal-only removed)")
         
         # Create/update Meeting records
         meetings_created = 0
@@ -3210,7 +3526,7 @@ def fetch_and_sync_calendar_events(user):
                 
                 # DEBUG: Log organizer data structure
                 if 'Test238764' in subject:
-                    logger.info(f"🔍 DEBUG - Event data for {subject}:")
+                    logger.info(f" DEBUG - Event data for {subject}:")
                     logger.info(f"   organizer field: {event.get('organizer')}")
                     logger.info(f"   organizer type: {type(event.get('organizer'))}")
                 
@@ -3241,13 +3557,13 @@ def fetch_and_sync_calendar_events(user):
                 
                 # DEBUG: Log extracted organizer
                 if 'Test238764' in subject:
-                    logger.info(f"🔍 DEBUG - Extracted organizer for {subject}: [{organizer}]")
+                    logger.info(f" DEBUG - Extracted organizer for {subject}: [{organizer}]")
                 
                 duplicate_key = f"{start_time.isoformat()}|{end_time.isoformat()}|{subject.lower().strip()}|{organizer.lower()}"
                 
                 # Skip if we've already processed this exact meeting in this batch
                 if duplicate_key in processed_events:
-                    logger.debug(f"🔄 Skipping duplicate in batch: {subject} at {start_time}")
+                    logger.debug(f" Skipping duplicate in batch: {subject} at {start_time}")
                     meetings_skipped += 1
                     continue
                     
@@ -3316,7 +3632,7 @@ def fetch_and_sync_calendar_events(user):
                         time_diff = abs((similar.start_time - start_time).total_seconds())
                         if time_diff < 300:  # Within 5 minutes
                             existing_meeting = similar
-                            logger.debug(f"🔍 Found potential duplicate by subject+time: {subject}")
+                            logger.debug(f" Found potential duplicate by subject+time: {subject}")
                             break
                 
                 if existing_meeting:
@@ -3363,22 +3679,22 @@ def fetch_and_sync_calendar_events(user):
                     meetings_created += 1
                     
             except Exception as e:
-                logger.error(f"❌ Error processing event {event.get('subject', 'Unknown')}: {str(e)}")
+                logger.error(f" Error processing event {event.get('subject', 'Unknown')}: {sanitize_error_message(e)}")
                 continue
         
         db.session.commit()
-        logger.info(f"✅ Calendar sync complete: {meetings_created} created, {meetings_updated} updated, {meetings_skipped} duplicates skipped")
+        logger.info(f" Calendar sync complete: {meetings_created} created, {meetings_updated} updated, {meetings_skipped} duplicates skipped")
         return meetings_created, meetings_updated, len(filtered_events)
         
     except Exception as e:
-        logger.error(f"❌ Calendar sync error: {str(e)}")
+        logger.error(f" Calendar sync error: {sanitize_error_message(e)}")
         db.session.rollback()
         raise e
 
 def auto_sync_calendar_for_all_users():
     """Automatically sync calendar for all users - called by scheduler"""
     try:
-        logger.info("🕐 Auto calendar sync: Starting daily sync for all users")
+        logger.info(" Auto calendar sync: Starting daily sync for all users")
         
         users = User.query.all()
         total_created = 0
@@ -3391,22 +3707,22 @@ def auto_sync_calendar_for_all_users():
                 total_created += created
                 total_updated += updated
                 users_synced += 1
-                logger.info(f"✅ Auto sync for {user.email}: {created} created, {updated} updated")
+                logger.info(f" Auto sync for {user.email}: {created} created, {updated} updated")
             except Exception as e:
-                logger.error(f"❌ Auto sync failed for {user.email}: {str(e)}")
+                logger.error(f" Auto sync failed for {user.email}: {sanitize_error_message(e)}")
                 continue
         
-        logger.info(f"🕐 Auto calendar sync complete: {users_synced} users, {total_created} total created, {total_updated} total updated")
+        logger.info(f" Auto calendar sync complete: {users_synced} users, {total_created} total created, {total_updated} total updated")
         
     except Exception as e:
-        logger.error(f"❌ Auto calendar sync error: {str(e)}")
+        logger.error(f" Auto calendar sync error: {sanitize_error_message(e)}")
 
 @app.route('/admin/sync_calendar', methods=['POST'])
 @login_required  
 def admin_sync_calendar():
     """Sync calendar via WebSocket server instead of Power Automate"""
     try:
-        logger.info("🗓️ Admin: Manual calendar sync triggered (via WebSocket)")
+        logger.info(" Admin: Manual calendar sync triggered (via WebSocket)")
         
         # Use the new WebSocket-based sync instead of Power Automate
         response = requests.post(f"http://localhost:5000/api/request_calendar_sync", timeout=10)
@@ -3422,8 +3738,8 @@ def admin_sync_calendar():
         
         return redirect(request.referrer or url_for('admin_dashboard'))
     except Exception as e:
-        logger.error(f"❌ Admin calendar sync error: {str(e)}")
-        flash(f"Error syncing calendar: {str(e)}", "error")
+        logger.error(f" Admin calendar sync error: {sanitize_error_message(e)}")
+        flash(f"Error syncing calendar: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/cleanup-duplicates', methods=['POST'])
@@ -3431,7 +3747,7 @@ def admin_sync_calendar():
 def admin_cleanup_duplicates():
     """Remove duplicate meetings from the database"""
     try:
-        logger.info("🧹 Admin: Manual duplicate cleanup triggered")
+        logger.info(" Admin: Manual duplicate cleanup triggered")
         
         # Find duplicates based on subject + start_time + user_id
         from sqlalchemy import func
@@ -3495,25 +3811,25 @@ def admin_cleanup_duplicates():
                 duplicates_to_remove = time_group[1:]
                 
                 for duplicate in duplicates_to_remove:
-                    logger.info(f"🗑️ Removing duplicate: {duplicate.subject} at {duplicate.start_time}")
+                    logger.info(f" Removing duplicate: {duplicate.subject} at {duplicate.start_time}")
                     db.session.delete(duplicate)
                     duplicates_removed += 1
         
         db.session.commit()
         
         if duplicates_removed > 0:
-            logger.info(f"✅ Cleanup complete: {duplicates_removed} duplicate meetings removed")
+            logger.info(f" Cleanup complete: {duplicates_removed} duplicate meetings removed")
             flash(f"Cleanup completed! {duplicates_removed} duplicate meetings removed.", "success")
         else:
-            logger.info("✅ No duplicates found to remove")
+            logger.info(" No duplicates found to remove")
             flash("No duplicate meetings found to remove.", "info")
             
         return redirect(request.referrer or url_for('admin_dashboard'))
         
     except Exception as e:
-        logger.error(f"❌ Duplicate cleanup error: {str(e)}")
+        logger.error(f" Duplicate cleanup error: {sanitize_error_message(e)}")
         db.session.rollback()
-        flash(f"Error during cleanup: {str(e)}", "error")
+        flash(f"Error during cleanup: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/auto-sync-test', methods=['POST'])
@@ -3521,7 +3837,7 @@ def admin_cleanup_duplicates():
 def admin_test_auto_sync():
     """Manually trigger auto-sync for testing"""
     try:
-        logger.info("🧪 Admin: Manual auto-sync test triggered")
+        logger.info(" Admin: Manual auto-sync test triggered")
         
         auto_sync_calendar_for_all_users()
         
@@ -3529,8 +3845,8 @@ def admin_test_auto_sync():
         return redirect(request.referrer or url_for('admin_dashboard'))
         
     except Exception as e:
-        logger.error(f"❌ Auto-sync test error: {str(e)}")
-        flash(f"Auto-sync test failed: {str(e)}", "error")
+        logger.error(f" Auto-sync test error: {sanitize_error_message(e)}")
+        flash(f"Auto-sync test failed: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/meetings/<int:meeting_id>/toggle-recording', methods=['POST'])
@@ -3559,8 +3875,8 @@ def admin_toggle_meeting_recording(meeting_id):
         
         return redirect(url_for('admin_meeting_detail', meeting_id=meeting_id))
     except Exception as e:
-        logger.error(f"❌ Toggle recording error: {str(e)}")
-        flash(f"Error updating meeting: {str(e)}", "error")
+        logger.error(f" Toggle recording error: {sanitize_error_message(e)}")
+        flash(f"Error updating meeting: {sanitize_error_message(e)}", "error")
         return redirect(url_for('admin_meetings'))
 
 def start_scheduler():
@@ -3575,7 +3891,7 @@ def start_scheduler():
     
     scheduler.start()
     atexit.register(lambda: scheduler.shutdown())
-    logger.info("🔄 Background scheduler started:")
+    logger.info(" Background scheduler started:")
     logger.info("   - Retry failed uploads: every 5 minutes")
     logger.info("   - Calendar sync: daily at 6:00 AM")
     return scheduler
@@ -3583,31 +3899,31 @@ def start_scheduler():
 def cleanup_stuck_recordings():
     """Clean up any recordings stuck in 'recording' state on startup"""
     try:
-        logger.info("🧹 Checking for stuck recordings on startup...")
+        logger.info(" Checking for stuck recordings on startup...")
         stuck_recordings = Recording.query.filter_by(status='recording').all()
         
         if stuck_recordings:
-            logger.warning(f"⚠️ Found {len(stuck_recordings)} stuck recording(s), cleaning up...")
+            logger.warning(f" Found {len(stuck_recordings)} stuck recording(s), cleaning up...")
             for recording in stuck_recordings:
-                logger.info(f"   🔧 Fixing stuck recording ID: {recording.id} - {recording.title}")
+                logger.info(f"    Fixing stuck recording ID: {recording.id} - {recording.title}")
                 recording.status = 'failed'
                 recording.ended_at = datetime.utcnow()
                 recording.duration = 0
             
             db.session.commit()
-            logger.info("✅ Cleanup complete - all stuck recordings marked as failed")
+            logger.info(" Cleanup complete - all stuck recordings marked as failed")
         else:
-            logger.info("✅ No stuck recordings found")
+            logger.info(" No stuck recordings found")
             
         # Also reset global recording state
         recording_state['active'] = False
         recording_state['streamer'] = None
         recording_state['thread'] = None
         recording_state['recording_id'] = None
-        logger.info("🔄 Global recording state reset")
+        logger.info(" Global recording state reset")
         
     except Exception as e:
-        logger.error(f"❌ Error during startup cleanup: {str(e)}")
+        logger.error(f" Error during startup cleanup: {sanitize_error_message(e)}")
 
 if __name__ == '__main__':
     with app.app_context():
