@@ -7,9 +7,20 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from pathlib import Path
 import os
+import sys
 
 db = SQLAlchemy()
+
+def get_base_dir():
+    """Get base directory - works for both normal Python and PyInstaller"""
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle
+        return Path(sys.executable).parent
+    else:
+        # Running as normal Python script
+        return Path(__file__).parent.absolute()
 
 class User(UserMixin, db.Model):
     """User model for authentication"""
@@ -322,8 +333,8 @@ class Recording(db.Model):
         if not self.file_path:
             return None
             
-        # Get the current project directory
-        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # Get the base directory (works with PyInstaller)
+        base_dir = get_base_dir()
         
         # Check if file_path is already just a filename (new format)
         if os.path.isabs(self.file_path):
@@ -334,9 +345,9 @@ class Recording(db.Model):
             filename = self.file_path
         
         # Build the correct path for this machine
-        resolved_path = os.path.join(current_dir, 'recordings', filename)
+        resolved_path = base_dir / 'recordings' / filename
         
-        return resolved_path
+        return str(resolved_path)
     
     @property
     def file_exists(self):
@@ -347,26 +358,26 @@ class Recording(db.Model):
     @property
     def transcript_path(self):
         """Get transcript file path"""
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        recordings_dir = os.path.join(current_dir, 'recordings')
+        base_dir = get_base_dir()
+        recordings_dir = base_dir / 'recordings'
         
         # First try the new naming scheme (based on title)
         safe_title = "".join(c for c in self.title if c.isalnum() or c in (' ', '-', '_')).rstrip()
         transcript_filename = f"{safe_title}_transcript.txt"
-        transcript_path = os.path.join(recordings_dir, transcript_filename)
+        transcript_path = recordings_dir / transcript_filename
         
-        if os.path.exists(transcript_path):
-            return transcript_path
+        if transcript_path.exists():
+            return str(transcript_path)
         
         # Fall back to old naming scheme (based on video file)
         resolved_path = self.resolved_file_path
         if resolved_path:
-            old_transcript_path = os.path.splitext(resolved_path)[0] + '_transcript.txt'
-            if os.path.exists(old_transcript_path):
-                return old_transcript_path
+            old_transcript_path = Path(resolved_path).with_suffix('') / '_transcript.txt'
+            if old_transcript_path.exists():
+                return str(old_transcript_path)
         
         # Return the new path even if it doesn't exist yet (for creation)
-        return transcript_path
+        return str(transcript_path)
     
     @property
     def has_transcript(self):

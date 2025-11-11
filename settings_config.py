@@ -6,6 +6,7 @@ Handles loading and saving user preferences to settings.config JSON file
 
 import json
 import os
+import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime
@@ -27,8 +28,15 @@ class SettingsManager:
     
     def get_ffmpeg_path(self):
         """Get the path to the local FFmpeg executable"""
-        script_dir = Path(__file__).parent.absolute()
-        ffmpeg_path = script_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
+        # Determine base directory for ffmpeg
+        if getattr(sys, 'frozen', False):
+            # Running as PyInstaller bundle - ffmpeg is in _internal
+            base_dir = Path(sys._MEIPASS)
+        else:
+            # Running as normal Python script
+            base_dir = Path(__file__).parent.absolute()
+        
+        ffmpeg_path = base_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
         
         if ffmpeg_path.exists():
             return str(ffmpeg_path)

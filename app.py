@@ -8,7 +8,12 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 import pytz
-from dual_stream import DualModeStreamer
+import sys
+# Import the appropriate dual_stream module based on execution mode
+if getattr(sys, 'frozen', False):
+    from dual_stream_frozen import DualModeStreamer
+else:
+    from dual_stream import DualModeStreamer
 from models import db, User, Recording, Meeting, init_db
 from settings_config import settings_manager
 from logging_config import app_logger as logger
@@ -22,6 +27,7 @@ import subprocess
 import json
 import re
 import os
+import sys
 import mimetypes
 from pathlib import Path
 #a comment from work pc
@@ -38,9 +44,15 @@ def sanitize_error_message(error):
 #test
 def get_ffmpeg_path():
     """Get the path to the local FFmpeg executable"""
-    # Get the directory where this script is located
-    script_dir = Path(__file__).parent.absolute()
-    ffmpeg_path = script_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
+    # Determine base directory for ffmpeg
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle - ffmpeg is in _internal
+        base_dir = Path(sys._MEIPASS)
+    else:
+        # Running as normal Python script
+        base_dir = Path(__file__).parent.absolute()
+    
+    ffmpeg_path = base_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
     
     if ffmpeg_path.exists():
         return str(ffmpeg_path)
@@ -48,9 +60,25 @@ def get_ffmpeg_path():
         # Fallback to system FFmpeg if local not found
         return "ffmpeg"
 
+def get_base_dir():
+    """Get base directory - works for both normal Python and PyInstaller"""
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle - use parent of _internal
+        return Path(sys.executable).parent
+    else:
+        # Running as normal Python script
+        return Path(__file__).parent.absolute()
+
+# Get base directory for database
+BASE_DIR = get_base_dir()
+INSTANCE_DIR = BASE_DIR / 'instance'
+INSTANCE_DIR.mkdir(exist_ok=True)
+RECORDINGS_DIR = BASE_DIR / 'recordings'
+RECORDINGS_DIR.mkdir(exist_ok=True)
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-in-production'  # Change this!
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///recordings.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{INSTANCE_DIR / "recordings.db"}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Timezone Configuration
@@ -190,7 +218,7 @@ def utility_processor():
     if current_user.is_authenticated:
         # Check for any recording that's currently active (not completed)
         # This includes both meeting-linked and hotkey recordings
-        from dual_stream import DualModeStreamer
+        # Import already done at top of file based on frozen state
         global recording_state
         if recording_state.get('active', False):
             # Get the most recent recording that might be active
@@ -847,17 +875,16 @@ def patched_send(self, text):
                 with app.app_context():  # Ensure Flask application context
                     rec = Recording.query.get(recording_state['recording_id'])
                     if rec:
-                        # Create transcript file path - use recording title since file_path isn't set during live recording
-                        current_dir = os.path.dirname(os.path.abspath(__file__))
-                        recordings_dir = os.path.join(current_dir, 'recordings')
+                        # Create transcript file path using base directory (PyInstaller-aware)
+                        recordings_dir = BASE_DIR / 'recordings'
                         
                         # Create a transcript filename based on recording title/timestamp
                         safe_title = "".join(c for c in rec.title if c.isalnum() or c in (' ', '-', '_')).rstrip()
                         transcript_filename = f"{safe_title}_transcript.txt"
-                        transcript_path = os.path.join(recordings_dir, transcript_filename)
+                        transcript_path = recordings_dir / transcript_filename
                         
                         # Ensure recordings directory exists
-                        os.makedirs(recordings_dir, exist_ok=True)
+                        recordings_dir.mkdir(parents=True, exist_ok=True)
                         
                         # Append transcript line to file
                         with open(transcript_path, 'a', encoding='utf-8') as f:

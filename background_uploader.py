@@ -6,6 +6,7 @@ Background Upload Module for IDrive E2 Integration
 import threading
 import time
 import os
+import sys
 import json
 import subprocess
 import sqlite3
@@ -29,10 +30,19 @@ class BackgroundUploader:
         self.webhook_url = 'https://ops.fyelabs.com/recordings/webhook/'
         self.webhook_token = 'fye_webhook_secure_token_2025_recordings'
         
-        # Database path
+        # Database path - handle PyInstaller frozen executable
         if db_path is None:
-            current_dir = Path(__file__).parent.absolute()
-            db_path = current_dir / 'instance' / 'recordings.db'
+            if getattr(sys, 'frozen', False):
+                # Running as PyInstaller bundle
+                base_dir = Path(sys.executable).parent
+            else:
+                # Running as normal Python script
+                base_dir = Path(__file__).parent.absolute()
+            
+            instance_dir = base_dir / 'instance'
+            instance_dir.mkdir(exist_ok=True)
+            db_path = instance_dir / 'recordings.db'
+        
         self.db_path = str(db_path)
         
         # S3 client (will be initialized when needed)
@@ -47,8 +57,8 @@ class BackgroundUploader:
         if self.s3_client is None:
             try:
                 # IDrive E2 credentials - matching upload_to_idrive.py
-                access_key = "BtvRQTb87eNP5lLw3WDO"
-                secret_key = "Esp3hhG5TuwhcOT76dr6m5ZUU5Strv1oLqwpRRgr"
+                access_key = "9oP9oM38k9d5wMTm1zuT"
+                secret_key = "xVVpTAdLKZj3SpCW9AEzJ0ovgv0n3ts3rzVIZAJv"
                 
                 self.s3_client = boto3.client(
                     's3',
@@ -122,8 +132,12 @@ class BackgroundUploader:
         files = {'video': None, 'transcript': None, 'thumbnail': None}
         
         try:
-            current_dir = Path(__file__).parent.absolute()
-            recordings_dir = current_dir / 'recordings'
+            # Get base directory (works with PyInstaller)
+            if getattr(sys, 'frozen', False):
+                base_dir = Path(sys.executable).parent
+            else:
+                base_dir = Path(__file__).parent.absolute()
+            recordings_dir = base_dir / 'recordings'
             
             # Get video file path
             if recording_info.get('file_path'):
@@ -167,9 +181,14 @@ class BackgroundUploader:
     def _get_video_duration(self, video_path):
         """Get actual video duration using ffprobe"""
         try:
-            # Try local ffprobe first
-            current_dir = Path(__file__).parent.absolute()
-            local_ffprobe = current_dir / "ffmpeg" / "bin" / "ffprobe.exe"
+            # Get base directory (works with PyInstaller)
+            if getattr(sys, 'frozen', False):
+                # PyInstaller: ffmpeg is in _internal/ffmpeg/
+                base_dir = Path(sys._MEIPASS)
+            else:
+                # Normal Python: ffmpeg is in same dir as script
+                base_dir = Path(__file__).parent.absolute()
+            local_ffprobe = base_dir / "ffmpeg" / "bin" / "ffprobe.exe"
             
             ffprobe_cmd = str(local_ffprobe) if local_ffprobe.exists() else "ffprobe"
             
@@ -206,9 +225,14 @@ class BackgroundUploader:
             
             logger.info(f" Generating thumbnail for: {os.path.basename(video_path)}")
             
-            # Try local ffmpeg first
-            current_dir = Path(__file__).parent.absolute()
-            local_ffmpeg = current_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
+            # Get ffmpeg path (works with PyInstaller)
+            if getattr(sys, 'frozen', False):
+                # PyInstaller: ffmpeg is in _internal/ffmpeg/
+                base_dir = Path(sys._MEIPASS)
+            else:
+                # Normal Python: ffmpeg is in same dir as script
+                base_dir = Path(__file__).parent.absolute()
+            local_ffmpeg = base_dir / "ffmpeg" / "bin" / "ffmpeg.exe"
             ffmpeg_cmd = str(local_ffmpeg) if local_ffmpeg.exists() else "ffmpeg"
             
             subprocess.run([

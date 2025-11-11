@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Dual-Mode Client: Real-time Transcription + Local Video Recording
+Dual-Mode Client: Real-time Transcription + Local Video Recording (FROZEN VERSION)
 Audio (VoiceMeeter B1) → Faster-Whisper → Server + Local Video
+Special handling for PyInstaller frozen executable
 """
 
 import subprocess
@@ -110,7 +111,12 @@ class DualModeStreamer:
         logger.debug(f" Audio capture command: {' '.join(cmd)}")
         
         try:
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            # For frozen exe, hide console window for audio capture subprocess
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, startupinfo=startupinfo)
             logger.info(f" Audio capture process started with PID: {process.pid}")
             chunk_size = 16000 * 3 * 2  # 3 seconds
             
@@ -226,7 +232,13 @@ class DualModeStreamer:
         self.recording_active = True
         try:
             logger.info(" Starting FFmpeg process...")
-            self.video_process = subprocess.Popen(cmd)
+            
+            # FROZEN VERSION: Use Windows STARTUPINFO to hide console window
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            
+            self.video_process = subprocess.Popen(cmd, startupinfo=startupinfo)
             ffmpeg_logger.info(f" FFmpeg process started with PID: {self.video_process.pid}")
 
             # Poll until process exits or recording_active cleared - NO TIME LIMIT

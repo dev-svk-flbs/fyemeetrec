@@ -12,10 +12,21 @@ import subprocess
 import time
 from datetime import datetime
 import os
+import sys
+from pathlib import Path
 from logging_config import setup_logging
 
 # Setup logging
 logger = setup_logging("websocket_client")
+
+def get_base_dir():
+    """Get base directory - works for both normal Python and PyInstaller"""
+    if getattr(sys, 'frozen', False):
+        # Running as PyInstaller bundle
+        return Path(sys.executable).parent
+    else:
+        # Running as normal Python script
+        return Path(__file__).parent.absolute()
 
 class MeetingRecorderClient:
     def __init__(self, server_url="ws://ops.fyelabs.com:8769", app_base_url="http://localhost:5000"):
@@ -63,8 +74,9 @@ class MeetingRecorderClient:
     def check_remote_status_file(self):
         """Check remote recording status from JSON file"""
         try:
-            json_file = 'remote_recording_status.json'
-            if os.path.exists(json_file):
+            base_dir = get_base_dir()
+            json_file = base_dir / 'remote_recording_status.json'
+            if json_file.exists():
                 with open(json_file, 'r') as f:
                     data = json.load(f)
                     return data.get('enabled', False)
@@ -76,7 +88,8 @@ class MeetingRecorderClient:
     def save_weekly_meetings_to_file(self):
         """Save received weekly meetings to a JSON file for persistence"""
         try:
-            meetings_file = 'weekly_meetings.json'
+            base_dir = get_base_dir()
+            meetings_file = base_dir / 'weekly_meetings.json'
             meetings_data = {
                 'last_updated': datetime.now().isoformat(),
                 'timestamp': self.weekly_meetings_last_updated,
@@ -95,8 +108,9 @@ class MeetingRecorderClient:
     def load_weekly_meetings_from_file(self):
         """Load previously saved weekly meetings from file"""
         try:
-            meetings_file = 'weekly_meetings.json'
-            if os.path.exists(meetings_file):
+            base_dir = get_base_dir()
+            meetings_file = base_dir / 'weekly_meetings.json'
+            if meetings_file.exists():
                 # Check if user is logged in before loading cached meetings
                 user_info = self.get_current_user()
                 if not user_info or not user_info.get('logged_in'):
