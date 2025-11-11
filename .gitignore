@@ -216,6 +216,12 @@ config.ini
 .env.production
 secrets.json
 
+# Local instance data and configuration
+instance/recordings.db
+remote_recording_status.json
+settings.config
+weekly_meetings.json
+
 # Large model files (AI/ML)
 *.model
 *.pkl
