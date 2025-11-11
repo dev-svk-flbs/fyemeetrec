@@ -24,6 +24,7 @@ import re
 import os
 import mimetypes
 from pathlib import Path
+#a comment from work pc
 
 def sanitize_error_message(error):
     """Remove non-ASCII characters (like emojis) from error messages to prevent encoding issues"""

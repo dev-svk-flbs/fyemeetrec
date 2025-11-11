@@ -64,7 +64,7 @@ venv.bak/
 .venv/
 pyvenv.cfg
 nucenv/
-
+fyenucenv/
 # PyInstaller
 *.manifest
 *.spec
