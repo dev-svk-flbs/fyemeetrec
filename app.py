@@ -1418,7 +1418,7 @@ def api_request_calendar_sync():
                 
                 # Alternative approach: Use a shared file or signal to communicate
                 # with the WebSocket client process
-                sync_request_file = os.path.join(os.path.dirname(__file__), 'sync_request.flag')
+                sync_request_file = BASE_DIR / 'sync_request.flag'
                 
                 # Create a flag file that the WebSocket client can monitor
                 with open(sync_request_file, 'w') as f:
@@ -1486,7 +1486,7 @@ def api_set_remote_recording_status():
         enabled = data.get('enabled', True)
         
         # Create status file for WebSocket client to read
-        status_file = os.path.join(os.path.dirname(__file__), 'remote_recording_status.json')
+        status_file = BASE_DIR / 'remote_recording_status.json'
         status_data = {
             'enabled': enabled,
             'timestamp': datetime.now().isoformat(),
@@ -2217,7 +2217,7 @@ def settings():
         # Calculate storage used (approximate)
         import os
         storage_used = 0
-        recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
+        recordings_path = RECORDINGS_DIR
         if os.path.exists(recordings_path):
             for root, dirs, files in os.walk(recordings_path):
                 storage_used += sum(os.path.getsize(os.path.join(root, name)) for name in files)
@@ -2277,7 +2277,7 @@ def clear_local_data():
         logger.info(f" Clear local data request from user: {current_user.username}")
         
         # Count files before deletion
-        recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
+        recordings_path = RECORDINGS_DIR
         files_deleted = 0
         space_freed = 0
         
@@ -2364,7 +2364,7 @@ def factory_reset():
         logger.warning(f" FACTORY RESET initiated by user: {current_user.username}")
         
         # Step 1: Clear all recordings files
-        recordings_path = os.path.join(os.path.dirname(__file__), 'recordings')
+        recordings_path = RECORDINGS_DIR
         files_deleted = 0
         space_freed = 0
         
@@ -2391,7 +2391,7 @@ def factory_reset():
             logger.info(f" Recreated empty recordings directory")
         
         # Step 2: Clear logs directory
-        logs_path = os.path.join(os.path.dirname(__file__), 'logs')
+        logs_path = BASE_DIR / 'logs'
         logs_deleted = 0
         
         if os.path.exists(logs_path):
@@ -2407,7 +2407,7 @@ def factory_reset():
         
         # Step 3: Reset settings to defaults
         try:
-            settings_config_path = os.path.join(os.path.dirname(__file__), 'settings.config')
+            settings_config_path = BASE_DIR / 'settings.config'
             if os.path.exists(settings_config_path):
                 os.remove(settings_config_path)
                 logger.warning(f" Deleted settings configuration")
@@ -2425,7 +2425,7 @@ def factory_reset():
             logger.info(f" Recreated database schema")
             
             # Remove database file entirely for complete reset
-            db_path = os.path.join(os.path.dirname(__file__), 'recordings.db')
+            db_path = INSTANCE_DIR / 'recordings.db'
             if os.path.exists(db_path):
                 # Close any existing connections
                 db.session.close()
@@ -2456,7 +2456,7 @@ def factory_reset():
         
         # Step 6: Clear Python cache
         try:
-            pycache_path = os.path.join(os.path.dirname(__file__), '__pycache__')
+            pycache_path = BASE_DIR / '__pycache__'
             if os.path.exists(pycache_path):
                 shutil.rmtree(pycache_path)
                 logger.info(f" Cleared Python cache")
@@ -2466,13 +2466,13 @@ def factory_reset():
         # Step 7: Clear WebSocket client cache files
         try:
             # Clear weekly meetings cache
-            weekly_meetings_file = os.path.join(os.path.dirname(__file__), 'weekly_meetings.json')
+            weekly_meetings_file = BASE_DIR / 'weekly_meetings.json'
             if os.path.exists(weekly_meetings_file):
                 os.remove(weekly_meetings_file)
                 logger.info(f" Deleted weekly_meetings.json cache")
             
             # Clear remote recording status
-            remote_status_file = os.path.join(os.path.dirname(__file__), 'remote_recording_status.json')
+            remote_status_file = BASE_DIR / 'remote_recording_status.json'
             if os.path.exists(remote_status_file):
                 os.remove(remote_status_file)
                 logger.info(f" Deleted remote_recording_status.json")
