@@ -22,6 +22,7 @@ class SettingsManager:
             "user_preferences": {
                 "default_monitor_id": 0,
                 "auto_delete_days": 30,
+                "audio_source": "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)",
                 "last_updated": None
             }
         }
@@ -633,6 +634,17 @@ class SettingsManager:
         """Set auto delete days"""
         settings = self.load_settings()
         settings["user_preferences"]["auto_delete_days"] = days
+        return self.save_settings(settings)
+    
+    def get_audio_source(self):
+        """Get audio source setting"""
+        settings = self.load_settings()
+        return settings["user_preferences"].get("audio_source", "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)")
+    
+    def set_audio_source(self, audio_source):
+        """Set audio source"""
+        settings = self.load_settings()
+        settings["user_preferences"]["audio_source"] = audio_source
         return self.save_settings(settings)
 
 # Global instance

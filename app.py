@@ -2170,6 +2170,16 @@ def settings():
                 flash('Invalid auto-delete days value.', 'error')
                 return redirect(url_for('settings'))
             
+            # Handle audio source
+            audio_source = request.form.get('audio_source', '')
+            if audio_source:
+                if not settings_manager.set_audio_source(audio_source):
+                    logger.error(f" Failed to set audio source: {audio_source}")
+                    flash('Failed to update audio source.', 'error')
+                    return redirect(url_for('settings'))
+                else:
+                    logger.info(f" Audio source updated to: {audio_source}")
+            
             logger.info(" Settings update completed successfully")
             flash('Settings updated successfully!', 'success')
             return redirect(url_for('settings'))
@@ -2191,16 +2201,19 @@ def settings():
     default_monitor = get_default_monitor()
     default_monitor_id = default_monitor['id'] if default_monitor else None
     auto_delete_days = settings_manager.get_auto_delete_days()
+    audio_source = settings_manager.get_audio_source()
     
     logger.debug(f" Monitors detected: {monitors_detected}")
     logger.debug(f" Available monitors: {len(monitors)}")
     logger.debug(f" Default monitor ID: {default_monitor_id}")
     logger.debug(f" Auto delete days: {auto_delete_days}")
+    logger.debug(f" Audio source: {audio_source}")
     
     # Create a user-like object for template compatibility
     settings_user = {
         'default_monitor': str(default_monitor_id) if default_monitor_id else '',
-        'auto_delete_days': auto_delete_days
+        'auto_delete_days': auto_delete_days,
+        'audio_source': audio_source
     }
     
     logger.debug(" Settings page data prepared")
@@ -2238,6 +2251,28 @@ def settings():
                          total_recordings=total_recordings,
                          last_recording=last_recording,
                          storage_used=storage_used_str)
+
+@app.route('/api/audio_devices', methods=['GET'])
+@login_required
+def get_audio_devices():
+    """Get available audio input devices"""
+    try:
+        cmd = [get_ffmpeg_path(), "-list_devices", "true", "-f", "dshow", "-i", "dummy"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        output = result.stderr if result.stderr else result.stdout
+        
+        devices = []
+        for line in output.split('\n'):
+            if 'DirectShow audio devices' in line:
+                continue
+            if '(audio)' in line and '"' in line:
+                device_name = line.split('"')[1]
+                devices.append(device_name)
+        
+        return jsonify({'devices': devices})
+    except Exception as e:
+        logger.error(f" Error getting audio devices: {e}")
+        return jsonify({'devices': [], 'error': str(e)}), 500
 
 @app.route('/auto-cleanup', methods=['POST'])
 @login_required

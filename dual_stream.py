@@ -51,10 +51,14 @@ def get_ffmpeg_path():
 
 
 class DualModeStreamer:
-    def __init__(self, server_ip="172.105.109.189", server_port=8000, monitor_config=None):
+    def __init__(self, server_ip="localhost", server_port=8001, monitor_config=None):
         self.server_ip = server_ip
         self.server_port = server_port
-        self.audio_source = "Voicemeeter Out B1 (VB-Audio Voicemeeter VAIO)"
+        
+        # Get audio source from settings
+        from settings_config import settings_manager
+        self.audio_source = settings_manager.get_audio_source()
+        
         self.recording_active = False
         self.transcription_active = False
         self.audio_queue = queue.Queue()

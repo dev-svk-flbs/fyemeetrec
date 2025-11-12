@@ -873,10 +873,7 @@
             </table>
             {% else %}
             <div style="text-align: center; padding: 2rem; color: var(--gray-500);">
-                <p>📋 No meetings found. Try syncing your calendar to discover meetings.</p>
-                <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
-                    <button type="submit" class="action-btn">🔄 Sync from Server Now</button>
-                </form>
+                <p>📋 No meetings found in the database.</p>
             </div>
             {% endif %}
         </div>

@@ -737,9 +737,6 @@
 
 <div class="action-buttons">
     <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
-    <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
-        <button type="submit" class="btn btn-primary">🔄 Sync from Server</button>
-    </form>
     <form method="POST" action="{{ url_for('admin_cleanup_duplicates') }}" style="display: inline;" onsubmit="return confirm('This will remove duplicate meetings from the database. Continue?')">
         <button type="submit" class="btn btn-secondary">🧹 Clean Duplicates</button>
     </form>
@@ -884,11 +881,6 @@
             All meetings have associated recordings.
             {% endif %}
         </p>
-        {% if filter_status == 'all' %}
-        <form method="POST" action="{{ url_for('admin_sync_calendar') }}" style="display: inline;">
-            <button type="submit" class="btn btn-primary">🔄 Sync from Server Now</button>
-        </form>
-        {% endif %}
     </div>
     {% endif %}
 </div>

@@ -1,8 +1,62 @@
 {
-  "last_updated": "2025-11-11T18:42:09.671486",
-  "timestamp": 1762904529.6714866,
-  "count": 25,
+  "last_updated": "2025-11-11T21:20:23.179220",
+  "timestamp": 1762914023.1792202,
+  "count": 27,
   "meetings": [
+    {
+      "id": 1368,
+      "subject": "rtestexemeetapp",
+      "description": "<html>\r\n<head>\r\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\r\n</head>\r\n<body>\r\n<br>\r\n<div class=\"me-email-text\" lang=\"en-US\" style=\"max-width:720px; color:#242424; font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif\">\r\n<div aria-hidden=\"true\" style=\"margin-bottom:24px; overflow:hidden; white-space:nowrap\">\r\n________________________________________________________________________________</div>\r\n<div style=\"margin-bottom:12px\"><span class=\"me-email-text\" style=\"font-size:24px; font-weight:700; margin-right:12px\">Microsoft Teams</span>\r\n<a href=\"https://aka.ms/JoinTeamsMeeting?omkt=en-US\" id=\"meet_invite_block.action.help\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">\r\nNeed help?</a> </div>\r\n<div style=\"margin-bottom:6px\"><a href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_YWM0NjgyMjktYmIxNy00MWQ4LWIzMDctZmIxMTNkNjM0YjJj%40thread.v2/0?context=%7b%22Tid%22%3a%2227828ac1-5d86-4f46-abfd-89560403e789%22%2c%22Oid%22%3a%229bf7cb4c-fabd-45ad-b320-037527208ff8%22%7d\" id=\"meet_invite_block.action.join_link\" title=\"Meeting join link\" class=\"me-email-headline\" style=\"font-size:20px; font-weight:600; text-decoration:underline; color:#5B5FC7\">Join\r\n the meeting now</a> </div>\r\n<div style=\"margin-bottom:6px\"><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">Meeting ID:\r\n</span><span class=\"me-email-text\" style=\"font-size:14px; color:#242424\">277 211 232 702 06</span>\r\n</div>\r\n<div style=\"margin-bottom:32px\"><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">Passcode:\r\n</span><span class=\"me-email-text\" style=\"font-size:14px; color:#242424\">95ie3kx2</span>\r\n</div>\r\n<div style=\"margin-bottom:12px; max-width:720px\">\r\n<hr style=\"border:0; background:#616161; height:1px\">\r\n</div>\r\n<div>\r\n<div style=\"margin-bottom:6px\"><span class=\"me-email-text\" style=\"font-size:16px; color:#242424; font-weight:600; margin-right:4px\">Dial in by phone</span>\r\n</div>\r\n<div style=\"margin-bottom:6px\"><a href=\"tel:+16477921410,,162840107#\" id=\"meet_invite_block.action.join_phone_number1\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7; margin-right:6px\">+1 647-792-1410,,162840107#</a>\r\n<span class=\"me-email-text\" style=\"font-size:14px; color:#616161\">Canada, Toronto</span>\r\n</div>\r\n<div style=\"margin-bottom:6px\"><a href=\"https://dialin.teams.microsoft.com/99da6096-de4a-4bc4-b966-d5a35ec44393?id=162840107\" id=\"meet_invite_block.action.join_phone_find_local_number\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">Find\r\n a local number</a> </div>\r\n</div>\r\n<div style=\"margin-bottom:24px\"><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">Phone conference ID:\r\n</span><span class=\"me-email-text\" style=\"font-size:14px; color:#242424\">162 840 107#</span>\r\n</div>\r\n<div><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">For organizers:\r\n</span><a href=\"https://teams.microsoft.com/meetingOptions/?organizerId=9bf7cb4c-fabd-45ad-b320-037527208ff8&amp;tenantId=27828ac1-5d86-4f46-abfd-89560403e789&amp;threadId=19_meeting_YWM0NjgyMjktYmIxNy00MWQ4LWIzMDctZmIxMTNkNjM0YjJj@thread.v2&amp;messageId=0&amp;language=en-US\" id=\"meet_invite_block.action.organizer_meet_options\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">Meeting\r\n options</a> <span style=\"color:#616161\">|</span> <a href=\"https://dialin.teams.microsoft.com/usp/pstnconferencing\" id=\"meet_invite_block.action.organizer_reset_dialin_pin\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">\r\nReset dial-in PIN</a> </div>\r\n<div style=\"margin-top:24px; margin-bottom:6px\">\r\n<div class=\"me-email-text-secondary\" style=\"color:#616161; font-size:14px\">Thank you for meeting with FYELABS</div>\r\n</div>\r\n<div style=\"margin-bottom:24px\"><a href=\"https://fyelabs.com/privacy-policy/\" id=\"meet_invite_block.action.org_privacy\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">Privacy and security</a>\r\n</div>\r\n<div aria-hidden=\"true\" style=\"margin-bottom:24px; overflow:hidden; white-space:nowrap\">\r\n________________________________________________________________________________</div>\r\n</div>\r\n</body>\r\n</html>\r\n",
+      "location": "Microsoft Teams Meeting",
+      "web_link": "https://outlook.office365.com/owa/?itemid=AAMkADBjYWZhZWI5LTE2ZmItNDUyNy1iNDA4LTY0M2NmOTE0YmU3NwBGAAAAAABMdADMBah2R7WhzesIb0%2BFBwBmbtoWaW8ETZnQVbFxHf6SAAAdPvyrAABmbtoWaW8ETZnQVbFxHf6SAAA%2BIsJfAAA%3D&exvsurl=1&path=/calendar/item",
+      "start_time": "2025-11-12T13:03:00+00:00",
+      "end_time": "2025-11-12T13:06:00+00:00",
+      "duration_minutes": 3,
+      "organizer": "souvik@fyelabs.com",
+      "attendee_count": 3,
+      "required_attendees": [
+        "souvik@fyelabs.com",
+        "test7@fyelabs.com",
+        "harvey_specter_2002@proton.me"
+      ],
+      "optional_attendees": [],
+      "meeting_type": "teams",
+      "is_teams_meeting": true,
+      "is_recurring": false,
+      "recording_status": "none",
+      "auto_record": false,
+      "is_excluded": false,
+      "is_past": false,
+      "is_today": true,
+      "is_upcoming": true
+    },
+    {
+      "id": 1373,
+      "subject": "remote check 2435",
+      "description": "<html>\r\n<head>\r\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\r\n</head>\r\n<body>\r\n<br>\r\n<div class=\"me-email-text\" lang=\"en-US\" style=\"max-width:720px; color:#242424; font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif\">\r\n<div aria-hidden=\"true\" style=\"margin-bottom:24px; overflow:hidden; white-space:nowrap\">\r\n________________________________________________________________________________</div>\r\n<div style=\"margin-bottom:12px\"><span class=\"me-email-text\" style=\"font-size:24px; font-weight:700; margin-right:12px\">Microsoft Teams</span>\r\n<a href=\"https://aka.ms/JoinTeamsMeeting?omkt=en-US\" id=\"meet_invite_block.action.help\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">\r\nNeed help?</a> </div>\r\n<div style=\"margin-bottom:6px\"><a href=\"https://teams.microsoft.com/l/meetup-join/19%3ameeting_MTcyZjUxMDYtYWY2OS00MTU4LTlhMjQtMWE3MjA0MTQzNGZk%40thread.v2/0?context=%7b%22Tid%22%3a%2227828ac1-5d86-4f46-abfd-89560403e789%22%2c%22Oid%22%3a%229bf7cb4c-fabd-45ad-b320-037527208ff8%22%7d\" id=\"meet_invite_block.action.join_link\" title=\"Meeting join link\" class=\"me-email-headline\" style=\"font-size:20px; font-weight:600; text-decoration:underline; color:#5B5FC7\">Join\r\n the meeting now</a> </div>\r\n<div style=\"margin-bottom:6px\"><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">Meeting ID:\r\n</span><span class=\"me-email-text\" style=\"font-size:14px; color:#242424\">258 618 522 556 32</span>\r\n</div>\r\n<div style=\"margin-bottom:32px\"><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">Passcode:\r\n</span><span class=\"me-email-text\" style=\"font-size:14px; color:#242424\">jG9Xq97T</span>\r\n</div>\r\n<div style=\"margin-bottom:12px; max-width:720px\">\r\n<hr style=\"border:0; background:#616161; height:1px\">\r\n</div>\r\n<div>\r\n<div style=\"margin-bottom:6px\"><span class=\"me-email-text\" style=\"font-size:16px; color:#242424; font-weight:600; margin-right:4px\">Dial in by phone</span>\r\n</div>\r\n<div style=\"margin-bottom:6px\"><a href=\"tel:+16477921410,,595692452#\" id=\"meet_invite_block.action.join_phone_number1\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7; margin-right:6px\">+1 647-792-1410,,595692452#</a>\r\n<span class=\"me-email-text\" style=\"font-size:14px; color:#616161\">Canada, Toronto</span>\r\n</div>\r\n<div style=\"margin-bottom:6px\"><a href=\"https://dialin.teams.microsoft.com/99da6096-de4a-4bc4-b966-d5a35ec44393?id=595692452\" id=\"meet_invite_block.action.join_phone_find_local_number\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">Find\r\n a local number</a> </div>\r\n</div>\r\n<div style=\"margin-bottom:24px\"><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">Phone conference ID:\r\n</span><span class=\"me-email-text\" style=\"font-size:14px; color:#242424\">595 692 452#</span>\r\n</div>\r\n<div><span class=\"me-email-text-secondary\" style=\"font-size:14px; color:#616161\">For organizers:\r\n</span><a href=\"https://teams.microsoft.com/meetingOptions/?organizerId=9bf7cb4c-fabd-45ad-b320-037527208ff8&amp;tenantId=27828ac1-5d86-4f46-abfd-89560403e789&amp;threadId=19_meeting_MTcyZjUxMDYtYWY2OS00MTU4LTlhMjQtMWE3MjA0MTQzNGZk@thread.v2&amp;messageId=0&amp;language=en-US\" id=\"meet_invite_block.action.organizer_meet_options\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">Meeting\r\n options</a> <span style=\"color:#616161\">|</span> <a href=\"https://dialin.teams.microsoft.com/usp/pstnconferencing\" id=\"meet_invite_block.action.organizer_reset_dialin_pin\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">\r\nReset dial-in PIN</a> </div>\r\n<div style=\"margin-top:24px; margin-bottom:6px\">\r\n<div class=\"me-email-text-secondary\" style=\"color:#616161; font-size:14px\">Thank you for meeting with FYELABS</div>\r\n</div>\r\n<div style=\"margin-bottom:24px\"><a href=\"https://fyelabs.com/privacy-policy/\" id=\"meet_invite_block.action.org_privacy\" class=\"me-email-link\" style=\"font-size:14px; text-decoration:underline; color:#5B5FC7\">Privacy and security</a>\r\n</div>\r\n<div aria-hidden=\"true\" style=\"margin-bottom:24px; overflow:hidden; white-space:nowrap\">\r\n________________________________________________________________________________</div>\r\n</div>\r\n</body>\r\n</html>\r\n",
+      "location": "Microsoft Teams Meeting",
+      "web_link": "https://outlook.office365.com/owa/?itemid=AAMkADBjYWZhZWI5LTE2ZmItNDUyNy1iNDA4LTY0M2NmOTE0YmU3NwBGAAAAAABMdADMBah2R7WhzesIb0%2BFBwBmbtoWaW8ETZnQVbFxHf6SAAAdPvyrAABmbtoWaW8ETZnQVbFxHf6SAABALhcOAAA%3D&exvsurl=1&path=/calendar/item",
+      "start_time": "2025-11-12T13:34:00+00:00",
+      "end_time": "2025-11-12T13:37:00+00:00",
+      "duration_minutes": 3,
+      "organizer": "souvik@fyelabs.com",
+      "attendee_count": 3,
+      "required_attendees": [
+        "souvik@fyelabs.com",
+        "test7@fyelabs.com",
+        "harvey_specter_2002@proton.me"
+      ],
+      "optional_attendees": [],
+      "meeting_type": "teams",
+      "is_teams_meeting": true,
+      "is_recurring": false,
+      "recording_status": "none",
+      "auto_record": false,
+      "is_excluded": false,
+      "is_past": false,
+      "is_today": true,
+      "is_upcoming": true
+    },
     {
       "id": 1366,
       "subject": "Neuro Doc Review",
@@ -26,7 +80,7 @@
       "auto_record": false,
       "is_excluded": false,
       "is_past": false,
-      "is_today": false,
+      "is_today": true,
       "is_upcoming": true
     },
     {
@@ -51,7 +105,7 @@
       "auto_record": false,
       "is_excluded": false,
       "is_past": false,
-      "is_today": false,
+      "is_today": true,
       "is_upcoming": true
     },
     {
@@ -79,7 +133,7 @@
       "auto_record": false,
       "is_excluded": false,
       "is_past": false,
-      "is_today": false,
+      "is_today": true,
       "is_upcoming": true
     },
     {
@@ -108,7 +162,7 @@
       "auto_record": false,
       "is_excluded": false,
       "is_past": false,
-      "is_today": false,
+      "is_today": true,
       "is_upcoming": true
     },
     {
@@ -138,7 +192,7 @@
       "auto_record": false,
       "is_excluded": false,
       "is_past": false,
-      "is_today": false,
+      "is_today": true,
       "is_upcoming": true
     },
     {
@@ -173,7 +227,7 @@
       "auto_record": false,
       "is_excluded": false,
       "is_past": false,
-      "is_today": false,
+      "is_today": true,
       "is_upcoming": true
     },
     {
