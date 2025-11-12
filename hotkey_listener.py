@@ -17,14 +17,6 @@ from logging_config import setup_logging
 # Setup logging
 logger = setup_logging("hotkey_listener")
 
-# Windows Toast Notifications
-try:
-    from plyer import notification
-    NOTIFICATIONS_AVAILABLE = True
-except ImportError:
-    NOTIFICATIONS_AVAILABLE = False
-    logger.warning("Install 'plyer' for toast notifications: pip install plyer")
-
 # Flask app configuration
 FLASK_URL = "http://localhost:5000"
 HOTKEYS = {
@@ -37,17 +29,18 @@ last_hotkey_time = {'start': 0, 'stop': 0}
 DEBOUNCE_SECONDS = 2
 
 def show_notification(title, message, timeout=3):
-    """Show discrete Windows toast notification"""
-    if NOTIFICATIONS_AVAILABLE:
-        try:
-            notification.notify(
-                title=title,
-                message=message,
-                timeout=timeout,
-                app_name="Recording System"
-            )
-        except Exception as e:
-            logger.debug(f"Notification failed: {e}")
+    """Show subtle notification via system beep"""
+    try:
+        import winsound
+        # Different beep patterns for different messages (short and subtle)
+        if "Started" in title:
+            winsound.Beep(800, 110)   # Short subtle beep for start
+        elif "Stopped" in title:
+            winsound.Beep(600, 110)   # Short lower beep for stop
+        elif "Failed" in title:
+            winsound.Beep(400, 200)  # Longer low beep for error
+    except Exception as e:
+        logger.debug(f"Notification beep failed: {e}")
 
 def check_flask_connection():
     """Check if Flask app is running"""

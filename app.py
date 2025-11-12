@@ -1557,7 +1557,7 @@ def serve_thumbnail(recording_id):
                 '-vframes', '1',    # Extract 1 frame
                 '-y',               # Overwrite output
                 '-q:v', '2',        # High quality
-                '-vf', 'scale=320:240',  # Scale to reasonable size
+                '-vf', 'scale=320:180',  # Scale to 16:9 aspect ratio (320x180)
                 thumbnail_path
             ], check=True, capture_output=True)
         except Exception as e:

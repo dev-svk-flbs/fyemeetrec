@@ -122,6 +122,8 @@ def configure_virtual_inputs_for_bluetooth(bluetooth_connected):
     """Configure Virtual Input routing based on Bluetooth headset status"""
     try:
         import voicemeeterlib
+        import time
+        
         with voicemeeterlib.api('banana') as vmr:
             # Virtual inputs are strips 3 and 4 in Banana (0-2 are hardware, 3-4 are virtual)
             virtual_input_1 = vmr.strip[3]  # VoiceMeeter Input
@@ -130,17 +132,28 @@ def configure_virtual_inputs_for_bluetooth(bluetooth_connected):
             if bluetooth_connected:
                 # Bluetooth headset connected: Route Virtual Inputs to B1
                 logger.info("    Routing Virtual Inputs to B1 (for headphones)")
-                virtual_input_1.B1 = True
+                # Turn OFF A1 first, then turn ON B1
                 virtual_input_1.A1 = False
+                virtual_input_2.A1 = False
+                time.sleep(0.1)
+                virtual_input_1.B1 = True
                 virtual_input_2.B1 = True
             else:
                 # Bluetooth headset disconnected: Turn off Virtual Inputs to B1
                 logger.info("    Turning off Virtual Inputs to B1 (for speakers)")
+                # Turn OFF B1 first, then turn ON A1
                 virtual_input_1.B1 = False
                 virtual_input_2.B1 = False
+                time.sleep(0.1)
                 virtual_input_1.A1 = True
+                virtual_input_2.A1 = True
             
-            logger.info(f"    Virtual Input → B1 routing: {bluetooth_connected}")
+            # Wait for settings to apply
+            time.sleep(0.2)
+            
+            # Verify and log the actual state
+            logger.info(f"    Virtual Input 1 - A1: {virtual_input_1.A1}, B1: {virtual_input_1.B1}")
+            logger.info(f"    Virtual Input 2 - A1: {virtual_input_2.A1}, B1: {virtual_input_2.B1}")
             
     except Exception as e:
         logger.warning(f"    Error configuring Virtual Inputs: {e}")

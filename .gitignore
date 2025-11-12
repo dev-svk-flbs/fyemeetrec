@@ -18,7 +18,7 @@
 *.ts
 *.mts
 *.m2ts
-
+*.db
 # Meeting recordings (project-specific patterns)
 meeting_*.mkv
 local_meeting_*.mkv
