@@ -9,11 +9,8 @@ from werkzeug.security import check_password_hash
 from datetime import datetime, timedelta
 import pytz
 import sys
-# Import the appropriate dual_stream module based on execution mode
-if getattr(sys, 'frozen', False):
-    from dual_stream_frozen import DualModeStreamer
-else:
-    from dual_stream import DualModeStreamer
+# Import dual_stream module - works for both normal and frozen execution
+from dual_stream import DualModeStreamer
 from models import db, User, Recording, Meeting, init_db
 from settings_config import settings_manager
 from logging_config import app_logger as logger
