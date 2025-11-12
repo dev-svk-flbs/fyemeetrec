@@ -217,9 +217,15 @@ config.ini
 secrets.json
 
 # Local instance data and configuration
-instance/recordings.db
-remote_recording_status.json
+# Database files
+instance/*.db
+instance/*.db-shm
+instance/*.db-wal
+
+# User-specific configuration files
 settings.config
+settings-*.config
+remote_recording_status.json
 weekly_meetings.json
 
 # Large model files (AI/ML)
